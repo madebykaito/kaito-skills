@@ -1,0 +1,154 @@
+#!/bin/sh
+# Install kaito-skills into $KAITO_HOME/store and link them per agent.
+# Usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
+set -eu
+
+CODEX_SKILL_DIRS="$HOME/.agents/skills"
+CLAUDE_SKILLS="$HOME/.claude/skills"
+LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $HOME/.codex/skills"
+
+REPO_L="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$REPO_L" && pwd -P)"
+KAITO_HOME="${KAITO_HOME:-$HOME/.kaito}"
+STORE="$KAITO_HOME/store"
+CONFIG="$KAITO_HOME/config.json"
+STATE="$KAITO_HOME/state.json"
+SETTINGS="$HOME/.claude/settings.json"
+J="$REPO/helpmekaito/scripts/kaito-json.mjs"
+
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0
+for a in "$@"; do
+  case "$a" in
+    --yes) ;;
+    --no-gstack) GSTACK=0 ;;
+    --no-codegraph) CODEGRAPH=0 ;;
+    --uninstall) UNINSTALL=1 ;;
+    --purge) UNINSTALL=1 PURGE=1 ;;
+    *) echo "usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
+  esac
+done
+
+N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
+has() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+json_list() { tr -cd 'A-Za-z0-9_.,-' | tr , ' '; }  # ["a","b"] -> a b
+to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
+ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
+skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
+
+check_prereqs() {
+  for c in git node npm; do
+    command -v "$c" >/dev/null || { echo "setup needs $c on PATH" >&2; exit 1; }
+  done
+  # bun is needed only for gstack, which Task 3 adds.
+}
+
+make_config() {
+  [ -e "$CONFIG" ] && return
+  mkdir -p "$KAITO_HOME"
+  cat > "$CONFIG" <<'EOF'
+{"version":1,"hot":[],"gstack":true,"codegraph":{"auto_index":"ask"},"obsidian":{"enabled":false,"vault_path":"madebykaito/helpmekaito","api_url":null}}
+EOF
+}
+
+install_store() {
+  SKILLS=""
+  mkdir -p "$STORE"
+  set --
+  for d in "$REPO"/*/; do
+    d=${d%/} n=${d##*/}
+    [ -f "$d/SKILL.md" ] && [ "$n" != gstack ] || continue
+    set -- "$@" "$REPO/$n"
+    SKILLS="$SKILLS $n"; N_SKILLS=$((N_SKILLS + 1))
+  done
+  [ $# -gt 0 ] && rsync -a --delete --exclude .git --exclude node_modules --exclude dist "$@" "$STORE/"
+  for d in "$STORE"/*/; do
+    d=${d%/} n=${d##*/}
+    [ -d "$d" ] && [ "$n" != gstack ] && ! has "$n" "$SKILLS" && rm -rf "$d"
+  done
+  return 0
+}
+
+# link_dir <dir> <names>: link each name to the store, remove our links not in names.
+link_dir() {
+  mkdir -p "$1"
+  for n in $2; do
+    p="$1/$n"
+    if [ -L "$p" ] && [ "$(readlink "$p")" = "$STORE/$n" ]; then :
+    elif [ -L "$p" ] && ours "$(readlink "$p")"; then ln -sfn "$STORE/$n" "$p"; N_LINKED=$((N_LINKED + 1))
+    elif [ -e "$p" ] || [ -L "$p" ]; then skip "$p"; continue
+    else ln -s "$STORE/$n" "$p"; N_LINKED=$((N_LINKED + 1))
+    fi
+    LINKS="$LINKS $p"
+    [ "$1" = "$CLAUDE_SKILLS" ] && CLAUDE_LINKED="$CLAUDE_LINKED $n"
+  done
+  unlink_dir "$1" "$2"
+}
+
+unlink_dir() {
+  [ -d "$1" ] || return 0
+  for p in "$1"/*; do
+    [ -L "$p" ] && ! has "${p##*/}" "$2" && ours "$(readlink "$p")" || continue
+    rm "$p"; N_UNLINKED=$((N_UNLINKED + 1))
+  done
+}
+
+link_all() {
+  LINKS="" CLAUDE_LINKED=""
+  HOT=$(node "$J" get "$CONFIG" hot | json_list)
+  codex="helpmekaito"
+  for n in $HOT; do has "$n" "$SKILLS" && codex="$codex $n"; done
+  link_dir "$CLAUDE_SKILLS" "$SKILLS"
+  for d in $CODEX_SKILL_DIRS; do link_dir "$d" "$codex"; done
+  for d in $LINK_DIRS; do
+    [ "$d" = "$CLAUDE_SKILLS" ] || has "$d" "$CODEX_SKILL_DIRS" || unlink_dir "$d" ""
+  done
+}
+
+# Claude lists every linked skill name-only, except the router and the hot list.
+# A user's own entry for one of our skills is left alone and not managed.
+write_overrides() {
+  prev=$(node "$J" get "$STATE" managed_overrides | json_list)
+  cur=$(node "$J" get "$SETTINGS" skillOverrides)
+  MANAGED=""
+  for n in $CLAUDE_LINKED; do
+    [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
+    case "$cur" in *"\"$n\":"*) has "$n" "$prev" || continue ;; esac
+    case "$cur" in *"\"$n\":\"name-only\""*) ;; *) node "$J" set "$SETTINGS" "skillOverrides.$n" '"name-only"'; N_OVERRIDES=$((N_OVERRIDES + 1)) ;; esac
+    MANAGED="$MANAGED $n"
+  done
+  drop_overrides "$prev" "$MANAGED"
+}
+
+# drop_overrides <names> <keep>
+drop_overrides() {
+  for n in $1; do has "$n" "$2" || node "$J" del "$SETTINGS" "skillOverrides.$n"; done
+}
+
+write_state() {
+  v=unknown
+  [ -e "$REPO/.git" ] && v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
+  node "$J" set "$STATE" store_version "\"$v\""
+  node "$J" set "$STATE" managed_overrides "$(to_json "$MANAGED")"
+  node "$J" set "$STATE" links "$(to_json "$LINKS")"
+}
+
+uninstall() {
+  for d in $LINK_DIRS; do unlink_dir "$d" ""; done
+  drop_overrides "$(node "$J" get "$STATE" managed_overrides | json_list)" ""
+  rm -rf "$STORE" "$STATE"
+  [ "$PURGE" = 1 ] && rm -rf "$KAITO_HOME"
+  echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
+}
+
+summary() {
+  echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
+}
+
+if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
+check_prereqs
+make_config
+install_store
+link_all
+write_overrides
+write_state
+summary
