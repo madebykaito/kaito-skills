@@ -233,14 +233,16 @@ perms_stage() {
 
 # add_block <file> <begin> <end> <lines>: append a marked block once.
 add_block() {
-  grep -qF "$2" "$1" 2>/dev/null && return 0
+  grep -qxF "$2" "$1" 2>/dev/null && return 0
   mkdir -p "${1%/*}"
   if [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; then echo >> "$1"; fi
   printf '%s\n%s\n%s\n' "$2" "$4" "$3" >> "$1"
 }
 remove_block() {
-  [ -f "$1" ] && grep -qF "$2" "$1" || return 0
-  sed "/$2/,/$3/d" "$1" > "$1.kaito" && mv "$1.kaito" "$1"
+  [ -f "$1" ] && grep -qxF "$2" "$1" || return 0
+  if ! grep -qxF "$3" "$1"; then echo "kaito: $1 has $2 but no $3, left it alone."; return 0; fi
+  t=$(mktemp) && sed "/^$2\$/,/^$3\$/d" "$1" > "$t" && cat "$t" > "$1"  # cat keeps symlink and mode
+  rm -f "$t"
 }
 
 nudge_stage() {

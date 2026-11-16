@@ -119,3 +119,37 @@ test_codexwrite_existing_roots_left_alone() {
   run_setup --uninstall
   cmp "$(CT)" "$HOME/orig" || exit 1
 }
+
+test_remove_block_missing_end_untouched() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude"
+  printf 'top\n<!-- kaito:begin -->\nhand edited\nbottom\n' > "$HOME/.claude/CLAUDE.md"
+  cp "$HOME/.claude/CLAUDE.md" "$HOME/orig"
+  run_setup --uninstall
+  cmp "$HOME/.claude/CLAUDE.md" "$HOME/orig" || exit 1
+  grep -q 'left it alone' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+test_nudge_symlinked_file_survives() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude" "$HOME/dots"; echo mine > "$HOME/dots/c.md"; chmod 640 "$HOME/dots/c.md"
+  ln -s "$HOME/dots/c.md" "$HOME/.claude/CLAUDE.md"
+  KAITO_ANSWERS=nudge=y run_setup
+  [ -L "$HOME/.claude/CLAUDE.md" ] && assert_eq "$(readlink "$HOME/.claude/CLAUDE.md")" "$HOME/dots/c.md" target
+  grep -qxF "$NUDGE" "$HOME/dots/c.md" || exit 1
+  run_setup --uninstall
+  [ -L "$HOME/.claude/CLAUDE.md" ] && assert_eq "$(readlink "$HOME/.claude/CLAUDE.md")" "$HOME/dots/c.md" target2
+  assert_eq "$(cat "$HOME/dots/c.md")" mine content
+  assert_eq "$(ls -l "$HOME/dots/c.md" | cut -c1-10)" "-rw-r-----" mode
+}
+
+test_inline_marker_mention_kept() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude"
+  printf 'see <!-- kaito:begin --> in docs\nkeep me\n' > "$HOME/.claude/CLAUDE.md"
+  cp "$HOME/.claude/CLAUDE.md" "$HOME/orig"
+  KAITO_ANSWERS=nudge=y run_setup
+  assert_eq "$(grep -cxF '<!-- kaito:begin -->' "$HOME/.claude/CLAUDE.md")" 1 added
+  run_setup --uninstall
+  cmp "$HOME/.claude/CLAUDE.md" "$HOME/orig" || { cat "$HOME/.claude/CLAUDE.md"; exit 1; }
+}
