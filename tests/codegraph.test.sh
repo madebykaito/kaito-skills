@@ -17,7 +17,7 @@ test_codegraph_pinned_install() {
 }
 
 test_codegraph_declined() {
-  mk_home; mk_repo; KAITO_ANSWERS=n,n run_setup --yes
+  mk_home; mk_repo; KAITO_ANSWERS=codegraph=n,gitignore=n run_setup --yes
   ! grep -q '^npm' "$HOME/stub.log" 2>/dev/null || exit 1
   assert_no "$(GI)"
 }
@@ -93,4 +93,10 @@ test_no_tty_uses_defaults() {
   ! grep -q 'Device not configured' "$HOME/out" || { cat "$HOME/out"; exit 1; }
   grep -qx 'npm i -g @colbymchenry/codegraph@1.6.2' "$HOME/stub.log" || exit 1
   assert_eq "$(cat "$(GI)")" .codegraph default
+}
+
+test_answers_are_keyed() {
+  mk_home; mk_repo; KAITO_ANSWERS=gitignore=n run_setup --yes
+  grep -qx 'npm i -g @colbymchenry/codegraph@1.6.2' "$HOME/stub.log" || exit 1
+  assert_no "$(GI)"
 }

@@ -1,4 +1,4 @@
-// Tiny JSON editor: node kaito-json.mjs get|set|del <file> <dot.path> [json]
+// Tiny JSON editor: node kaito-json.mjs get|set|del|add|rm|each <file> <dot.path> [json]
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -26,6 +26,18 @@ const last = keys.pop();
 if (cmd === 'get') {
   const v = [...keys, last].reduce((o, k) => o?.[k], data);
   if (v !== undefined) console.log(JSON.stringify(v));
+} else if (cmd === 'each') {
+  const v = [...keys, last].reduce((o, k) => o?.[k], data);
+  if (Array.isArray(v)) for (const x of v) console.log(typeof x === 'string' ? x : JSON.stringify(x));
+} else if (cmd === 'add' || cmd === 'rm') {
+  // add appends to an array unless an equal item is there; rm drops equal items.
+  let o = data;
+  for (const k of keys) o = typeof o[k] === 'object' && o[k] !== null ? o[k] : (o[k] = {});
+  const item = JSON.parse(raw), s = JSON.stringify(item);
+  const arr = Array.isArray(o[last]) ? o[last] : [];
+  if (cmd === 'add') { if (!arr.some((x) => JSON.stringify(x) === s)) o[last] = [...arr, item]; }
+  else if (Array.isArray(o[last])) o[last] = arr.filter((x) => JSON.stringify(x) !== s);
+  save();
 } else if (cmd === 'set') {
   let o = data;
   for (const k of keys) o = typeof o[k] === 'object' && o[k] !== null ? o[k] : (o[k] = {});
@@ -37,6 +49,6 @@ if (cmd === 'get') {
   if (o && typeof o === 'object') delete o[last];
   save();
 } else {
-  console.error('usage: kaito-json.mjs get|set|del <file> <dot.path> [json]');
+  console.error('usage: kaito-json.mjs get|set|del|add|rm|each <file> <dot.path> [json]');
   process.exit(2);
 }

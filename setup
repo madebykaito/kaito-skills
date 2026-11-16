@@ -14,6 +14,8 @@ STORE="$KAITO_HOME/store"
 CONFIG="$KAITO_HOME/config.json"
 STATE="$KAITO_HOME/state.json"
 SETTINGS="$HOME/.claude/settings.json"
+CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
+NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-quality work, load helpmekaito first.'
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 
 GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
@@ -36,17 +38,18 @@ ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return
 foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
 skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
 
-# ask "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS (comma list, in prompt order)
-# beats --yes, which beats the tty. No tty and no answer means the default.
+# ask <key> "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS ("key=y,key=n") beats
+# --yes, which beats the tty. An unlisted key, or no tty, means the default.
 ask() {
-  d=$2 a=""
-  if [ -n "${KAITO_ANSWERS:-}" ]; then
-    a=${KAITO_ANSWERS%%,*}
-    case "$KAITO_ANSWERS" in *,*) KAITO_ANSWERS=${KAITO_ANSWERS#*,} ;; *) KAITO_ANSWERS="" ;; esac
-  elif [ "$YES" = 0 ] && { true </dev/tty; } 2>/dev/null; then
-    [ "$d" = y ] && h="Y/n" || h="y/N"
-    { printf '%s [%s] ' "$1" "$h" >/dev/tty && read -r a </dev/tty; } 2>/dev/null || a=""
-  fi
+  d=$3 a=""
+  P=",${KAITO_ANSWERS:-},"
+  case "$P" in
+    *",$1="*) a=${P#*",$1="}; a=${a%%,*} ;;
+    *) if [ "$YES" = 0 ] && { true </dev/tty; } 2>/dev/null; then
+         [ "$d" = y ] && h="Y/n" || h="y/N"
+         { printf '%s [%s] ' "$2" "$h" >/dev/tty && read -r a </dev/tty; } 2>/dev/null || a=""
+       fi ;;
+  esac
   case "${a:-$d}" in [yY]*) return 0 ;; *) return 1 ;; esac
 }
 
@@ -190,19 +193,95 @@ codegraph_stage() {
   pin=$(cat "$REPO/codegraph.version")
   case "$(codegraph --version 2>/dev/null || true)" in
     *"$pin"*) ;;
-    *) if ask "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
+    *) if ask codegraph "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
          npm i -g "@colbymchenry/codegraph@$pin"
          codegraph install --target claude,codex --location global -y
        fi ;;
   esac
   gi="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
   grep -qxF .codegraph "$gi" 2>/dev/null && return 0
-  if ask "Add .codegraph to $gi?" y; then
+  if ask gitignore "Add .codegraph to $gi?" y; then
     mkdir -p "${gi%/*}"; echo .codegraph >> "$gi"
   fi
 }
 
+# in_json "<json text>" <string>: true if the string is an element in the text.
+in_json() { case "$1" in *"\"$2\""*) return 0 ;; esac; return 1; }
+
+# The rules we manage: ~ form only when under HOME, plus absolute Bash rules.
+perm_rules() {
+  t=${KAITO_HOME#"$HOME"/} s=${STORE#"$HOME"/}
+  if [ "$t" != "$KAITO_HOME" ]; then
+    printf '%s\n' "Read(~/$t/**)" "Edit(~/$t/memory/**)" "Write(~/$t/memory/**)"
+  fi
+  for p in "gstack/bin/*" "gstack/browse/dist/browse *" "helpmekaito/scripts/*"; do
+    printf 'Bash(%s/%s)\n' "$STORE" "$p"
+    if [ "$s" != "$STORE" ]; then printf 'Bash(~/%s/%s)\n' "$s" "$p"; fi
+  done
+}
+
+# Rules already in the user's file are left alone and not recorded as ours.
+perms_stage() {
+  ask perms "Add allow rules for kaito scripts and ~/.kaito?" n || return 0
+  perm_rules | while IFS= read -r r; do
+    { in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" ||
+      ! in_json "$(node "$J" get "$SETTINGS" permissions.allow)" "$r"; } || continue
+    node "$J" add "$SETTINGS" permissions.allow "\"$r\""
+    node "$J" add "$STATE" managed_permissions "\"$r\""
+  done
+}
+
+# add_block <file> <begin> <end> <lines>: append a marked block once.
+add_block() {
+  grep -qF "$2" "$1" 2>/dev/null && return 0
+  mkdir -p "${1%/*}"
+  if [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; then echo >> "$1"; fi
+  printf '%s\n%s\n%s\n' "$2" "$4" "$3" >> "$1"
+}
+remove_block() {
+  [ -f "$1" ] && grep -qF "$2" "$1" || return 0
+  sed "/$2/,/$3/d" "$1" > "$1.kaito" && mv "$1.kaito" "$1"
+}
+
+nudge_stage() {
+  ask nudge "Add a one-line helpmekaito nudge to ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md?" n || return 0
+  for f in "$HOME/.claude/CLAUDE.md" "$CODEX_DIR/AGENTS.md"; do
+    add_block "$f" "<!-- kaito:begin -->" "<!-- kaito:end -->" "$NUDGE_LINE"
+  done
+}
+
+hook_stage() {
+  [ -f "$STORE/ponytail/SKILL.md" ] || return 0
+  ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
+  node "$J" add "$SETTINGS" hooks.SessionStart "$e"
+  node "$J" set "$STATE" managed_hook "$e"
+}
+
+codexwrite_stage() {
+  ask codexwrite "Let Codex write to ~/.kaito (adds it to Codex writable_roots)?" n || return 0
+  c="$CODEX_DIR/config.toml"
+  grep -qF "# kaito:begin" "$c" 2>/dev/null && return 0
+  if grep -qE 'writable_roots|^\[sandbox_workspace_write\]' "$c" 2>/dev/null; then
+    echo "codex: $c already sets writable_roots, add \"$KAITO_HOME\" to it yourself."; return 0
+  fi
+  add_block "$c" "# kaito:begin" "# kaito:end" "[sandbox_workspace_write]
+writable_roots = [\"$KAITO_HOME\"]"
+}
+
+consent_uninstall() {
+  node "$J" each "$STATE" managed_permissions | while IFS= read -r r; do
+    node "$J" rm "$SETTINGS" permissions.allow "\"$r\""
+  done
+  e=$(node "$J" get "$STATE" managed_hook)
+  if [ -n "$e" ]; then node "$J" rm "$SETTINGS" hooks.SessionStart "$e"; fi
+  remove_block "$HOME/.claude/CLAUDE.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
+  remove_block "$CODEX_DIR/AGENTS.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
+  remove_block "$CODEX_DIR/config.toml" "# kaito:begin" "# kaito:end"
+}
+
 uninstall() {
+  consent_uninstall
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
   drop_overrides "$(node "$J" get "$STATE" managed_overrides | json_list)" ""
   rm -rf "$STORE" "$STATE"
@@ -224,4 +303,8 @@ link_all
 write_overrides
 write_state
 [ "$CODEGRAPH" = 1 ] && codegraph_stage
+perms_stage
+nudge_stage
+hook_stage
+codexwrite_stage
 summary

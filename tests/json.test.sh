@@ -57,3 +57,15 @@ test_json_settings_like() {
   assert_eq "$(node "$J" get "$HOME/s.json" model)" '"m"' model
   assert_eq "$(node "$J" get "$HOME/s.json" skillOverrides.foo)" '"off"' added
 }
+
+test_json_add_rm_each() {
+  mk_home
+  f="$HOME/a.json"
+  node "$J" add "$f" p.list '"x y"'; node "$J" add "$f" p.list '"x y"'; node "$J" add "$f" p.list '{"a":1}'
+  assert_eq "$(node "$J" get "$f" p.list)" '["x y",{"a":1}]' add_once
+  assert_eq "$(node "$J" each "$f" p.list)" 'x y
+{"a":1}' each
+  node "$J" rm "$f" p.list '"x y"'
+  assert_eq "$(node "$J" get "$f" p.list)" '[{"a":1}]' rm
+  assert_eq "$(node "$J" each "$f" nope)" "" each_missing
+}
