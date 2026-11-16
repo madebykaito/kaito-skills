@@ -5,7 +5,7 @@ NUDGE='For design, motion, copy, SEO, video, media, research or code-quality wor
 
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  rsync -a --exclude .git --exclude /gstack/ --exclude /.superpowers/ --exclude node_modules "$REPO/" "$R/"
+  rsync -a --exclude .git --exclude /gstack/ --exclude /.superpowers/ --exclude node_modules "$@" "$REPO/" "$R/"
 }
 run_setup() { "$R/setup" --yes --no-gstack --no-codegraph "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }; }
 S() { echo "$HOME/.claude/settings.json"; }
@@ -72,7 +72,7 @@ fake_ponytail() { mkdir -p "$R/ponytail"; printf -- '---\nname: ponytail\n---\n'
 ss() { node "$J" get "$(S)" hooks.SessionStart; }
 
 test_ponytail_only_when_present() {
-  mk_home; mk_repo; KAITO_ANSWERS=ponytail=y run_setup
+  mk_home; mk_repo --exclude /ponytail/; KAITO_ANSWERS=ponytail=y run_setup
   assert_eq "$(ss)" "" none
 }
 
