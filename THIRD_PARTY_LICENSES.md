@@ -13,6 +13,7 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `stageshow` | [benjitaylor/skills](https://github.com/benjitaylor/skills), Benji Taylor | MIT |
 | `stageshow/kit/brands` artwork | [SVGL](https://github.com/pheralb/svgl) (MIT), [payment-icons](https://github.com/aaronfagan/svg-credit-card-payment-icons) (Apache-2.0), [Cryptocurrency Icons](https://github.com/spothq/cryptocurrency-icons) (CC0 1.0), [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0 1.0); per-file sources in `stageshow/kit/brands/SOURCES.md` | as listed |
 | `impeccable` | [pbakaus/impeccable](https://github.com/pbakaus/impeccable), Paul Bakaus | Apache-2.0 |
+| `gstack` | [garrytan/gstack](https://github.com/garrytan/gstack) v1.99.5.0, Garry Tan; its own `gstack/LICENSE` and `gstack/NOTICE.md` ship with it | MIT |
 | `hyperframes`, `hyperframes-cli`, `hyperframes-media`, `hyperframes-registry`, `website-to-hyperframes`, `remotion-to-hyperframes`, `contribute-catalog`, `gsap`, `animejs`, `waapi`, `css-animations`, `lottie`, `three`, `typegpu`, `tailwind` | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes), HeyGen, Inc. | Apache-2.0 |
 | `frontend-design` | Anthropic | Apache-2.0 |
 | `vercel-react-best-practices`, `web-design-guidelines` | Vercel | MIT |
@@ -198,6 +199,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+```
+
+### MIT, Garry Tan (gstack)
+
+```text
+MIT License
+
+Copyright (c) 2026 Garry Tan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### Apache License 2.0

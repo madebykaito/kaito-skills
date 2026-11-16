@@ -163,11 +163,18 @@ Write HTML, render video.
 |---|---|
 | [`adversarial-review`](adversarial-review/) | Assume the diff is broken. Report only findings that survive a refutation pass. |
 
+### Dev workflow
+
+| Skill | What it does |
+|---|---|
+| [`gstack`](gstack/) | Garry Tan's workflow suite: plan reviews, `/review`, `/qa`, `/ship`, `/cso`, browser QA. Run `./setup` inside `gstack/` after cloning. |
+
 ## Known limits
 
 - Some skills overlap. `better-*` gives exact values. `impeccable`, `apple-design`, and `emil-design-eng` give taste. Use both.
 - `shaders-cursor-ripples` needs a paid package.
 - `minimal-zine-poster` needs a Gemini API key. Without it you get a prompt, not an image.
+- `gstack` needs [bun](https://bun.sh) and its own `./setup`, which builds the browser and installs its sub-skills.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 
 ## Credits
