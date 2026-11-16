@@ -20,9 +20,9 @@ case "${1:-}" in
   where)
     if [ "$p" = / ] || [ "$p" = "$(cd "$HOME" && pwd -P)" ]; then i=n/a
     elif [ -e "$p/.codegraph" ] || [ -L "$p/.codegraph" ]; then i=yes; else i=no; fi
-    out=$(echo "slug=$s"; echo "project_file=$pf"; echo "indexed=$i"
+    out=$(printf "%s\n" "slug=$s" "project_file=$pf" "indexed=$i"
       cat "$M/MEMORY.md" "$pf" 2>/dev/null || :)
-    if [ "$(echo "$out" | wc -l)" -gt 40 ]; then echo "$out" | head -39; echo ...; else echo "$out"; fi
+    if [ "$(printf "%s\n" "$out" | wc -l)" -gt 40 ]; then printf "%s\n" "$out" | head -39; echo ...; else printf "%s\n" "$out"; fi
     ;;
   note)
     [ $# -eq 3 ] || { echo "usage: kaito-mem.sh note global|project \"<text>\"" >&2; exit 2; }
@@ -32,9 +32,9 @@ case "${1:-}" in
     (
       mkdir -p "$M/projects"
       if [ "$2" = project ] && [ ! -e "$pf" ]; then
-        echo "- projects/$s.md $p" >> "$M/MEMORY.md"
+        printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
       fi
-      echo "- $(date +%Y-%m-%d) $3" >> "$M/$f"
+      printf "%s\n" "- $(date +%Y-%m-%d) $3" >> "$M/$f"
     ) 2>/dev/null || { echo "$RO"; exit 0; }
     mirror "$f" MEMORY.md
     ;;
@@ -42,7 +42,7 @@ case "${1:-}" in
     case "${2:-}" in yes|no) ;; *) echo "usage: kaito-mem.sh codegraph-decision yes|no" >&2; exit 2 ;; esac
     (
       mkdir -p "$M/projects"
-      [ -e "$pf" ] || echo "- projects/$s.md $p" >> "$M/MEMORY.md"
+      [ -e "$pf" ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
       { grep -v '^codegraph:' "$pf" 2>/dev/null || :; echo "codegraph: $2"; } > "$pf.tmp"
       mv "$pf.tmp" "$pf"
     ) 2>/dev/null || { echo "$RO"; exit 0; }

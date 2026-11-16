@@ -77,3 +77,12 @@ test_mirror_called() {
   (cd "$P" && sh "$d/kaito-mem.sh" note global "hi") || exit 1
   grep -qx 'push global.md' "$HOME/mirror.log" || { cat "$HOME/mirror.log"; exit 1; }
 }
+
+test_note_is_literal() {
+  mk_home; proj app; s=$(sh "$CG" slug "$P")
+  (cd "$P" && sh "$MEM" note project 'run grep "\d+" a\tb\nc\cd')
+  want='run grep "\d+" a\tb\nc\cd'
+  grep -qF "$want" "$KAITO_HOME/memory/projects/$s.md" || { cat "$KAITO_HOME/memory/projects/$s.md"; exit 1; }
+  assert_eq "$(wc -l < "$KAITO_HOME/memory/projects/$s.md" | tr -d ' ')" 1 lines
+  (cd "$P" && sh "$MEM" where) | grep -qF "$want" || exit 1
+}
