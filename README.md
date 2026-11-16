@@ -265,6 +265,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
+- Skill hooks last only for the session that loaded the skill.
 - Research hooks are not installed. `drift-report` runs on demand.
 - Some research skills use optional MCP servers for citation checks. They run without them.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
