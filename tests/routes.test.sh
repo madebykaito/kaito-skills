@@ -25,19 +25,29 @@ test_path_gstack_skill() {
   kp gstack --host codex; assert_eq "$out" "$S/_gstack-codex/.agents/skills/gstack/SKILL.md" codex-router
 }
 
+# Renders keep only name and description (as gstack's Codex render does), so
+# the flags live only in the source copy at $S/gstack/<n>.
 test_path_user_only_exit3() {
   mk_home; S="$KAITO_HOME/store"
-  skill "$S/_gstack-claude/land-and-deploy" 'disable-model-invocation: true'
+  skill "$S/gstack/land-and-deploy" 'disable-model-invocation: true'
+  skill "$S/_gstack-claude/land-and-deploy"; skill "$S/_gstack-codex/.agents/skills/gstack-land-and-deploy"
   kp land-and-deploy; assert_eq "$rc" 3 rc; assert_eq "$err" user-only err
   assert_eq "$out" "$S/_gstack-claude/land-and-deploy/SKILL.md" path
+  kp land-and-deploy --host codex; assert_eq "$rc" 3 codex-rc; assert_eq "$err" user-only codex-err
+  assert_eq "$out" "$S/_gstack-codex/.agents/skills/gstack-land-and-deploy/SKILL.md" codex-path
+  # kaito skills carry their own flags
+  skill "$S/prototype" 'disable-model-invocation: true'
+  kp prototype --host codex; assert_eq "$rc" 3 kaito
 }
 
 test_path_hooks_codex_exit4() {
   mk_home; S="$KAITO_HOME/store"
-  skill "$S/_gstack-claude/careful" 'hooks:'; skill "$S/_gstack-codex/.agents/skills/gstack-careful" 'hooks:'
+  skill "$S/gstack/careful" 'hooks:'
+  skill "$S/_gstack-claude/careful"; skill "$S/_gstack-codex/.agents/skills/gstack-careful"
   kp careful; assert_eq "$rc" 0 claude-ok
   kp careful --host codex; assert_eq "$rc" 4 rc; assert_eq "$err" hooks err
   assert_eq "$out" "$S/_gstack-codex/.agents/skills/gstack-careful/SKILL.md" path
+  kp gstack-careful --host codex; assert_eq "$rc" 4 prefixed
   # hooks: in the body is not frontmatter
   mkdir -p "$S/body"; printf -- '---\nname: body\n---\nhooks:\n' > "$S/body/SKILL.md"
   kp body --host codex; assert_eq "$rc" 0 body-only

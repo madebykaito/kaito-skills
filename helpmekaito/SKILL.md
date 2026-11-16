@@ -11,19 +11,17 @@ A router earns its place only if it is fast and right. Spend little on routing a
 
 ## 0. Before routing
 
-Run scripts as `~/.kaito/store/helpmekaito/scripts/<name>`. `KAITO_HOME` overrides `~/.kaito`.
+Write script commands exactly as shown. `KAITO_HOME` overrides `~/.kaito`.
 
 - If `~/.kaito/store` or `codegraph` is missing, say "run ./setup in kaito-skills" and go on without it.
-- If `kaito-mem.sh` exists, run `kaito-mem.sh where` at the start of a routed task. Its facts shape the route.
-- `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `config.codegraph.auto_index`. `ask`: ask once, run `kaito-mem.sh codegraph-decision yes|no`, and on yes `kaito-codegraph.sh init`. `true`: init without asking. `false`: skip.
+- At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where`; if it is not found, skip. Its facts shape the route.
+- `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `codegraph.auto_index` in `~/.kaito/config.json`. `ask`: ask once, run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh codegraph-decision yes|no`, on yes `~/.kaito/store/helpmekaito/scripts/kaito-codegraph.sh init`. `true`: init without asking. `false`: skip.
 
 **Direct mode:** `/helpmekaito <skill> <task>` skips routing. Load that skill now (step 5).
 
 ## 1. Size the request
 
-Decide which of these it is before anything else.
-
-- **Trivial**: a factual question, or a small edit the user already scoped. Answer directly. Loading a skill for this wastes the user's time.
+- **Trivial**: a factual question, or a small edit the user already scoped. Answer directly.
 - **One skill**: the request names a skill, or clearly matches one job.
 - **A chain**: the goal needs several skills in order, such as "build a landing page" or "polish this app".
 
@@ -49,7 +47,7 @@ For a goal that needs a chain, read [recipes.md](references/recipes.md) first. I
 
 ## 3. Choose
 
-Pick at most three skills, or one recipe. More than that and none of them gets followed well.
+Pick at most three skills, or one recipe.
 
 - Each domain file has overlap rules. Use them when two skills look alike.
 - Route only to installed skills. If the best fit is not installed, say so and name the next best.
@@ -80,7 +78,7 @@ Route: <skill> then <skill>. Model: <this session | model via runner, why>.
 Then load each skill and follow it fully. A route that is announced and then ignored is worse than no route.
 
 - **Skill tool available (Claude):** invoke the skill by name. It may show as a bare name; that is expected.
-- **Otherwise (Codex, other hosts):** run `kaito-path.sh <skill> --host codex`, read the printed file and follow it as if invoked, resolving relative paths against its folder. Exit 1: not installed. 3: user-only, tell the user to type `/<skill>`. 4: has hooks, needs Claude; say so, do not read it.
+- **Otherwise (Codex, other hosts):** run `~/.kaito/store/helpmekaito/scripts/kaito-path.sh <skill> --host codex`, read the printed file and follow it as if invoked, resolving relative paths against its folder. Exit 1: not installed. 3: user-only, tell the user to type `/<skill>`. 4: has hooks, needs Claude; say so, do not read it.
 - Plugin skills (`legal:*`, `anthropic-skills:*`) always use the Skill tool.
 
 If a skill hands off to another in its own instructions, follow that. The skill knows its neighbors better than this router does.

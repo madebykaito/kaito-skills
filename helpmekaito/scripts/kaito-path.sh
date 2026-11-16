@@ -21,7 +21,15 @@ fi
 [ -n "${p:-}" ] || exit 1
 echo "$p"
 
-fm=$(awk 'NR==1 && /^---/ {f=1; next} f && /^---/ {exit} f' "$p")
+# The Codex render keeps only name and description, so read gstack flags from
+# the source copy in $S/gstack, else the Claude render.
+f="$p"
+case "$p" in "$S"/_gstack-*)
+  for d in "$S/gstack/$n" "$S/gstack/$b" "$S/_gstack-claude/$n" "$S/_gstack-claude/$b"; do
+    [ -f "$d/SKILL.md" ] && { f="$d/SKILL.md"; break; }
+  done;;
+esac
+fm=$(awk 'NR==1 && /^---/ {f=1; next} f && /^---/ {exit} f' "$f")
 echo "$fm" | grep -q '^disable-model-invocation: *true' && { echo user-only >&2; exit 3; }
 [ "$host" = codex ] && echo "$fm" | grep -q '^hooks:' && { echo hooks >&2; exit 4; }
 exit 0
