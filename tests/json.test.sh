@@ -26,3 +26,34 @@ test_json_del() {
   assert_eq "$(node "$J" get "$HOME/e.json" a.b)" "" deleted
   assert_eq "$(node "$J" get "$HOME/e.json" a.c)" "2" sibling
 }
+
+test_json_empty_file() {
+  mk_home
+  : > "$HOME/f.json"
+  node "$J" set "$HOME/f.json" a 1 || exit 1
+  assert_eq "$(node "$J" get "$HOME/f.json" a)" 1 empty
+}
+
+test_json_corrupt_untouched() {
+  mk_home
+  printf '{"a":1,}\n' > "$HOME/g.json"
+  cp "$HOME/g.json" "$HOME/g.orig"
+  node "$J" set "$HOME/g.json" b 2 2>/dev/null && exit 1
+  node "$J" del "$HOME/g.json" a 2>/dev/null && exit 1
+  cmp "$HOME/g.json" "$HOME/g.orig" || exit 1
+  echo 'null' > "$HOME/h.json"
+  node "$J" set "$HOME/h.json" b 2 2>/dev/null && exit 1
+  echo '[1]' > "$HOME/i.json"
+  node "$J" set "$HOME/i.json" b 2 2>/dev/null && exit 1
+  assert_eq "$(cat "$HOME/i.json")" '[1]' array
+  assert_eq "$(node "$J" get "$HOME/g.json" a)" "" lenient_get
+}
+
+test_json_settings_like() {
+  mk_home
+  echo '{"permissions":{"allow":["x"]},"model":"m"}' > "$HOME/s.json"
+  node "$J" set "$HOME/s.json" skillOverrides.foo '"off"' || exit 1
+  assert_eq "$(node "$J" get "$HOME/s.json" permissions)" '{"allow":["x"]}' perms
+  assert_eq "$(node "$J" get "$HOME/s.json" model)" '"m"' model
+  assert_eq "$(node "$J" get "$HOME/s.json" skillOverrides.foo)" '"off"' added
+}

@@ -5,7 +5,18 @@ import { dirname } from 'node:path';
 const [cmd, file, path = '', raw] = process.argv.slice(2);
 const keys = path.split('.').filter(Boolean);
 let data = {};
-try { data = JSON.parse(readFileSync(file, 'utf8')); } catch {}
+const bad = () => {
+  if (cmd === 'get') process.exit(0);
+  console.error('file is not valid JSON, not touching it');
+  process.exit(1);
+};
+try {
+  const text = readFileSync(file, 'utf8');
+  if (text.trim()) data = JSON.parse(text);
+} catch (e) {
+  if (e.code !== 'ENOENT') bad();
+}
+if (typeof data !== 'object' || data === null || Array.isArray(data)) bad();
 const save = () => {
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
