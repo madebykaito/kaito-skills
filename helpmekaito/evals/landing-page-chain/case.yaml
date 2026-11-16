@@ -2,3 +2,7 @@ schema_version: "1.1"
 name: landing-page-chain
 expected_outcome: |
   Routes to a chain that starts with landing-page, then copywriting, then frontend-design, and keeps the work in the main session.
+# Flaky (router, not grader; failed 2 of 3 runs, passed once): SKILL.md says "stop at six skills in one task" but the
+# "Landing page from a brief" recipe names 8 (landing-page, copywriting, ogilvy, frontend-design,
+# visual-style-presets, better-interface, schema-markup, gstack /qa), and the router lists them all.
+# Fix needs a SKILL.md edit (see report), which evals/ cannot make. Grader 02 is left as is.
