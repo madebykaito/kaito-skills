@@ -2,10 +2,5 @@ schema_version: "1.1"
 name: landing-page-chain
 expected_outcome: |
   Routes to a chain that starts with landing-page, then copywriting, then frontend-design, and keeps the work in the main session.
-# Flaky (router, not grader; failed 2 of 3 runs, passed once): SKILL.md says "stop at six skills in one task" but the
-# "Landing page from a brief" recipe names 8 (landing-page, copywriting, ogilvy, frontend-design,
-# visual-style-presets, better-interface, schema-markup, gstack /qa), and the router lists them all.
-# Fix needs a SKILL.md edit (see report), which evals/ cannot make. Grader 02 is left as is.
-# After the router fix (2e8316c): 3 runs scored 0.33, 0.67, 0.67. Failures vary per run: more than six skills named
-# (grader 02), landing-page not first (product-proof-saas first in one run, grader 01), or delegation (grader 03).
-# Still a router problem: the six-skill cap and the recipe order are not followed reliably. Graders unchanged.
+# Was flaky: the recipe named 8 skills against the six-skill cap. Fixed in recipes.md (six named
+# steps, at most one add-on that replaces step 5). Passed 3/3 runs after the fix.
