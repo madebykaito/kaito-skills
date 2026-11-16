@@ -87,7 +87,8 @@ test_adopt_moves_existing() {
 
 test_no_tty_uses_defaults() {
   mk_home; mk_repo
-  python3 -c 'import os,sys;os.setsid();os.execv(sys.argv[1],sys.argv[1:])' "$R/setup" --no-gstack </dev/null >"$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  SH=sh; [ -x /bin/dash ] && SH=/bin/dash   # dash exits on a failed redirect of a special builtin
+  python3 -c 'import os,sys;os.setsid();os.execvp(sys.argv[1],sys.argv[1:])' "$SH" "$R/setup" --no-gstack </dev/null >"$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
   grep -q '^kaito:' "$HOME/out" || { cat "$HOME/out"; exit 1; }
   ! grep -q 'Device not configured' "$HOME/out" || { cat "$HOME/out"; exit 1; }
   grep -qx 'npm i -g @colbymchenry/codegraph@1.6.2' "$HOME/stub.log" || exit 1
