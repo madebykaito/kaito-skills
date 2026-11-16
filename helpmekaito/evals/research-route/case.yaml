@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: research-route
+expected_outcome: |
+  Routes a literature review for a journal article to the research chain (brainstorming-research and/or
+  writing-research-plan, then literature-review) and does not treat it as a quick web lookup.
+  The sandbox may not have these skills, so naming them in the route is enough.

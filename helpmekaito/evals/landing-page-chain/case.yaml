@@ -6,3 +6,6 @@ expected_outcome: |
 # "Landing page from a brief" recipe names 8 (landing-page, copywriting, ogilvy, frontend-design,
 # visual-style-presets, better-interface, schema-markup, gstack /qa), and the router lists them all.
 # Fix needs a SKILL.md edit (see report), which evals/ cannot make. Grader 02 is left as is.
+# After the router fix (2e8316c): 3 runs scored 0.33, 0.67, 0.67. Failures vary per run: more than six skills named
+# (grader 02), landing-page not first (product-proof-saas first in one run, grader 01), or delegation (grader 03).
+# Still a router problem: the six-skill cap and the recipe order are not followed reliably. Graders unchanged.
