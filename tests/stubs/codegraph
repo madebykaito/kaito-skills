@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "codegraph $*" >> "$HOME/stub.log"
+exit 0
