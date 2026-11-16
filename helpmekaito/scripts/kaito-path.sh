@@ -1,0 +1,27 @@
+#!/bin/sh
+# kaito-path.sh <skill> [--host claude|codex]
+# Prints the SKILL.md path for a skill in the kaito store.
+# Exit 1: not found. Exit 3: user-only (disable-model-invocation), tell the
+# user to type /<skill>. Exit 4: has hooks and host is codex, needs Claude.
+# The path is printed on exit 3 and 4 too.
+n="$1"; host=claude
+[ "$2" = --host ] && host="$3"
+case "$n" in ''|*/*|.*) echo "usage: kaito-path.sh <skill> [--host claude|codex]" >&2; exit 1;; esac
+S="${KAITO_HOME:-$HOME/.kaito}/store"
+b="${n#gstack-}"
+
+# $S/gstack is the gstack build folder, not a skill.
+[ "$n" != gstack ] && [ -f "$S/$n/SKILL.md" ] && p="$S/$n/SKILL.md"
+if [ -z "${p:-}" ]; then
+  if [ "$host" = codex ]; then set -- "$S/_gstack-codex/.agents/skills/gstack-$b" "$S/_gstack-codex/.agents/skills/$n"
+  elif [ "$n" = gstack ]; then set -- "$S/_gstack-claude"
+  else set -- "$S/_gstack-claude/$n" "$S/_gstack-claude/$b"; fi
+  for d; do [ -f "$d/SKILL.md" ] && { p="$d/SKILL.md"; break; }; done
+fi
+[ -n "${p:-}" ] || exit 1
+echo "$p"
+
+fm=$(awk 'NR==1 && /^---/ {f=1; next} f && /^---/ {exit} f' "$p")
+echo "$fm" | grep -q '^disable-model-invocation: *true' && { echo user-only >&2; exit 3; }
+[ "$host" = codex ] && echo "$fm" | grep -q '^hooks:' && { echo hooks >&2; exit 4; }
+exit 0

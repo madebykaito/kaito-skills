@@ -1,19 +1,42 @@
 # Engineering: workflow, review, performance
 
-## Dev workflow
+## Dev workflow (gstack)
 
-`gstack` is its own router with its own rules. Hand off, do not re-route.
+Route straight to these gstack sub-skills. For a gstack job not listed here, hand the request to the `gstack` router. gstack needs bun; if its skills are missing, say "run ./setup in kaito-skills" and do the work directly.
 
-Send to `gstack` when the request is about: planning or reviewing a plan, QA and browser testing, code review of a diff, shipping and PRs, security audit, docs after a release, retros, saving or restoring context, PDFs, scraping a page. Invoke `/gstack` with the user's request and let it pick the sub-skill. If the user named a gstack sub-skill (`/qa`, `/ship`, `/review`, `/cso`), invoke that directly.
+| Skill | Use when |
+|---|---|
+| `office-hours` | Testing an idea or a startup plan before any code. |
+| `spec` | Turning vague intent into an executable spec. |
+| `plan-eng-review` | Reviewing a plan for architecture, edge cases and tests. |
+| `plan-ceo-review` | Reviewing a plan for scope and ambition. Has hooks. |
+| `plan-design-review` | Reviewing a plan's UI and UX before building. |
+| `autoplan` | Running all plan reviews in one go. Has hooks. |
+| `qa` | Testing a site, API or CLI and fixing what breaks. |
+| `qa-only` | Testing and reporting bugs without fixing them. |
+| `browse` | Driving a real browser: open, click through, screenshot, read the console. |
+| `ios-qa` | QA on a live iOS device for a SwiftUI app. |
+| `ios-fix` | Fixing an iOS bug end to end. |
+| `verify` | Running the checks and tests until green while coding. |
+| `review` | A standard pre-landing review of a diff. |
+| `cso` | A security audit. |
+| `health` | A code quality dashboard for the repo. |
+| `ship` | Merge base, test, review, bump version, push and open a PR. |
+| `document-release` | Updating docs after a release. |
+| `retro` | A weekly engineering retrospective. |
+| `make-pdf` | Turning markdown into a polished PDF. |
+| `careful` | Warnings before destructive commands. Has hooks. |
+| `freeze` | Limiting edits to one folder. Has hooks. |
+| `guard` | `careful` plus `freeze`. Has hooks. |
 
-`gstack` needs bun and its own `./setup`. If its sub-skills are not in the available-skills list, say so and do the work directly.
+Skills with hooks run only through the Skill tool, so only on Claude.
 
 ## Code review
 
 | Skill | Use when |
 |---|---|
 | `adversarial-review` | A deep, skeptical review of a diff, PR or branch: assume it is broken and report only what survives refutation. |
-| `gstack` `/review` | A standard pre-landing review. |
+| `review` | A standard pre-landing review. Listed above. |
 
 `adversarial-review` scales to a multi-agent fan-out. That is where cross-vendor models help most: see [models.md](../models.md).
 
