@@ -28,18 +28,18 @@ for a in "$@"; do
   esac
 done
 
-N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
+GS="" N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
 has() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 json_list() { tr -cd 'A-Za-z0-9_.,-' | tr , ' '; }  # ["a","b"] -> a b
 to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
 ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
+foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
 skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
 
 check_prereqs() {
   for c in git node npm; do
     command -v "$c" >/dev/null || { echo "setup needs $c on PATH" >&2; exit 1; }
   done
-  # bun is needed only for gstack, which Task 3 adds.
 }
 
 make_config() {
@@ -63,20 +63,59 @@ install_store() {
   [ $# -gt 0 ] && rsync -a --delete --exclude .git --exclude node_modules --exclude dist "$@" "$STORE/"
   for d in "$STORE"/*/; do
     d=${d%/} n=${d##*/}
-    [ -d "$d" ] && [ "$n" != gstack ] && ! has "$n" "$SKILLS" && rm -rf "$d"
+    [ -d "$d" ] && ! has "$n" "$SKILLS gstack _gstack-claude _gstack-codex" && rm -rf "$d"
   done
   return 0
+}
+
+# Build gstack in its store copy (never the repo), render it per host, and pick
+# the Claude skills to link into GS. Codex gets no gstack links.
+gstack_stage() {
+  command -v bun >/dev/null || { echo "setup needs bun on PATH for gstack (or pass --no-gstack)" >&2; exit 1; }
+  G="$STORE/gstack"
+  mkdir -p "$G"
+  # Excluded paths are never deleted in the store, so node_modules and builds survive re-runs.
+  rsync -a --delete --exclude .git --exclude node_modules --include /lib/diagram-render/dist/ --exclude dist "$REPO/gstack/" "$G/"
+  (
+    cd "$G"
+    bun install
+    bun run build
+    v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || true)  # the store copy has no .git
+    for f in */dist/.version; do if [ -e "$f" ]; then echo "$v" > "$f"; fi; done
+    bun --no-env-file --config=/dev/null --eval 'import { chromium } from "playwright"; const b = await chromium.launch(); await b.close();' >/dev/null 2>&1 ||
+      bun x playwright install chromium
+    for h in claude codex; do
+      rm -rf "$STORE/_gstack-$h"
+      bun run gen:skill-docs:user --host "$h" --install-root "$G" --out-dir "$STORE/_gstack-$h" --link-root "$STORE/_gstack-$h"
+    done
+  )
+  # A few copied reference files still point at gstack's own install path.
+  grep -rl '~/.claude/skills/gstack/' "$STORE/_gstack-claude" | while IFS= read -r f; do
+    sed -i.bak "s|~/.claude/skills/gstack/|$G/|g" "$f" && rm "$f.bak"
+  done
+  if foreign "$CLAUDE_SKILLS/gstack"; then
+    echo "warning: $CLAUDE_SKILLS/gstack is not ours, skipping all gstack links"; return 0
+  fi
+  # The router is the render root; sub-skills are its folders with a SKILL.md.
+  [ -f "$STORE/_gstack-claude/SKILL.md" ] && GS=gstack
+  for d in "$STORE/_gstack-claude"/*/; do
+    d=${d%/} n=${d##*/}
+    [ -f "$d/SKILL.md" ] || continue
+    if has "$n" "$SKILLS"; then echo "warning: gstack skill $n skipped, kaito skill $n wins"; else GS="$GS $n"; fi
+  done
 }
 
 # link_dir <dir> <names>: link each name to the store, remove our links not in names.
 link_dir() {
   mkdir -p "$1"
   for n in $2; do
-    p="$1/$n"
-    if [ -L "$p" ] && [ "$(readlink "$p")" = "$STORE/$n" ]; then :
-    elif [ -L "$p" ] && ours "$(readlink "$p")"; then ln -sfn "$STORE/$n" "$p"; N_LINKED=$((N_LINKED + 1))
+    p="$1/$n" t="$STORE/$n"
+    has "$n" "$GS" && t="$STORE/_gstack-claude/$n"
+    [ "$t" = "$STORE/_gstack-claude/gstack" ] && t="$STORE/_gstack-claude"
+    if [ -L "$p" ] && [ "$(readlink "$p")" = "$t" ]; then :
+    elif [ -L "$p" ] && ours "$(readlink "$p")"; then ln -sfn "$t" "$p"; N_LINKED=$((N_LINKED + 1))
     elif [ -e "$p" ] || [ -L "$p" ]; then skip "$p"; continue
-    else ln -s "$STORE/$n" "$p"; N_LINKED=$((N_LINKED + 1))
+    else ln -s "$t" "$p"; N_LINKED=$((N_LINKED + 1))
     fi
     LINKS="$LINKS $p"
     [ "$1" = "$CLAUDE_SKILLS" ] && CLAUDE_LINKED="$CLAUDE_LINKED $n"
@@ -97,7 +136,7 @@ link_all() {
   HOT=$(node "$J" get "$CONFIG" hot | json_list)
   codex="helpmekaito"
   for n in $HOT; do has "$n" "$SKILLS" && codex="$codex $n"; done
-  link_dir "$CLAUDE_SKILLS" "$SKILLS"
+  link_dir "$CLAUDE_SKILLS" "$SKILLS $GS"
   for d in $CODEX_SKILL_DIRS; do link_dir "$d" "$codex"; done
   for d in $LINK_DIRS; do
     [ "$d" = "$CLAUDE_SKILLS" ] || has "$d" "$CODEX_SKILL_DIRS" || unlink_dir "$d" ""
@@ -147,7 +186,9 @@ summary() {
 if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
 check_prereqs
 make_config
+[ "$(node "$J" get "$CONFIG" gstack)" = false ] && GSTACK=0
 install_store
+[ "$GSTACK" = 1 ] && gstack_stage
 link_all
 write_overrides
 write_state

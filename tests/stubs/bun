@@ -1,3 +1,19 @@
 #!/bin/sh
+# Fake bun. Logs each call; writes into the cwd the way the real gstack build does.
+# BUN_STUB_PROBE_FAIL=1 makes the Chromium launch probe (bun --eval) fail.
+# BUN_STUB_SKILLS lists the skill folders a gen:skill-docs:user render writes.
 echo "bun $*" >> "$HOME/stub.log"
+case "$*" in
+  *--eval*) [ "${BUN_STUB_PROBE_FAIL:-0}" = 1 ] && exit 1 ;;
+  install) mkdir -p node_modules && touch node_modules/.stub ;;
+  "run build") mkdir -p browse/dist && touch browse/dist/browse ;;
+  "run gen:skill-docs:user"*)
+    while [ $# -gt 0 ]; do [ "$1" = --out-dir ] && out=$2; shift; done
+    # Like the real render: router at the root, a non-skill bin/, one stray home path.
+    mkdir -p .agents "$out/bin" && echo "name: gstack" > "$out/SKILL.md"
+    for n in ${BUN_STUB_SKILLS:-qa ship}; do
+      mkdir -p "$out/$n" && echo "name: $n" > "$out/$n/SKILL.md"
+    done
+    echo 'run ~/.claude/skills/gstack/bin/x' > "$out/qa-ref.md" ;;
+esac
 exit 0
