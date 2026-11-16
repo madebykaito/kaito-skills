@@ -2,3 +2,5 @@ schema_version: "1.1"
 name: named-model-unavailable
 expected_outcome: |
   Checks availability, reports that opencode is not installed on this machine, and does not silently substitute another model.
+# Run note: this case needs a shell to check for opencode. Run it with --allow-tools Bash
+# (the allowed_tools line in prompt.md is not enough; the CLI reports "not granted" without the flag).

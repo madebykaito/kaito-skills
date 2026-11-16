@@ -233,6 +233,29 @@ Write HTML, render video.
 | [`ponytail-audit`](ponytail-audit/) | Whole-repo over-engineering audit. |
 | [`ponytail-debt`](ponytail-debt/) | Lists every `ponytail:` shortcut comment as a debt ledger. |
 
+### Research
+
+For long, source-heavy research projects. From research-superpowers.
+
+| Skill | What it does |
+|---|---|
+| [`brainstorming-research`](brainstorming-research/) | Shapes a research question, method and scope into an approved design doc. |
+| [`writing-research-plan`](writing-research-plan/) | Turns the design into a plan with a hypothesis, tasks and checks. |
+| [`executing-research-plan`](executing-research-plan/) | Runs the plan task by task with subagents and a review per task. |
+| [`scaffold-research-project`](scaffold-research-project/) | Creates a research project folder from the template. No terminal needed. |
+| [`literature-review`](literature-review/) | Systematic literature search. Ends in a graded source guide and BibTeX. |
+| [`acquire-sources`](acquire-sources/) | Downloads open-access PDFs for graded sources. Lists the rest for manual download. |
+| [`add-to-library`](add-to-library/) | Adds one PDF to the shared library with verified metadata. |
+| [`ingest-source`](ingest-source/) | Reads one source under a focus into a wiki page, entities and BibTeX. |
+| [`wiki-lint`](wiki-lint/) | Checks wiki frontmatter, links and orphans. |
+| [`semantic-wiki-review`](semantic-wiki-review/) | Audits wiki content for contradictions, stale claims and weak support. |
+| [`wiki-graph`](wiki-graph/) | Maps the wiki as a graph: hubs, bridges, gaps. |
+| [`drift-report`](drift-report/) | Checks the library, wiki and projects for drift. On demand. |
+| [`drafting-manuscript`](drafting-manuscript/) | Drafts a chapter or article from the wiki, one agreed section at a time. |
+| [`requesting-peer-review`](requesting-peer-review/) | Two-stage review of a draft: constructive, then adversarial. |
+| [`grant-finder`](grant-finder/) | Finds German and European funding programs for a topic. |
+| [`finishing-a-research-project`](finishing-a-research-project/) | Final checklist before submission, publication or archive. |
+
 ## Known limits
 
 - Some skills overlap. `better-*` gives exact values. `impeccable`, `apple-design`, and `emil-design-eng` give taste. Use both.
@@ -242,6 +265,10 @@ Write HTML, render video.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
+- Skill hooks last only for the session that loaded the skill.
+- Research hooks are not installed. `drift-report` runs on demand.
+- Some research skills use optional MCP servers for citation checks. They run without them.
+- Research scripts need Python 3.10 or newer. `grant-finder`, `literature-review` and `requesting-peer-review` mention upstream `research-skills/` files that are not bundled; they fall back to live search.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
 - `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.

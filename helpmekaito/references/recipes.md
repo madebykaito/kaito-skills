@@ -7,11 +7,13 @@ Each step lists a tier for delegation. "Main" means keep it in the main session.
 ## Landing page from a brief
 
 1. `landing-page` (or the matching page-type skill from [pages.md](domains/pages.md)): structure and sections. Main.
-2. `copywriting`: the copy for each section. Add `ogilvy` if the headline is the hard part. Main.
-3. `frontend-design`: build it. Add `visual-style-presets` if no visual direction was given. Main.
+2. `copywriting`: the copy for each section. Main.
+3. `frontend-design`: build it. Main.
 4. `better-interface`: one ranked verdict, then fix the top findings. Hard tier if delegated.
-5. `schema-markup`: metadata and structured data. Standard tier. Use `seo-audit` in its place only if the page already exists and ranks badly.
+5. `schema-markup`: metadata and structured data. Standard tier.
 6. `gstack` `/qa`: test it in a browser.
+
+The Route line names these six in this order, `landing-page` first. Add one add-on at most, only when the brief calls for it, and drop step 5 to stay at six: `ogilvy` if the headline is the hard part, `visual-style-presets` if no visual direction was given, `seo-audit` in place of `schema-markup` if the page already exists and ranks badly.
 
 ## Pricing page
 
@@ -56,6 +58,17 @@ Each step lists a tier for delegation. "Main" means keep it in the main session.
 4. `hyperframes-cli`: lint, preview, render.
 
 For a video of an existing site, replace steps 1 and 2 with `website-to-hyperframes`.
+
+## Research project
+
+1. `brainstorming-research`: question, method and scope into an approved design doc. Main.
+2. `writing-research-plan`: the plan with hypothesis, tasks and checks. Main. Use `scaffold-research-project` first if there is no project folder yet.
+3. `literature-review`: the graded source guide and BibTeX. Standard tier for the database searches.
+4. `acquire-sources`, then `ingest-source` per source: PDFs on disk, then source pages. Standard tier, one agent per source. Run `wiki-lint` after the round.
+5. `drafting-manuscript`: the argument first, then one section at a time. Main.
+6. `requesting-peer-review`: constructive, then adversarial. Hard tier, fresh context per reviewer.
+
+`executing-research-plan` can run steps 4 and 5 from the plan. Each step is its own task, often its own session, so the six-skill cap counts per step.
 
 ## Ship a change safely
 
