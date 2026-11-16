@@ -1,3 +1,4 @@
 #!/bin/sh
 echo "codegraph $*" >> "$HOME/stub.log"
+[ "${1:-}" = --version ] && echo "${CODEGRAPH_STUB_VERSION:-}"
 exit 0

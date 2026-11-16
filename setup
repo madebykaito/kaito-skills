@@ -16,10 +16,10 @@ STATE="$KAITO_HOME/state.json"
 SETTINGS="$HOME/.claude/settings.json"
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 
-GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
 for a in "$@"; do
   case "$a" in
-    --yes) ;;
+    --yes) YES=1 ;;
     --no-gstack) GSTACK=0 ;;
     --no-codegraph) CODEGRAPH=0 ;;
     --uninstall) UNINSTALL=1 ;;
@@ -35,6 +35,21 @@ to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
 ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
 foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
 skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
+
+# ask "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS (comma list, in prompt order)
+# beats --yes, which beats the tty. No tty and no answer means the default.
+ask() {
+  d=$2 a=""
+  if [ -n "${KAITO_ANSWERS:-}" ]; then
+    a=${KAITO_ANSWERS%%,*}
+    case "$KAITO_ANSWERS" in *,*) KAITO_ANSWERS=${KAITO_ANSWERS#*,} ;; *) KAITO_ANSWERS="" ;; esac
+  elif [ "$YES" = 0 ] && [ -r /dev/tty ]; then
+    [ "$d" = y ] && h="Y/n" || h="y/N"
+    printf '%s [%s] ' "$1" "$h" >/dev/tty
+    read -r a </dev/tty || a=""
+  fi
+  case "${a:-$d}" in [yY]*) return 0 ;; *) return 1 ;; esac
+}
 
 check_prereqs() {
   for c in git node npm; do
@@ -171,6 +186,23 @@ write_state() {
   node "$J" set "$STATE" links "$(to_json "$LINKS")"
 }
 
+codegraph_stage() {
+  command -v npm >/dev/null || { echo "codegraph: skipped, npm not found"; return 0; }
+  pin=$(cat "$REPO/codegraph.version")
+  case "$(codegraph --version 2>/dev/null || true)" in
+    *"$pin"*) ;;
+    *) if ask "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
+         npm i -g "@colbymchenry/codegraph@$pin"
+         codegraph install --target claude,codex --location global -y
+       fi ;;
+  esac
+  gi="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
+  grep -qxF .codegraph "$gi" 2>/dev/null && return 0
+  if ask "Add .codegraph to $gi?" y; then
+    mkdir -p "${gi%/*}"; echo .codegraph >> "$gi"
+  fi
+}
+
 uninstall() {
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
   drop_overrides "$(node "$J" get "$STATE" managed_overrides | json_list)" ""
@@ -192,4 +224,5 @@ install_store
 link_all
 write_overrides
 write_state
+[ "$CODEGRAPH" = 1 ] && codegraph_stage
 summary
