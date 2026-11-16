@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trivial-direct-answer
+expected_outcome: |
+  Answers directly with white-space: nowrap (or text-wrap: nowrap) and loads no skill.

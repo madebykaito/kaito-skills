@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: screen-review-overlap
+expected_outcome: |
+  Routes to better-interface for one cross-discipline verdict instead of running better-layout, better-typography and better-colors by hand.

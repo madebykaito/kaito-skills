@@ -24,6 +24,12 @@ Codex reads `~/.codex/skills`. Same command, different target.
 
 ## Skills
 
+### Start here
+
+| Skill | What it does |
+|---|---|
+| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model tier for delegated work. Tag it: `/helpmekaito build me a pricing page`. |
+
 ### Writing and copy
 
 | Skill | What it does |
@@ -175,6 +181,7 @@ Write HTML, render video.
 - `shaders-cursor-ripples` needs a paid package.
 - `minimal-zine-poster` needs a Gemini API key. Without it you get a prompt, not an image.
 - `gstack` needs [bun](https://bun.sh) and its own `./setup`, which builds the browser and installs its sub-skills.
+- `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 
 ## Credits
