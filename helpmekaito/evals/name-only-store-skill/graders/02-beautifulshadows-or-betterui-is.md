@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-beautiful-shadows or better-ui is invoked through the Skill tool, not read by file path
+The reply picks beautiful-shadows or better-ui as the skill for the job, and no Read call opens that skill's SKILL.md by file path

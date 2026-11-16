@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The first tool call that looks up source code is codegraph_explore
+If codegraph_explore is available, it is the first tool call that looks up source code. If it is not available in the session, the reply says so

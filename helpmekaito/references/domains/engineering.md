@@ -22,6 +22,8 @@ Route straight to these gstack sub-skills. For a gstack job not listed here, han
 | `cso` | A security audit. |
 | `health` | A code quality dashboard for the repo. |
 | `ship` | Merge base, test, review, bump version, push and open a PR. |
+| `land-and-deploy` | Merge, deploy and verify as one flow. User-invoked: never run it or `ship` for this; tell the user to type `/land-and-deploy`. |
+| `modernize` | Rebasing or reviving a stale PR. User-invoked: tell the user to type `/modernize`. |
 | `document-release` | Updating docs after a release. |
 | `retro` | A weekly engineering retrospective. |
 | `make-pdf` | Turning markdown into a polished PDF. |
