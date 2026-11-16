@@ -24,6 +24,7 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `systematic-debugging`, `test-driven-development`, `using-git-worktrees` | [obra/superpowers](https://github.com/obra/superpowers), Jesse Vincent | MIT |
 | `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
 | `banner-design` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), Next Level Builder | MIT |
+| `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `scaffold-research-project`, `semantic-wiki-review`, `wiki-graph`, `wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.41.1, Patrick Leiverkus | MIT |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
 
 ## Notices carried from upstream
@@ -37,6 +38,12 @@ illustrated interfaces are used as examples. Those names and marks remain with
 their owners; no trademark rights or endorsement are implied. The app icons in
 `stageshow/assets/app-icons.ts` are not covered by the MIT license. Photo credits
 are in `stageshow/examples/wikipedia/PHOTOS.md`.
+
+**research-superpowers:** the project template in
+`scaffold-research-project/assets/` and `drift-report/assets/` bundles
+`cytoscape.min.js` 3.30.4 (MIT, The Cytoscape Consortium; license in the file
+header) and two Chicago author-date CSL styles (CC BY-SA 3.0; license in each
+file).
 
 CC0 1.0 works need no notice; the full dedication is at
 <https://creativecommons.org/publicdomain/zero/1.0/legalcode>.
@@ -366,6 +373,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+```
+
+### MIT, Patrick Leiverkus (research-superpowers)
+
+```text
+MIT License
+
+Copyright (c) 2026 Patrick Leiverkus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### Apache License 2.0

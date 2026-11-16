@@ -44,6 +44,7 @@ Read only the file for the domain that fits. Read a second one only when the req
 | Video from HTML, captions, voiceover, HyperFrames | [video.md](references/domains/video.md) |
 | Generated images, video, thumbnails, product shots, brand kits; Higgsfield | [media.md](references/domains/media.md) |
 | Planning, QA, debugging, code review, shipping, security, performance, architecture | [engineering.md](references/domains/engineering.md) |
+| Long research projects: literature review, source ingest, research wiki, manuscript drafting, peer review | [research.md](references/domains/research.md) |
 
 For a goal that needs a chain, read [recipes.md](references/recipes.md) first. If a recipe fits, follow it and read domain files only for the steps you are unsure about.
 
@@ -88,7 +89,7 @@ If a skill hands off to another in its own instructions, follow that. The skill 
 
 ## When the user asks what exists
 
-For "what can you do" or "what skills are there", list the ten domains with one line each and ask what they are working on. Do not print the whole catalog.
+For "what can you do" or "what skills are there", list the eleven domains with one line each and ask what they are working on. Do not print the whole catalog.
 
 ## Keeping the map honest
 

@@ -57,6 +57,17 @@ Each step lists a tier for delegation. "Main" means keep it in the main session.
 
 For a video of an existing site, replace steps 1 and 2 with `website-to-hyperframes`.
 
+## Research project
+
+1. `brainstorming-research`: question, method and scope into an approved design doc. Main.
+2. `writing-research-plan`: the plan with hypothesis, tasks and checks. Main. Use `scaffold-research-project` first if there is no project folder yet.
+3. `literature-review`: the graded source guide and BibTeX. Standard tier for the database searches.
+4. `acquire-sources`, then `ingest-source` per source: PDFs on disk, then source pages. Standard tier, one agent per source. Run `wiki-lint` after the round.
+5. `drafting-manuscript`: the argument first, then one section at a time. Main.
+6. `requesting-peer-review`: constructive, then adversarial. Hard tier, fresh context per reviewer.
+
+`executing-research-plan` can run steps 4 and 5 from the plan.
+
 ## Ship a change safely
 
 1. `adversarial-review`: try to break the diff. Hard tier, with a second opinion from a different vendor when one is available.
