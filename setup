@@ -338,6 +338,13 @@ consent_uninstall() {
   remove_block "$HOME/.claude/CLAUDE.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
   remove_block "$CODEX_DIR/AGENTS.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
   remove_block "$CODEX_DIR/config.toml" "# kaito:begin" "# kaito:end"
+  # Codex rewrites config.toml and can drop the begin marker. Then take out our exact lines instead.
+  c="$CODEX_DIR/config.toml"
+  if [ -f "$c" ] && grep -qxF "writable_roots = [\"$KAITO_HOME\"]" "$c"; then
+    t=$(mktemp) && sed -e "/^\[sandbox_workspace_write\]\$/{N;\|\nwritable_roots = \[\"$KAITO_HOME\"\]\$|d;}" \
+      -e '/^# kaito:end$/d' "$c" > "$t" && cat "$t" > "$c"
+    rm -f "$t"
+  fi
 }
 
 uninstall() {
@@ -349,6 +356,9 @@ uninstall() {
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
   drop_overrides "$names" ""
   rm -rf "$STORE" "$STATE"
+  # gstack registers its own hooks at run time. With the store gone they are dead: let gstack prune them.
+  h="$REPO/gstack/bin/gstack-settings-hook"
+  if [ -x "$h" ] && command -v bun >/dev/null; then GSTACK_SETTINGS_FILE="$SETTINGS" "$h" prune-stale >/dev/null 2>&1 || :; fi
   [ "$PURGE" = 1 ] && rm -rf "$KAITO_HOME"
   echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
 }

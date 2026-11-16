@@ -174,3 +174,12 @@ test_ponytail_users_own_hook_not_claimed() {
   run_setup --uninstall
   assert_eq "$(ss)" "[$e]" users_hook_kept
 }
+
+test_codexwrite_uninstall_without_begin_marker() {  # Codex rewrites config.toml and drops the comment
+  mk_home; mk_repo
+  mkdir -p "$HOME/.codex"; printf 'model = "x"\n' > "$HOME/.codex/config.toml"
+  KAITO_ANSWERS=codexwrite=y run_setup
+  grep -vxF '# kaito:begin' "$HOME/.codex/config.toml" > "$HOME/t" && cat "$HOME/t" > "$HOME/.codex/config.toml"
+  run_setup --uninstall
+  assert_eq "$(grep -v '^$' "$HOME/.codex/config.toml")" 'model = "x"' leftover
+}
