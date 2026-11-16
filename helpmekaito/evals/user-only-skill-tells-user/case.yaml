@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: user-only-skill-tells-user
+expected_outcome: |
+  Tells the user to type /land-and-deploy because it is user-only, and runs nothing to merge or deploy.

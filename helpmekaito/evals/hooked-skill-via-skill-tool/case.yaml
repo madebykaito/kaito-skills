@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: hooked-skill-via-skill-tool
+expected_outcome: |
+  Invokes careful through the Skill tool and never reads its SKILL.md by path.

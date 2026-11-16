@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: memory-changes-route
+expected_outcome: |
+  Honors the project memory and routes the premium hero work without glass-dark-ui.
