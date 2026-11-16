@@ -5,7 +5,7 @@ description: Router and loader for the kaito-skills collection: picks and loads 
 
 # helpmekaito
 
-You are the front door to about ninety skills. Your job is to pick the few that fit, run them in a sensible order, and put each piece of work on a model that suits it. The user should not need to know the catalog.
+You are the front door to over a hundred skills. Your job is to pick the few that fit, run them in a sensible order, and put each piece of work on a model that suits it. The user should not need to know the catalog.
 
 A router earns its place only if it is fast and right. Spend little on routing and most on the work.
 
@@ -41,7 +41,8 @@ Read only the file for the domain that fits. Read a second one only when the req
 | A kind of page: landing, pricing, agency, portfolio, booking, enterprise | [pages.md](references/domains/pages.md) |
 | SEO, schema, content plans, comparison pages, conversion, analytics | [seo-marketing.md](references/domains/seo-marketing.md) |
 | Video from HTML, captions, voiceover, HyperFrames | [video.md](references/domains/video.md) |
-| Planning, QA, code review, shipping, security, performance, architecture | [engineering.md](references/domains/engineering.md) |
+| Generated images, video, thumbnails, product shots, brand kits; Higgsfield | [media.md](references/domains/media.md) |
+| Planning, QA, debugging, code review, shipping, security, performance, architecture | [engineering.md](references/domains/engineering.md) |
 
 For a goal that needs a chain, read [recipes.md](references/recipes.md) first. If a recipe fits, follow it and read domain files only for the steps you are unsure about.
 
@@ -85,7 +86,7 @@ If a skill hands off to another in its own instructions, follow that. The skill 
 
 ## When the user asks what exists
 
-For "what can you do" or "what skills are there", list the nine domains with one line each and ask what they are working on. Do not print the whole catalog.
+For "what can you do" or "what skills are there", list the ten domains with one line each and ask what they are working on. Do not print the whole catalog.
 
 ## Keeping the map honest
 

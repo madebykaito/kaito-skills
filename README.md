@@ -6,21 +6,49 @@ Each skill is a folder with a `SKILL.md`. The agent reads the description and lo
 
 The work is the proof. Run it yourself.
 
-## Install
+## Setup
 
 ```bash
 git clone https://github.com/madebykaito/kaito-skills.git
 cd kaito-skills
-for d in */; do ln -sfn "$PWD/${d%/}" ~/.claude/skills/"${d%/}"; done
+./setup
 ```
 
-One skill only:
+`setup` needs `git`, `node` and `npm`. It does this:
 
-```bash
-ln -s "$PWD/better-ui" ~/.claude/skills/better-ui
-```
+- Copies every skill into `~/.kaito/store` (override with `KAITO_HOME`).
+- Links skills per agent. Claude Code gets every skill, listed by name only except `helpmekaito` and your hot list. Codex gets `helpmekaito` plus the hot list. The hot list is the `hot` array in `~/.kaito/config.json`.
+- Builds `gstack` in the store and links it for Claude Code. Needs [bun](https://bun.sh).
+- Installs `@colbymchenry/codegraph` at the version in `codegraph.version` and connects it to Claude and Codex.
 
-Codex reads `~/.codex/skills`. Same command, different target.
+The name-only listing is a `skillOverrides` entry per skill in `~/.claude/settings.json`. Your other settings are kept, and `--uninstall` removes only the entries setup added.
+
+Skills you already have under the same name are left alone and reported as skipped.
+
+It asks before each optional step. With no terminal, the default is used.
+
+| Prompt | Default |
+|---|---|
+| Install codegraph and connect it to Claude and Codex | yes |
+| Add `.codegraph` to your global git ignore | yes |
+| Allow rules for kaito scripts and `~/.kaito` in Claude settings | no |
+| One-line `helpmekaito` nudge in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` | no |
+| `ponytail` always-on SessionStart hook | no |
+| Let Codex write to `~/.kaito` | no |
+
+Flags:
+
+| Flag | Effect |
+|---|---|
+| `--yes` | Take the default without asking. |
+| `--no-gstack` | Skip the gstack build and links. |
+| `--no-codegraph` | Skip the codegraph install. |
+| `--uninstall` | Remove our links, the store, and the settings and config edits setup made. |
+| `--purge` | `--uninstall`, and delete `~/.kaito` too. |
+
+`KAITO_ANSWERS="perms=y,nudge=n"` answers prompts by key (`codegraph`, `gitignore`, `perms`, `nudge`, `ponytail`, `codexwrite`). It beats `--yes`.
+
+After `git pull`, run `./setup` again. It is safe to re-run.
 
 ## Skills
 
@@ -49,6 +77,11 @@ Codex reads `~/.codex/skills`. Same command, different target.
 | [`app-store-screenshots`](app-store-screenshots/) | App Store screenshots built as ads with Next.js. |
 | [`impeccable`](impeccable/) | Design suite: shape, critique, audit, polish, animate, harden. Hooks are opt-in: `/impeccable hooks on`. |
 | [`stageshow`](stageshow/) | Faux product UI. Stills and cursor-driven demos with a React kit. |
+| [`design-taste-frontend`](design-taste-frontend/) | Anti-slop frontend for landing pages and redesigns. Reads the brief, picks a direction. |
+| [`stitch-design-taste`](stitch-design-taste/) | DESIGN.md files for Google Stitch with strict type, color, and layout rules. |
+| [`image-to-code`](image-to-code/) | Generate the design images first, then build the site to match. |
+| [`brandkit`](brandkit/) | Brand-guidelines boards and logo systems as generated images. |
+| [`banner-design`](banner-design/) | Banners for social, ads, hero sections, and print. Several art directions. |
 
 ### Motion and design engineering
 
@@ -116,6 +149,24 @@ Exact values, clear boundaries. Each domain owns its rules and hands off the res
 | Skill | What it does |
 |---|---|
 | [`minimal-zine-poster`](minimal-zine-poster/) | Theme to minimal zine poster, then generates the image. Needs `GEMINI_API_KEY`. |
+| [`imagegen-frontend-web`](imagegen-frontend-web/) | Website design references, one image per section. |
+| [`imagegen-frontend-mobile`](imagegen-frontend-mobile/) | App-native screen concepts and flows for iOS and Android. |
+
+### Media (Higgsfield)
+
+Image, video, audio, and sites through the Higgsfield CLI. Needs a Higgsfield account and credits.
+
+| Skill | What it does |
+|---|---|
+| [`higgsfield-generate`](higgsfield-generate/) | Images, video, 3D, audio, and ads. Default entry point. |
+| [`higgsfield-soul-id`](higgsfield-soul-id/) | Train a Soul Character on a face for consistent identity. |
+| [`higgsfield-product-photoshoot`](higgsfield-product-photoshoot/) | Brand-quality product photos, ads, and lifestyle shots. |
+| [`higgsfield-marketplace-cards`](higgsfield-marketplace-cards/) | Marketplace listing images and A+ style modules. |
+| [`higgsfield-youtube-thumbnail`](higgsfield-youtube-thumbnail/) | YouTube thumbnails and vertical covers. |
+| [`higgsfield-faceless-video`](higgsfield-faceless-video/) | Faceless explainers, documentaries, and story videos. |
+| [`higgsfield-video-explainer`](higgsfield-video-explainer/) | Legacy entry for the old explainer skill. Use `higgsfield-faceless-video`. |
+| [`higgsfield-brandkit`](higgsfield-brandkit/) | Full brand systems: logo marks, palettes, mockups, decks. |
+| [`higgsfield-websites`](higgsfield-websites/) | Build and deploy websites, apps, and games. |
 
 ### Page types
 
@@ -173,14 +224,25 @@ Write HTML, render video.
 
 | Skill | What it does |
 |---|---|
-| [`gstack`](gstack/) | Garry Tan's workflow suite: plan reviews, `/review`, `/qa`, `/ship`, `/cso`, browser QA. Run `./setup` inside `gstack/` after cloning. |
+| [`gstack`](gstack/) | Garry Tan's workflow suite: plan reviews, `/review`, `/qa`, `/ship`, `/cso`, browser QA. Built and linked by `./setup`. |
+| [`systematic-debugging`](systematic-debugging/) | Find the root cause before proposing a fix. |
+| [`test-driven-development`](test-driven-development/) | Write the failing test first, then the code. |
+| [`using-git-worktrees`](using-git-worktrees/) | Isolated workspace for feature work. |
+| [`ponytail`](ponytail/) | Pushes toward the smallest solution that works. Levels: lite, full, ultra. |
+| [`ponytail-review`](ponytail-review/) | Diff review for over-engineering. What to delete. |
+| [`ponytail-audit`](ponytail-audit/) | Whole-repo over-engineering audit. |
+| [`ponytail-debt`](ponytail-debt/) | Lists every `ponytail:` shortcut comment as a debt ledger. |
 
 ## Known limits
 
 - Some skills overlap. `better-*` gives exact values. `impeccable`, `apple-design`, and `emil-design-eng` give taste. Use both.
 - `shaders-cursor-ripples` needs a paid package.
 - `minimal-zine-poster` needs a Gemini API key. Without it you get a prompt, not an image.
-- `gstack` needs [bun](https://bun.sh) and its own `./setup`, which builds the browser and installs its sub-skills.
+- Node and npm are required for `./setup`.
+- Bun is required only for `gstack`. Use `--no-gstack` to skip it.
+- Higgsfield skills need a Higgsfield account and credits.
+- Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
+- Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
 - `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 

@@ -37,10 +37,32 @@ Skills with hooks run only through the Skill tool, so only on Claude.
 |---|---|
 | `adversarial-review` | A deep, skeptical review of a diff, PR or branch: assume it is broken and report only what survives refutation. |
 | `review` | A standard pre-landing review. Listed above. |
+| `ponytail-review` | A review for over-engineering only: what to delete, what stdlib replaces it. |
+
+Overlap rule: `review` checks a diff is safe to land. `adversarial-review` tries to break it. `ponytail-review` only asks what can be cut, never correctness. "Is this over-engineered" or "what can we delete" is `ponytail-review`. "Will this break" is `adversarial-review`. Otherwise `review`.
 
 `adversarial-review` scales to a multi-agent fan-out. That is where cross-vendor models help most: see [models.md](../models.md).
 
 Interface quality of a change is `interface-review` in [interface-rules.md](interface-rules.md), not code review.
+
+## Debugging, tests, branches
+
+| Skill | Use when |
+|---|---|
+| `systematic-debugging` | A bug, failing test or odd behavior with an unknown cause: find the root cause before any fix. |
+| `test-driven-development` | Building a feature or fix test-first. |
+| `using-git-worktrees` | Starting work that needs its own branch and folder, kept apart from the current checkout. |
+
+Overlap rule: gstack has no debugging skill of its own. A bug with an unknown cause is `systematic-debugging`. Bugs found by testing a running site are `qa`, which fixes as it goes.
+
+## Keeping code small (ponytail)
+
+| Skill | Use when |
+|---|---|
+| `ponytail` | The user wants the leanest working code: reuse, stdlib, shortest diff. A mode that stays on. |
+| `ponytail-review` | Over-engineering review of a diff. Listed above. |
+| `ponytail-audit` | Over-engineering audit of a whole repo, not one diff. |
+| `ponytail-debt` | Collecting the `ponytail:` shortcut comments into a debt list. |
 
 ## Performance and architecture
 
