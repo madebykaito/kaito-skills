@@ -43,10 +43,9 @@ ask() {
   if [ -n "${KAITO_ANSWERS:-}" ]; then
     a=${KAITO_ANSWERS%%,*}
     case "$KAITO_ANSWERS" in *,*) KAITO_ANSWERS=${KAITO_ANSWERS#*,} ;; *) KAITO_ANSWERS="" ;; esac
-  elif [ "$YES" = 0 ] && [ -r /dev/tty ]; then
+  elif [ "$YES" = 0 ] && { : </dev/tty; } 2>/dev/null; then
     [ "$d" = y ] && h="Y/n" || h="y/N"
-    printf '%s [%s] ' "$1" "$h" >/dev/tty
-    read -r a </dev/tty || a=""
+    { printf '%s [%s] ' "$1" "$h" >/dev/tty && read -r a </dev/tty; } 2>/dev/null || a=""
   fi
   case "${a:-$d}" in [yY]*) return 0 ;; *) return 1 ;; esac
 }
