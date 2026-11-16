@@ -155,8 +155,8 @@ example shows an ungraded list, the table here takes precedence and is prepended
 ## Reference Content
 
 The full API reference, query templates, and the 9-section prose layout of
-literaturguide.md live in the original skill at:
-`/Users/patrick/Documents/Aktuell/AI-Tooling/research-workflow/research-skills/dao-literature-review/`
+literaturguide.md live in the upstream `research-skills/dao-literature-review/` skill.
+Not bundled in kaito-skills: `research-skills/` is a separate upstream repo that does not ship with research-superpowers. Without it, use the databases' public API docs and the steps in this file.
 
 Key files:
 - `SKILL.md` — full workflow (English/German, all databases)

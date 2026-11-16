@@ -198,7 +198,7 @@ Grading-note template (optional appendix to the review report):
 
 ## Discipline-Specific Checklists
 
-Source: `research-skills/peer-review/references/` has general checklists. Add:
+Upstream `research-skills/peer-review/references/` has general checklists; it is not bundled here, so use `references/peer-reviewer.md`. Add:
 
 **Biblical Archaeology / Ancient History:**
 - Stratigraphy documented with Locus/Stratum references

@@ -268,6 +268,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Skill hooks last only for the session that loaded the skill.
 - Research hooks are not installed. `drift-report` runs on demand.
 - Some research skills use optional MCP servers for citation checks. They run without them.
+- Research scripts need Python 3.10 or newer. `grant-finder`, `literature-review` and `requesting-peer-review` mention upstream `research-skills/` files that are not bundled; they fall back to live search.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
 - `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.

@@ -22,8 +22,8 @@ Wrap-skill around `research-skills/dao-grant-finder`. Use when the user signals 
 1. **Confirm research topic and current funding state** with user
 2. **Identify discipline buckets** — Theology, Ancient Near Eastern Studies, Archaeology, Ancient History, DH — determines panel mapping
 3. **Dispatch `literature-scout`** in grant-mode (optional; a general subagent with `references/literature-scout.md` as its brief): identify recent funded projects in adjacent topics
-4. **Load curated foundation database** from `research-skills/dao-grant-finder/foundations.yaml`
-5. **Match topic → funders** using the database + DFG-Fachkollegien mapping (`fachkollegien.yaml`)
+4. **Load curated foundation database** from `research-skills/dao-grant-finder/foundations.yaml` if the user has it. Otherwise build the funder list from a live web search and say so
+5. **Match topic → funders** using the database + DFG-Fachkollegien mapping (`fachkollegien.yaml`) when present, else the live search results
 6. **Verify deadlines live** — web-search current cycles for top-5 matches
 7. **Produce grant-strategy document** (11 sections per dao-grant-finder template)
 8. **Produce `grant-bibliography.bib`** — precedent-setting funded works and key methodological references
@@ -58,6 +58,8 @@ digraph grants {
 ```
 
 ## Reference Content
+
+Not bundled in kaito-skills: `research-skills/` is a separate upstream repo that does not ship with research-superpowers. Without it, build the 11 sections from the checklist above and the live search.
 
 `research-skills/dao-grant-finder/`:
 

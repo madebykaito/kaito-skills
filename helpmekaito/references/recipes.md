@@ -66,7 +66,7 @@ For a video of an existing site, replace steps 1 and 2 with `website-to-hyperfra
 5. `drafting-manuscript`: the argument first, then one section at a time. Main.
 6. `requesting-peer-review`: constructive, then adversarial. Hard tier, fresh context per reviewer.
 
-`executing-research-plan` can run steps 4 and 5 from the plan.
+`executing-research-plan` can run steps 4 and 5 from the plan. Each step is its own task, often its own session, so the six-skill cap counts per step.
 
 ## Ship a change safely
 

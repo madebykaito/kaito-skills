@@ -51,6 +51,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -119,7 +120,7 @@ def plugin_cmd(script: str) -> str:
     plugin path for these; template-mirrored tools (bib-search, optimize-pdf,
     lint-wiki) keep their project-relative form, which is what the user types.
     """
-    return f"python3 {PLUGIN_ROOT / 'scripts' / script}"
+    return f"python3 {shlex.quote(str(PLUGIN_ROOT / 'scripts' / script))}"
 
 
 def registry_arg() -> str:
