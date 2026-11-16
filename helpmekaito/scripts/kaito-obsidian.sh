@@ -1,5 +1,6 @@
 #!/bin/sh
 # Mirror one memory note to the Obsidian Local REST API. Never fails the caller.
+set +x  # never trace: the key is read below
 skip() { echo "obsidian mirror skipped: $*"; exit 0; }
 [ "${1:-}" = push ] && [ -n "${2:-}" ] || skip "usage: push <note>"
 note=$2
@@ -12,13 +13,14 @@ url=$(cfg api_url); vault=$(cfg vault_path)
 key=$(sed -n 's/^OBSIDIAN_API_KEY=//p' "$K/.env" 2>/dev/null | head -n1)
 [ -n "$key" ] || skip "no api key"
 case "$note" in
+  *..*) skip "unknown note $note" ;;  # no path may leave the memory folder
   MEMORY.md) dest=Memory.md ;;
   global.md) dest=Global.md ;;
   projects/*.md) dest=$note ;;
   *) skip "unknown note $note" ;;
 esac
 [ -f "$K/memory/$note" ] || skip "missing file $note"
-dest=$(printf %s "$vault/$dest" | sed 's/ /%20/g')
+dest=$(node -e 'console.log(process.argv[1].split("/").map(encodeURIComponent).join("/"))' "$vault/$dest")
 # key goes via stdin config so it never appears in argv or output
 code=$(printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS --max-time 5 -K - -o /dev/null -w '%{http_code}' \
   -X PUT -H 'Content-Type: text/markdown' --data-binary "@$K/memory/$note" "$url/vault/$dest" 2>/dev/null) \

@@ -78,3 +78,19 @@ test_key_never_printed() {
   out=$(sh "$OB" push global.md 2>&1)
   case "$out" in *sekrit*) echo "key leaked"; exit 1;; esac
 }
+
+test_traversal_and_url_chars() {
+  mk_home; stub; setup "$URL"
+  echo secret > "$KAITO_HOME/outside.md"; echo "- q" > "$KAITO_HOME/memory/projects/a#b?c.md"
+  out=$(sh "$OB" push 'projects/../../outside.md')
+  sh "$OB" push 'projects/a#b?c.md'; kill $SPID
+  assert_eq "$out" "obsidian mirror skipped: unknown note projects/../../outside.md" refused
+  assert_eq "$(node -pe 'require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(l=>JSON.parse(l).path).join(" ")' "$REC")" \
+    "/vault/madebykaito/helpmekaito/projects/a%23b%3Fc.md" encoded
+}
+
+test_key_not_traced() {
+  mk_home; stub; setup "$URL"
+  out=$(sh -x "$OB" push global.md 2>&1); kill $SPID
+  case "$out" in *sekrit*) echo "key leaked under -x"; exit 1;; esac
+}

@@ -37,6 +37,32 @@ to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
 ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
 foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
 skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
+die() { echo "setup: $*" >&2; exit 1; }
+
+# Runs before install and uninstall: every rm -rf below hangs off these paths.
+check_paths() {
+  for v in "$HOME" "$KAITO_HOME"; do
+    case "$v" in /*) ;; *) die "HOME and KAITO_HOME must be absolute paths" ;; esac
+    case "$v" in *[[:space:]\$\`\"\\]*) die "HOME and KAITO_HOME must not contain spaces, quotes, \$, \` or backslashes" ;; esac
+  done
+  h=$(cd "$HOME" && pwd -P) k=${KAITO_HOME%/}
+  if [ -d "$KAITO_HOME" ]; then k=$(cd "$KAITO_HOME" && pwd -P); fi
+  case "$h/" in "${k%/}"/*) die "KAITO_HOME must not be HOME or a folder above it" ;; esac
+  if [ "$PURGE" = 1 ] && [ -d "$KAITO_HOME" ] && [ ! -e "$CONFIG" ] && [ ! -d "$STORE" ]; then
+    die "$KAITO_HOME does not look like a kaito home, not purging it"
+  fi
+}
+
+# One setup at a time; settings.json and state.json must parse before anything is changed.
+lock_and_check() {
+  mkdir -p "$KAITO_HOME"
+  mkdir "$KAITO_HOME/.setup.lock" 2>/dev/null || die "another setup is running (if not, remove $KAITO_HOME/.setup.lock)"
+  trap 'rmdir "$KAITO_HOME/.setup.lock" 2>/dev/null || :' EXIT
+  trap 'exit 130' INT TERM
+  for f in "$STATE" "$SETTINGS"; do
+    node "$J" check "$f" 2>/dev/null || die "$f is not valid JSON; fix it (or delete it) and re-run"
+  done
+}
 
 # ask <key> "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS ("key=y,key=n") beats
 # --yes, which beats the tty. An unlisted key, or no tty, means the default.
@@ -55,7 +81,7 @@ ask() {
 
 check_prereqs() {
   # ponytail: paths are passed around in space-separated lists; quote them all if this bites
-  case "$HOME$KAITO_HOME$REPO" in *[[:space:]]*) echo "setup: HOME, KAITO_HOME and the repo path must not contain spaces" >&2; exit 1 ;; esac
+  case "$REPO" in *[[:space:]]*) die "the repo path must not contain spaces" ;; esac
   for c in git node npm; do
     command -v "$c" >/dev/null || { echo "setup needs $c on PATH" >&2; exit 1; }
   done
@@ -163,19 +189,24 @@ link_all() {
 }
 
 # Claude lists every linked skill name-only, except the router and the hot list.
-# A user's own entry for one of our skills is left alone and not managed.
+# Any other value is the user's own and is left alone, on re-run and uninstall.
 write_overrides() {
   prev=$(node "$J" get "$STATE" managed_overrides | json_list)
   cur=$(node "$J" get "$SETTINGS" skillOverrides)
-  MANAGED=""
+  MANAGED="" new=""
   for n in $CLAUDE_LINKED; do
     [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
     case "$cur" in
-      *"\"$n\":\"name-only\""*) has "$n" "$prev" || continue ;;
-      *"\"$n\":"*) continue ;;  # the user set their own value: not ours, on re-run or uninstall
+      *"\"$n\":\"name-only\""*) ;;  # already there: ours to manage even if state.json was lost
+      *"\"$n\":"*) continue ;;
+      *) new="$new $n" ;;
     esac
-    case "$cur" in *"\"$n\":\"name-only\""*) ;; *) node "$J" set "$SETTINGS" "skillOverrides.$n" '"name-only"'; N_OVERRIDES=$((N_OVERRIDES + 1)) ;; esac
     MANAGED="$MANAGED $n"
+  done
+  # State first, so an interrupted run still knows what it wrote.
+  node "$J" set "$STATE" managed_overrides "$(to_json "$prev $MANAGED")"
+  for n in $new; do
+    node "$J" set "$SETTINGS" "skillOverrides.$n" '"name-only"'; N_OVERRIDES=$((N_OVERRIDES + 1))
   done
   drop_overrides "$prev" "$MANAGED"
 }
@@ -241,8 +272,8 @@ perms_stage() {
   perm_rules | while IFS= read -r r; do
     { in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" ||
       ! in_json "$(node "$J" get "$SETTINGS" permissions.allow)" "$r"; } || continue
+    node "$J" add "$STATE" managed_permissions "\"$r\""  # state first, as in write_overrides
     node "$J" add "$SETTINGS" permissions.allow "\"$r\""
-    node "$J" add "$STATE" managed_permissions "\"$r\""
   done
 }
 
@@ -271,8 +302,14 @@ hook_stage() {
   [ -f "$STORE/ponytail/SKILL.md" ] || return 0
   ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
   e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
-  node "$J" add "$SETTINGS" hooks.SessionStart "$e"
+  prev=$(node "$J" get "$STATE" managed_hook)
+  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook
+    node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
+  fi
+  # The same hook already there and not recorded as ours is the user's: leave it, do not claim it.
+  if [ -z "$prev" ]; then case "$(node "$J" get "$SETTINGS" hooks.SessionStart)" in *"$e"*) return 0 ;; esac; fi
   node "$J" set "$STATE" managed_hook "$e"
+  node "$J" add "$SETTINGS" hooks.SessionStart "$e"
 }
 
 codexwrite_stage() {
@@ -299,8 +336,12 @@ consent_uninstall() {
 
 uninstall() {
   consent_uninstall
+  names=$(node "$J" get "$STATE" managed_overrides | json_list)
+  for p in "$CLAUDE_SKILLS"/*; do  # also covers a lost state.json
+    if [ -L "$p" ] && ours "$(readlink "$p")"; then names="$names ${p##*/}"; fi
+  done
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
-  drop_overrides "$(node "$J" get "$STATE" managed_overrides | json_list)" ""
+  drop_overrides "$names" ""
   rm -rf "$STORE" "$STATE"
   [ "$PURGE" = 1 ] && rm -rf "$KAITO_HOME"
   echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
@@ -310,6 +351,9 @@ summary() {
   echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
 }
 
+check_paths
+command -v node >/dev/null || die "setup needs node on PATH"
+lock_and_check
 if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
 check_prereqs
 make_config

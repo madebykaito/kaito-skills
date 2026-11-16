@@ -8,6 +8,7 @@ mk_home() {
   KAITO_HOME="$HOME/.kaito"
   PATH="$TESTS_DIR/stubs:$PATH"
   export HOME KAITO_HOME PATH
+  unset CODEX_HOME XDG_CONFIG_HOME KAITO_ANSWERS  # inherited values would point setup at real config
 }
 
 assert_eq() { [ "$1" = "$2" ] || { echo "  not equal: '$1' vs '$2' ($3)"; exit 1; }; }

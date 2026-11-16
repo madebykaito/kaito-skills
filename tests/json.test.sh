@@ -69,3 +69,23 @@ test_json_add_rm_each() {
   assert_eq "$(node "$J" get "$f" p.list)" '[{"a":1}]' rm
   assert_eq "$(node "$J" each "$f" nope)" "" each_missing
 }
+
+test_json_rm_missing_keeps_parent() {
+  mk_home
+  echo '{"a":1}' > "$HOME/r.json"
+  node "$J" rm "$HOME/r.json" a.b '"x"' || exit 1
+  assert_eq "$(tr -d ' \n' < "$HOME/r.json")" '{"a":1}' parent_kept
+  node "$J" add "$HOME/r.json" a '"x"' 2>/dev/null && exit 1
+  assert_eq "$(tr -d ' \n' < "$HOME/r.json")" '{"a":1}' add_refused
+}
+
+test_json_write_keeps_symlink_and_mode() {
+  mk_home
+  mkdir "$HOME/dots"; echo '{}' > "$HOME/dots/s.json"; chmod 600 "$HOME/dots/s.json"
+  ln -s "$HOME/dots/s.json" "$HOME/s.json"
+  node "$J" set "$HOME/s.json" a 1 || exit 1
+  [ -L "$HOME/s.json" ] || exit 1
+  assert_eq "$(node "$J" get "$HOME/dots/s.json" a)" 1 written
+  assert_eq "$(ls -l "$HOME/dots/s.json" | cut -c1-10)" "-rw-------" mode
+  assert_eq "$(ls "$HOME/dots" | wc -l | tr -d ' ')" 1 no_tmp_left
+}

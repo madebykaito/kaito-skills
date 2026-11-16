@@ -163,3 +163,14 @@ test_inline_marker_mention_kept() {
   run_setup --uninstall
   cmp "$HOME/.claude/CLAUDE.md" "$HOME/orig" || { cat "$HOME/.claude/CLAUDE.md"; exit 1; }
 }
+
+test_ponytail_users_own_hook_not_claimed() {
+  mk_home; mk_repo; fake_ponytail
+  mkdir -p "$HOME/.claude"
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$KAITO_HOME/store/ponytail/SKILL.md\\\"\"}]}"
+  node "$J" add "$(S)" hooks.SessionStart "$e"
+  KAITO_ANSWERS=ponytail=y run_setup
+  assert_eq "$(ss)" "[$e]" once
+  run_setup --uninstall
+  assert_eq "$(ss)" "[$e]" users_hook_kept
+}

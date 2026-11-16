@@ -115,3 +115,40 @@ test_uninstall() {
   assert_no "$KAITO_HOME"
   assert_no "$HOME/.claude/skills/helpmekaito"
 }
+
+test_purge_refuses_dangerous_home() {
+  mk_home; mk_repo
+  echo keep > "$HOME/mine.txt"; mkdir -p "$HOME/docs"; echo keep > "$HOME/docs/a.txt"
+  for k in "$HOME" / relative "$HOME/docs"; do
+    KAITO_HOME="$k" "$R/setup" --purge > "$HOME/out" 2>&1 && { echo "purge ran for $k"; exit 1; }
+  done
+  assert_file "$HOME/mine.txt"; assert_file "$HOME/docs/a.txt"
+  KAITO_HOME="$HOME/a\$(id)b" "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 && exit 1
+  return 0
+}
+
+test_lost_state_still_uninstalls_overrides() {
+  mk_home; mk_repo; run_setup
+  rm "$KAITO_HOME/state.json"
+  run_setup
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" managed_overrides | grep -c better-ui)" 1 reclaimed
+  rm "$KAITO_HOME/state.json"
+  run_setup --uninstall
+  assert_eq "$(ov better-ui)" "" removed
+}
+
+test_corrupt_files_stop_setup_early() {
+  mk_home; mk_repo; run_setup
+  echo '{"oops"' > "$KAITO_HOME/state.json"
+  "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 && exit 1
+  "$R/setup" --uninstall > "$HOME/out" 2>&1 && exit 1
+  assert_eq "$(ov better-ui)" '"name-only"' untouched
+  assert_no "$KAITO_HOME/.setup.lock"
+}
+
+test_second_setup_refused_while_locked() {
+  mk_home; mk_repo; run_setup
+  mkdir "$KAITO_HOME/.setup.lock"
+  "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 && exit 1
+  grep -q 'another setup' "$HOME/out" || exit 1
+}
