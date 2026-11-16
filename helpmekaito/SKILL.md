@@ -49,7 +49,7 @@ For a goal that needs a chain, read [recipes.md](references/recipes.md) first. I
 
 ## 3. Choose
 
-Pick at most three skills, or one recipe. A recipe is a menu, not a load list: load a step's skill when you reach that step, and stop at six skills in one task.
+Pick at most three skills, or one recipe. A recipe is a menu, not a load list: load a step's skill when you reach that step. Name and load at most six skills in one task, counting optional steps and the final QA. Drop the least needed.
 
 - Each domain file has overlap rules. Use them when two skills look alike.
 - Route only to installed skills. If the best fit is not installed, say so and name the next best.
@@ -79,7 +79,7 @@ Route: <skill> then <skill>. Model: <this session | model via runner, why>.
 
 Then load each skill and follow it fully. A route that is announced and then ignored is worse than no route.
 
-- **Skill tool available (Claude):** invoke the skill by name. It may show as a bare name; that is expected.
+- **Skill tool available (Claude):** invoke the skill by name through the Skill tool, even if it is not in the visible list. Do not run kaito-path.sh or read its SKILL.md first. It may show as a bare name; that is expected. If the call fails as unknown, say the skill is not installed here and tell the user to type `/<skill>` after running `./setup` in kaito-skills.
 - **Otherwise (Codex, other hosts):** run `~/.kaito/store/helpmekaito/scripts/kaito-path.sh <skill> --host codex`, read the printed file and follow it as if invoked, resolving relative paths against its folder. Exit 1: not installed. 3: user-only, and setup registers no such command on this host: tell the user to run `/<skill>` in Claude Code. 4: has hooks, needs Claude; say so, do not read it.
 - If `KAITO_HOME` is set, use it in place of `~/.kaito` in every path here.
 - Plugin skills (`legal:*`, `anthropic-skills:*`) always use the Skill tool.
