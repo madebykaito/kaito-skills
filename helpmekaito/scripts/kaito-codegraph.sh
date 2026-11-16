@@ -16,14 +16,17 @@ case "$cmd" in
   slug) echo "$s" ;;
   init)
     guard
-    new=0
+    newlink=0 newdir=0
+    [ -d "$d" ] || newdir=1
     if [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ]; then mkdir -p "$d"
     elif [ -e "$l" ] || [ -L "$l" ]; then die "$l already exists, run: kaito-codegraph.sh adopt $p"
-    else new=1; mkdir -p "$d"; ln -s "$d" "$l"; fi
+    else newlink=1; mkdir -p "$d"; ln -s "$d" "$l"; fi
     echo "$p" > "$d/.kaito-path"
     (cd "$p" && codegraph init -y) || {
       # Leave no link behind that reads as "indexed" when the index was never built.
-      if [ "$new" = 1 ]; then rm -f "${l:?}"; rm -rf "${CG:?}/${s:?}"; fi
+      # Only what this run made: an index that was already central is never deleted.
+      if [ "$newlink" = 1 ] || [ "$newdir" = 1 ]; then rm -f "${l:?}"; fi
+      if [ "$newdir" = 1 ]; then rm -rf "${CG:?}/${s:?}"; fi
       die "codegraph init failed in $p"
     }
     ;;

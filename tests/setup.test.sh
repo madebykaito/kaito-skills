@@ -119,7 +119,7 @@ test_uninstall() {
 test_purge_refuses_dangerous_home() {
   mk_home; mk_repo
   echo keep > "$HOME/mine.txt"; mkdir -p "$HOME/docs"; echo keep > "$HOME/docs/a.txt"
-  for k in "$HOME" / relative "$HOME/docs"; do
+  for k in "$HOME" / relative "$HOME/docs" "$HOME/new/../../$(basename "$HOME")"; do
     KAITO_HOME="$k" "$R/setup" --purge > "$HOME/out" 2>&1 && { echo "purge ran for $k"; exit 1; }
   done
   assert_file "$HOME/mine.txt"; assert_file "$HOME/docs/a.txt"

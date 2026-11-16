@@ -108,3 +108,13 @@ test_adopt_recovers_after_interrupt() {
   sh "$CG" adopt "$P" >/dev/null || exit 1
   assert_link "$P/.codegraph" "$KAITO_HOME/codegraph/$s"
 }
+
+test_failed_init_keeps_existing_index() {
+  mk_home; proj app; s=$(sh "$CG" slug "$P")
+  mkdir -p "$KAITO_HOME/codegraph/$s"; echo db > "$KAITO_HOME/codegraph/$s/x"
+  CODEGRAPH_STUB_FAIL=1 sh "$CG" init "$P" >/dev/null 2>&1 && exit 1
+  assert_file "$KAITO_HOME/codegraph/$s/x"
+  proj fresh; s=$(sh "$CG" slug "$P")
+  CODEGRAPH_STUB_FAIL=1 sh "$CG" init "$P" >/dev/null 2>&1 && exit 1
+  assert_no "$P/.codegraph"; assert_no "$KAITO_HOME/codegraph/$s"
+}

@@ -16,8 +16,8 @@ for d in "$store"/*/; do
   grep -qF "\`$n\`" "$maps"/*.md || { echo "unmapped skill: $n"; bad=1; }
 done
 
-for n in $({ grep -h '^|' "$maps"/*.md; grep -E '^[0-9]+\.' "$here/references/recipes.md" 2>/dev/null; } |
-    grep -o '`[a-z][a-z0-9-]*`' | tr -d '`' | sort -u); do
+for n in $({ grep -h '^|' "$maps"/*.md; cat "$here/references/recipes.md" 2>/dev/null; } |
+    grep -o '`/\{0,1\}[a-z][a-z0-9-]*`' | tr -d '`/' | sort -u); do
   case " $not_skills " in *" $n "*) continue ;; esac
   f="$store/$n/SKILL.md"; [ -f "$f" ] || f="$store/gstack/$n/SKILL.md"
   [ -f "$f" ] || { echo "mapped but missing: $n"; bad=1; continue; }

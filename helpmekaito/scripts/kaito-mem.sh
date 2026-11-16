@@ -20,8 +20,14 @@ mirror() {  # best effort, never changes our exit code; a real failure is shown,
 }
 # One writer at a time. ponytail: a lock left by a killed run is taken over after 2s.
 lock() {
-  i=0; until mkdir "$M/.lock" 2>/dev/null; do i=$((i + 1)); [ "$i" -gt 20 ] && break; sleep 0.1; done
-  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT
+  [ -w "$M" ] || return 1  # read-only memory: fail fast, the caller prints why
+  i=0; until mkdir "$M/.lock" 2>/dev/null; do
+    i=$((i + 1))
+    if [ "$i" -eq 20 ]; then rmdir "$M/.lock" 2>/dev/null || :; fi  # take over a lock a killed run left
+    [ "$i" -le 21 ] || return 1
+    sleep 0.1
+  done
+  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT  # set only once the lock is ours
 }
 
 case "${1:-}" in

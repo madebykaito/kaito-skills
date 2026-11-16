@@ -43,6 +43,7 @@ die() { echo "setup: $*" >&2; exit 1; }
 check_paths() {
   for v in "$HOME" "$KAITO_HOME"; do
     case "$v" in /*) ;; *) die "HOME and KAITO_HOME must be absolute paths" ;; esac
+    case "$v/" in */../*|*/./*) die "HOME and KAITO_HOME must not contain . or .. parts" ;; esac
     case "$v" in *[[:space:]\$\`\"\\]*) die "HOME and KAITO_HOME must not contain spaces, quotes, \$, \` or backslashes" ;; esac
   done
   h=$(cd "$HOME" && pwd -P) k=${KAITO_HOME%/}
@@ -304,13 +305,13 @@ nudge_stage() {
 }
 
 hook_stage() {
-  [ -f "$STORE/ponytail/SKILL.md" ] || return 0
-  ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
   e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
   prev=$(node "$J" get "$STATE" managed_hook)
-  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook
+  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook, whatever the answer below
     node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
   fi
+  [ -f "$STORE/ponytail/SKILL.md" ] || return 0
+  ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
   # The same hook already there and not recorded as ours is the user's: leave it, do not claim it.
   if [ -z "$prev" ]; then case "$(node "$J" get "$SETTINGS" hooks.SessionStart)" in *"$e"*) return 0 ;; esac; fi
   node "$J" set "$STATE" managed_hook "$e"
