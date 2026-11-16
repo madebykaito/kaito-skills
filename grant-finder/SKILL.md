@@ -59,7 +59,7 @@ digraph grants {
 
 ## Reference Content
 
-Not bundled in kaito-skills: `research-skills/` is a separate upstream repo that does not ship with research-superpowers. Without it, build the 11 sections from the checklist above and the live search.
+Not bundled in kaito-skills: `research-skills/` is a separate upstream repo that does not ship with research-superpowers. Without it, use these 11 sections: 1. topic summary, 2. current funding state, 3. discipline and panel mapping, 4. precedent funded projects, 5. top funder matches with fit, 6. deadlines (verified live), 7. eligibility and requirements, 8. budget range, 9. application strategy and timeline, 10. risks, 11. next steps.
 
 `research-skills/dao-grant-finder/`:
 
