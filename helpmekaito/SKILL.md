@@ -14,7 +14,7 @@ A router earns its place only if it is fast and right. Spend little on routing a
 Write script commands exactly as shown. `KAITO_HOME` overrides `~/.kaito`.
 
 - If `~/.kaito/store` or `codegraph` is missing, say "run ./setup in kaito-skills" and go on without it.
-- At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where`; if it is not found, skip. Its facts shape the route.
+- At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where`; if it is not found, skip. Its facts shape the route. Read `references/memory.md` before writing a note.
 - `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `codegraph.auto_index` in `~/.kaito/config.json`. `ask`: ask once, run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh codegraph-decision yes|no`, on yes `~/.kaito/store/helpmekaito/scripts/kaito-codegraph.sh init`. `true`: init without asking. `false`: skip.
 
 **Direct mode:** `/helpmekaito <skill> <task>` skips routing. Load that skill now (step 5).
