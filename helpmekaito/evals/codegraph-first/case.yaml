@@ -1,4 +1,5 @@
 schema_version: "1.1"
 name: codegraph-first
 expected_outcome: |
-  The first code lookup is codegraph_explore, before any Grep, Glob or Read of source files.
+  Fallback test. With codegraph_explore it is the first code lookup; without it (the eval sandbox) the reply says so
+  and invents nothing. This does not prove the codegraph integration works.

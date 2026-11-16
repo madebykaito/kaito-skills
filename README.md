@@ -48,7 +48,7 @@ Flags:
 
 `KAITO_ANSWERS="perms=y,nudge=n"` answers prompts by key (`codegraph`, `gitignore`, `perms`, `nudge`, `ponytail`, `codexwrite`). It beats `--yes`.
 
-After `git pull`, run `./setup` again. It is safe to re-run.
+After `git pull`, run `./setup` again. Only one setup runs at a time. It stops before changing anything if `settings.json` or `state.json` is not valid JSON.
 
 ## Skills
 

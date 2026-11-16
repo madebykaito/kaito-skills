@@ -16,15 +16,22 @@ case "$cmd" in
   slug) echo "$s" ;;
   init)
     guard
-    if [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ]; then :
+    new=0
+    if [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ]; then mkdir -p "$d"
     elif [ -e "$l" ] || [ -L "$l" ]; then die "$l already exists, run: kaito-codegraph.sh adopt $p"
-    else mkdir -p "$d"; ln -s "$d" "$l"; fi
+    else new=1; mkdir -p "$d"; ln -s "$d" "$l"; fi
     echo "$p" > "$d/.kaito-path"
-    (cd "$p" && codegraph init -y)
+    (cd "$p" && codegraph init -y) || {
+      # Leave no link behind that reads as "indexed" when the index was never built.
+      if [ "$new" = 1 ]; then rm -f "${l:?}"; rm -rf "${CG:?}/${s:?}"; fi
+      die "codegraph init failed in $p"
+    }
     ;;
   adopt)
     guard
     [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ] && { echo "already adopted: $s"; exit 0; }
+    # An adopt cut off between the move and the link: the index is already central, relink it.
+    if [ ! -e "$l" ] && [ ! -L "$l" ] && [ -d "$d" ]; then ln -s "$d" "$l"; echo "adopted: $s"; exit 0; fi
     [ -d "$l" ] && [ ! -L "$l" ] || die "no real .codegraph folder in $p"
     [ ! -e "$d" ] || die "$d already exists"
     mkdir -p "$CG"; mv "$l" "$d"; ln -s "$d" "$l"

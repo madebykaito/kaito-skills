@@ -106,10 +106,13 @@ install_store() {
     SKILLS="$SKILLS $n"; N_SKILLS=$((N_SKILLS + 1))
   done
   [ $# -gt 0 ] && rsync -a --delete --exclude .git --exclude node_modules --exclude dist "$@" "$STORE/"
-  for d in "$STORE"/*/; do
-    d=${d%/} n=${d##*/}
-    [ -d "$d" ] && ! has "$n" "$SKILLS gstack _gstack-claude _gstack-codex" && rm -rf "$d"
+  cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
+  # Remove only skills an earlier run put here. Anything else in the store is not ours.
+  for n in $(node "$J" get "$STATE" store_skills | json_list); do
+    case "$n" in .*) continue ;; esac
+    has "$n" "$SKILLS" || rm -rf "${STORE:?}/${n:?}"
   done
+  node "$J" set "$STATE" store_skills "$(to_json "$SKILLS")"
   return 0
 }
 
@@ -231,13 +234,15 @@ write_state() {
 codegraph_stage() {
   command -v npm >/dev/null || { echo "codegraph: skipped, npm not found"; return 0; }
   pin=$(cat "$REPO/codegraph.version")
-  case "$(codegraph --version 2>/dev/null || true)" in
-    *"$pin"*) ;;
-    *) if ask codegraph "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
-         npm i -g "@colbymchenry/codegraph@$pin"
-         codegraph install --target claude,codex --location global -y
-       fi ;;
-  esac
+  have=0; case "$(codegraph --version 2>/dev/null || true)" in *"$pin"*) have=1 ;; esac
+  # Connecting is tracked on its own: the right version can be installed and still not connected.
+  if [ "$have" = 0 ] || [ "$(node "$J" get "$STATE" codegraph_connected)" != "\"$pin\"" ]; then
+    if ask codegraph "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
+      [ "$have" = 1 ] || npm i -g "@colbymchenry/codegraph@$pin"
+      codegraph install --target claude,codex --location global -y
+      node "$J" set "$STATE" codegraph_connected "\"$pin\""
+    fi
+  fi
   gi="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
   grep -qxF .codegraph "$gi" 2>/dev/null && return 0
   if ask gitignore "Add .codegraph to $gi?" y; then

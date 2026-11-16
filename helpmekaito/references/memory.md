@@ -11,7 +11,7 @@ Notes live in `~/.kaito/memory`: `MEMORY.md` (index), `global.md`, `projects/<sl
 
 ## Never store
 
-- Secrets: keys, tokens, passwords. The script rejects them.
+- Secrets: keys, tokens, passwords. The script rejects the obvious shapes only, so do not rely on it.
 - Code or diffs.
 - One-off task state or progress.
 
@@ -20,7 +20,7 @@ Notes live in `~/.kaito/memory`: `MEMORY.md` (index), `global.md`, `projects/<sl
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note global "<text>"` for facts true everywhere.
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note project "<text>"` for facts about the current project.
 
-One line per note. If it prints that memory is read-only, carry on, do not retry.
+One line per note; line breaks are flattened. If it prints that memory is read-only, carry on, do not retry.
 
 ## Obsidian
 

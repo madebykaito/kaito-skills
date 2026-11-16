@@ -152,3 +152,11 @@ test_second_setup_refused_while_locked() {
   "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 && exit 1
   grep -q 'another setup' "$HOME/out" || exit 1
 }
+
+test_store_keeps_foreign_dirs_and_ships_licenses() {
+  mk_home; mk_repo; run_setup
+  mkdir "$KAITO_HOME/store/myskill"; echo mine > "$KAITO_HOME/store/myskill/SKILL.md"
+  run_setup
+  assert_file "$KAITO_HOME/store/myskill/SKILL.md"
+  assert_file "$KAITO_HOME/store/THIRD_PARTY_LICENSES.md"; assert_file "$KAITO_HOME/store/LICENSE"
+}

@@ -18,7 +18,7 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `frontend-design` | Anthropic | Apache-2.0 |
 | `vercel-react-best-practices`, `web-design-guidelines` | Vercel | MIT |
 | `stop-slop` | Hardik Pandya | MIT |
-| `conductor-rewrite-performance`, `linear-local-first-architecture` | [brotzky/performance-skills](https://github.com/brotzky/performance-skills) | see upstream |
+| `conductor-rewrite-performance`, `linear-local-first-architecture` | brotzky/performance-skills (the repository is no longer public) | not confirmed: no license text was vendored |
 | `higgsfield-brandkit`, `higgsfield-faceless-video`, `higgsfield-generate`, `higgsfield-marketplace-cards`, `higgsfield-product-photoshoot`, `higgsfield-soul-id`, `higgsfield-video-explainer`, `higgsfield-websites`, `higgsfield-youtube-thumbnail` | [higgsfield-ai/skills](https://github.com/higgsfield-ai/skills), Higgsfield AI | MIT |
 | `design-taste-frontend`, `stitch-design-taste`, `image-to-code`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `brandkit` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill), Leonxlnx | MIT |
 | `systematic-debugging`, `test-driven-development`, `using-git-worktrees` | [obra/superpowers](https://github.com/obra/superpowers), Jesse Vincent | MIT |

@@ -47,7 +47,8 @@ test_gstack_links() {
   assert_link "$HOME/.claude/skills/review" "$(S)/_gstack-claude/review"
   assert_link "$HOME/.claude/skills/qa" "$(S)/_gstack-claude/qa"
   assert_link "$HOME/.claude/skills/better-ui" "$(S)/better-ui"
-  assert_file "$(S)/_gstack-codex/SKILL.md"
+  # The Codex render and the loader must agree on the layout.
+  assert_eq "$(sh "$REPO/helpmekaito/scripts/kaito-path.sh" review --host codex)" "$(S)/_gstack-codex/.agents/skills/gstack-review/SKILL.md" codex_loader
   assert_eq "$(ov gstack)" '"name-only"' router_override
   assert_eq "$(ov review)" '"name-only"' sub_override
   assert_eq "$(ov qa)" "" hot_visible

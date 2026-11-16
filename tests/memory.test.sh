@@ -88,3 +88,12 @@ test_note_is_literal() {
   assert_eq "$(wc -l < "$KAITO_HOME/memory/projects/$s.md" | tr -d ' ')" 1 lines
   (cd "$P" && sh "$MEM" where) | grep -qF "$want" || exit 1
 }
+
+test_note_newline_and_secret_shapes() {
+  mk_home; P="$(mktemp -d)/app"; mkdir -p "$P"; git -C "$P" init -q
+  (cd "$P" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" note project "x
+codegraph: yes") || exit 1
+  ! grep -rq '^codegraph:' "$KAITO_HOME/memory/projects" || exit 1
+  (cd "$P" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" note global "password is hunter2" 2>/dev/null) && exit 1
+  assert_no "$KAITO_HOME/memory/.lock"
+}

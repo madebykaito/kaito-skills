@@ -67,3 +67,9 @@ test_check_routes_accepts_gstack_names() {
   o=$(sh "$H/scripts/check-routes.sh") && { echo "should fail: $o"; exit 1; }
   echo "$o" | grep -qx 'mapped but missing: ghost' || { echo "$o"; exit 1; }
 }
+
+test_real_catalog_routes_ok() {
+  out=$(sh "$REPO/helpmekaito/scripts/check-routes.sh") || { echo "$out"; exit 1; }
+  case "$out" in *"routes ok"*) ;; *) echo "$out"; exit 1 ;; esac
+  echo "$out" | grep -q '^user-only:.*review-animations' || { echo "$out"; exit 1; }
+}

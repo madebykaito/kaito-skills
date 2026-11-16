@@ -2,7 +2,7 @@
 # kaito-path.sh <skill> [--host claude|codex]
 # Prints the SKILL.md path for a skill in the kaito store.
 # Exit 1: not found. Exit 3: user-only (disable-model-invocation), tell the
-# user to type /<skill>. Exit 4: has hooks and host is codex, needs Claude.
+# user to type /<skill> (in Claude Code: no other host has the command). Exit 4: has hooks and host is codex, needs Claude.
 # The path is printed on exit 3 and 4 too.
 n="$1"; host=claude
 [ "$2" = --host ] && host="$3"
