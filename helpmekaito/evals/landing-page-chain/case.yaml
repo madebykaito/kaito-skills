@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: landing-page-chain
+expected_outcome: |
+  Routes to a chain that starts with landing-page, then copywriting, then frontend-design, and keeps the work in the main session.
