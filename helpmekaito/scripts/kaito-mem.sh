@@ -6,7 +6,7 @@ here=$(dirname "$0")
 M="${KAITO_HOME:-$HOME/.kaito}/memory"
 RO="memory is read-only here; to allow Codex writes run setup and answer yes to codexwrite"
 
-p=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+g=1; p=$(git rev-parse --show-toplevel 2>/dev/null) || { g=0; p=$(pwd); }
 p=$(cd "$p" && pwd -P)
 s=$(sh "$here/kaito-codegraph.sh" slug "$p")
 pf="$M/projects/$s.md"
@@ -18,10 +18,10 @@ mirror() {  # best effort, never changes our exit code
 
 case "${1:-}" in
   where)
-    if [ "$p" = / ] || [ "$p" = "$(cd "$HOME" && pwd -P)" ]; then i=n/a
+    if [ "$g" = 0 ] || [ "$p" = / ] || [ "$p" = "$(cd "$HOME" && pwd -P)" ]; then i=n/a
     elif [ -e "$p/.codegraph" ] || [ -L "$p/.codegraph" ]; then i=yes; else i=no; fi
     out=$(printf "%s\n" "slug=$s" "project_file=$pf" "indexed=$i"
-      cat "$M/MEMORY.md" "$pf" 2>/dev/null || :)
+      cat "$pf" "$M/global.md" "$M/MEMORY.md" 2>/dev/null || :)  # project facts first: they survive the cut
     if [ "$(printf "%s\n" "$out" | wc -l)" -gt 40 ]; then printf "%s\n" "$out" | head -39; echo ...; else printf "%s\n" "$out"; fi
     ;;
   note)

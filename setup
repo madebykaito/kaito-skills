@@ -54,6 +54,8 @@ ask() {
 }
 
 check_prereqs() {
+  # ponytail: paths are passed around in space-separated lists; quote them all if this bites
+  case "$HOME$KAITO_HOME$REPO" in *[[:space:]]*) echo "setup: HOME, KAITO_HOME and the repo path must not contain spaces" >&2; exit 1 ;; esac
   for c in git node npm; do
     command -v "$c" >/dev/null || { echo "setup needs $c on PATH" >&2; exit 1; }
   done
@@ -168,7 +170,10 @@ write_overrides() {
   MANAGED=""
   for n in $CLAUDE_LINKED; do
     [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
-    case "$cur" in *"\"$n\":"*) has "$n" "$prev" || continue ;; esac
+    case "$cur" in
+      *"\"$n\":\"name-only\""*) has "$n" "$prev" || continue ;;
+      *"\"$n\":"*) continue ;;  # the user set their own value: not ours, on re-run or uninstall
+    esac
     case "$cur" in *"\"$n\":\"name-only\""*) ;; *) node "$J" set "$SETTINGS" "skillOverrides.$n" '"name-only"'; N_OVERRIDES=$((N_OVERRIDES + 1)) ;; esac
     MANAGED="$MANAGED $n"
   done
@@ -177,7 +182,11 @@ write_overrides() {
 
 # drop_overrides <names> <keep>
 drop_overrides() {
-  for n in $1; do has "$n" "$2" || node "$J" del "$SETTINGS" "skillOverrides.$n"; done
+  c=$(node "$J" get "$SETTINGS" skillOverrides)
+  for n in $1; do
+    has "$n" "$2" && continue
+    case "$c" in *"\"$n\":\"name-only\""*) node "$J" del "$SETTINGS" "skillOverrides.$n" ;; esac
+  done
 }
 
 write_state() {
@@ -212,7 +221,7 @@ in_json() { case "$1" in *"\"$2\""*) return 0 ;; esac; return 1; }
 perm_rules() {
   t=${KAITO_HOME#"$HOME"/} s=${STORE#"$HOME"/}
   if [ "$t" != "$KAITO_HOME" ]; then
-    printf '%s\n' "Read(~/$t/**)" "Edit(~/$t/memory/**)" "Write(~/$t/memory/**)"
+    printf '%s\n' "Read(~/$t/**)" "Edit(~/$t/memory/**)"
   fi
   for p in "gstack/bin/*" "gstack/browse/dist/browse *" "helpmekaito/scripts/*"; do
     printf 'Bash(%s/%s)\n' "$STORE" "$p"
@@ -222,6 +231,12 @@ perm_rules() {
 
 # Rules already in the user's file are left alone and not recorded as ours.
 perms_stage() {
+  rules=$(perm_rules)  # drop rules an older setup managed and this one no longer writes
+  node "$J" each "$STATE" managed_permissions | while IFS= read -r r; do
+    printf '%s\n' "$rules" | grep -qxF -- "$r" && continue
+    node "$J" rm "$SETTINGS" permissions.allow "\"$r\""
+    node "$J" rm "$STATE" managed_permissions "\"$r\""
+  done
   ask perms "Add allow rules for kaito scripts and ~/.kaito?" n || return 0
   perm_rules | while IFS= read -r r; do
     { in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" ||

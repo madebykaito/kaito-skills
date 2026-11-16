@@ -20,13 +20,23 @@ test_permissions_default_no() {
 test_permissions_yes_exact_rules() {
   mk_home; mk_repo; KAITO_ANSWERS=perms=y run_setup
   st=$KAITO_HOME/store
-  want=$(printf '%s\n' 'Read(~/.kaito/**)' 'Edit(~/.kaito/memory/**)' 'Write(~/.kaito/memory/**)' \
+  want=$(printf '%s\n' 'Read(~/.kaito/**)' 'Edit(~/.kaito/memory/**)' \
     'Bash(~/.kaito/store/gstack/bin/*)' "Bash($st/gstack/bin/*)" \
     'Bash(~/.kaito/store/gstack/browse/dist/browse *)' "Bash($st/gstack/browse/dist/browse *)" \
     'Bash(~/.kaito/store/helpmekaito/scripts/*)' "Bash($st/helpmekaito/scripts/*)" | sort)
   assert_eq "$(allow | sort)" "$want" rules
   ! allow | grep -qx -e 'Bash' -e 'Bash(*)' || exit 1
   assert_eq "$(node "$J" each "$KAITO_HOME/state.json" managed_permissions | sort)" "$want" state
+}
+
+test_stale_managed_rule_dropped() {
+  mk_home; mk_repo; KAITO_ANSWERS=perms=y run_setup
+  old='Write(~/.kaito/memory/**)'
+  node "$J" add "$(S)" permissions.allow "\"$old\""
+  node "$J" add "$KAITO_HOME/state.json" managed_permissions "\"$old\""
+  run_setup
+  ! allow | grep -qxF "$old" || exit 1
+  assert_eq "$(allow | wc -l | tr -d ' ')" 8 kept
 }
 
 test_permissions_outside_home_absolute_only() {
@@ -41,7 +51,7 @@ test_permissions_idempotent_and_uninstall_keeps_others() {
   echo '{"permissions":{"allow":["Bash(git status)","Read(~/.kaito/**)"]},"model":"m"}' > "$(S)"
   KAITO_ANSWERS=perms=y run_setup; KAITO_ANSWERS=perms=y run_setup
   assert_eq "$(allow | grep -cxF 'Read(~/.kaito/**)')" 1 nodup
-  assert_eq "$(allow | wc -l | tr -d ' ')" 10 total
+  assert_eq "$(allow | wc -l | tr -d ' ')" 9 total
   run_setup --uninstall
   assert_eq "$(allow | sort)" 'Bash(git status)
 Read(~/.kaito/**)' left

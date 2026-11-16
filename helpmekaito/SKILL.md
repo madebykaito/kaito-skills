@@ -80,6 +80,7 @@ Then load each skill and follow it fully. A route that is announced and then ign
 
 - **Skill tool available (Claude):** invoke the skill by name. It may show as a bare name; that is expected.
 - **Otherwise (Codex, other hosts):** run `~/.kaito/store/helpmekaito/scripts/kaito-path.sh <skill> --host codex`, read the printed file and follow it as if invoked, resolving relative paths against its folder. Exit 1: not installed. 3: user-only, tell the user to type `/<skill>`. 4: has hooks, needs Claude; say so, do not read it.
+- If `KAITO_HOME` is set, use it in place of `~/.kaito` in every path here.
 - Plugin skills (`legal:*`, `anthropic-skills:*`) always use the Skill tool.
 
 If a skill hands off to another in its own instructions, follow that. The skill knows its neighbors better than this router does.

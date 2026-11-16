@@ -18,9 +18,9 @@ case "$note" in
   *) skip "unknown note $note" ;;
 esac
 [ -f "$K/memory/$note" ] || skip "missing file $note"
-vault=$(printf %s "$vault" | sed 's/ /%20/g')
+dest=$(printf %s "$vault/$dest" | sed 's/ /%20/g')
 # key goes via stdin config so it never appears in argv or output
 code=$(printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS --max-time 5 -K - -o /dev/null -w '%{http_code}' \
-  -X PUT -H 'Content-Type: text/markdown' --data-binary "@$K/memory/$note" "$url/vault/$vault/$dest" 2>/dev/null) \
+  -X PUT -H 'Content-Type: text/markdown' --data-binary "@$K/memory/$note" "$url/vault/$dest" 2>/dev/null) \
   || skip "api unreachable"
 case "$code" in 2??) ;; *) skip "http $code" ;; esac

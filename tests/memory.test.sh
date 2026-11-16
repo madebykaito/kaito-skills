@@ -19,9 +19,11 @@ test_where_outside_git() {
   mk_home; proj plain
   out=$(cd "$P" && sh "$MEM" where)
   echo "$out" | grep -qx "slug=$(sh "$CG" slug "$P")" || exit 1
-  echo "$out" | grep -qx 'indexed=no' || exit 1
+  echo "$out" | grep -qx 'indexed=n/a' || exit 1
   mkdir -p "$KAITO_HOME/memory"; echo "- index line" > "$KAITO_HOME/memory/MEMORY.md"
+  echo "- global fact" > "$KAITO_HOME/memory/global.md"
   (cd "$P" && sh "$MEM" where) | grep -qx -- '- index line' || exit 1
+  (cd "$P" && sh "$MEM" where) | grep -qx -- '- global fact' || exit 1
   for i in $(seq 1 60); do echo "- l$i" >> "$KAITO_HOME/memory/MEMORY.md"; done
   out=$(cd "$P" && sh "$MEM" where)
   assert_eq "$(echo "$out" | wc -l | tr -d ' ')" 40 lines

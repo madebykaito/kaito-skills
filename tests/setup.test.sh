@@ -69,6 +69,16 @@ test_overrides_preserve_user_entries() {
   assert_eq "$(ov better-ui)" '"name-only"' ours
 }
 
+test_user_changed_override_survives() {
+  mk_home; mk_repo; run_setup
+  node "$J" set "$HOME/.claude/settings.json" skillOverrides.better-ui '"off"'
+  run_setup
+  assert_eq "$(ov better-ui)" '"off"' rerun
+  run_setup --uninstall
+  assert_eq "$(ov better-ui)" '"off"' uninstall
+  assert_eq "$(ov animate)" '' ours_removed
+}
+
 test_never_touches_foreign() {
   mk_home; mk_repo
   mkdir -p "$HOME/.claude/skills/better-ui" "$HOME/.agents/skills"
