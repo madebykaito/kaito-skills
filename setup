@@ -1,0 +1,387 @@
+#!/bin/sh
+# Install kaito-skills into $KAITO_HOME/store and link them per agent.
+# Usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
+set -eu
+
+CODEX_SKILL_DIRS="$HOME/.agents/skills"
+CLAUDE_SKILLS="$HOME/.claude/skills"
+LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $HOME/.codex/skills"
+
+REPO_L="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$REPO_L" && pwd -P)"
+KAITO_HOME="${KAITO_HOME:-$HOME/.kaito}"
+STORE="$KAITO_HOME/store"
+CONFIG="$KAITO_HOME/config.json"
+STATE="$KAITO_HOME/state.json"
+SETTINGS="$HOME/.claude/settings.json"
+CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
+NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-quality work, load helpmekaito first.'
+J="$REPO/helpmekaito/scripts/kaito-json.mjs"
+
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
+for a in "$@"; do
+  case "$a" in
+    --yes) YES=1 ;;
+    --no-gstack) GSTACK=0 ;;
+    --no-codegraph) CODEGRAPH=0 ;;
+    --uninstall) UNINSTALL=1 ;;
+    --purge) UNINSTALL=1 PURGE=1 ;;
+    *) echo "usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
+  esac
+done
+
+GS="" N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
+has() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+json_list() { tr -cd 'A-Za-z0-9_.,-' | tr , ' '; }  # ["a","b"] -> a b
+to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
+ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
+foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
+skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
+die() { echo "setup: $*" >&2; exit 1; }
+
+# Runs before install and uninstall: every rm -rf below hangs off these paths.
+check_paths() {
+  for v in "$HOME" "$KAITO_HOME"; do
+    case "$v" in /*) ;; *) die "HOME and KAITO_HOME must be absolute paths" ;; esac
+    case "$v/" in */../*|*/./*) die "HOME and KAITO_HOME must not contain . or .. parts" ;; esac
+    case "$v" in *[[:space:]\$\`\"\\]*) die "HOME and KAITO_HOME must not contain spaces, quotes, \$, \` or backslashes" ;; esac
+  done
+  h=$(cd "$HOME" && pwd -P) k=${KAITO_HOME%/}
+  if [ -d "$KAITO_HOME" ]; then k=$(cd "$KAITO_HOME" && pwd -P); fi
+  case "$h/" in "${k%/}"/*) die "KAITO_HOME must not be HOME or a folder above it" ;; esac
+  if [ "$PURGE" = 1 ] && [ -d "$KAITO_HOME" ] && [ ! -e "$CONFIG" ] && [ ! -d "$STORE" ]; then
+    die "$KAITO_HOME does not look like a kaito home, not purging it"
+  fi
+}
+
+# One setup at a time; settings.json and state.json must parse before anything is changed.
+lock_and_check() {
+  mkdir -p "$KAITO_HOME"
+  mkdir "$KAITO_HOME/.setup.lock" 2>/dev/null || die "another setup is running (if not, remove $KAITO_HOME/.setup.lock)"
+  trap 'rmdir "$KAITO_HOME/.setup.lock" 2>/dev/null || :' EXIT
+  trap 'exit 130' INT TERM
+  for f in "$STATE" "$SETTINGS"; do
+    node "$J" check "$f" 2>/dev/null || die "$f is not valid JSON; fix it (or delete it) and re-run"
+  done
+}
+
+# ask <key> "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS ("key=y,key=n") beats
+# --yes, which beats the tty. An unlisted key, or no tty, means the default.
+ask() {
+  d=$3 a=""
+  P=",${KAITO_ANSWERS:-},"
+  case "$P" in
+    *",$1="*) a=${P#*",$1="}; a=${a%%,*} ;;
+    *) if [ "$YES" = 0 ] && { true </dev/tty; } 2>/dev/null; then
+         [ "$d" = y ] && h="Y/n" || h="y/N"
+         { printf '%s [%s] ' "$2" "$h" >/dev/tty && read -r a </dev/tty; } 2>/dev/null || a=""
+       fi ;;
+  esac
+  case "${a:-$d}" in [yY]*) return 0 ;; *) return 1 ;; esac
+}
+
+check_prereqs() {
+  # ponytail: paths are passed around in space-separated lists; quote them all if this bites
+  case "$REPO" in *[[:space:]]*) die "the repo path must not contain spaces" ;; esac
+  for c in git node npm; do
+    command -v "$c" >/dev/null || { echo "setup needs $c on PATH" >&2; exit 1; }
+  done
+}
+
+make_config() {
+  [ -e "$CONFIG" ] && return
+  mkdir -p "$KAITO_HOME"
+  cat > "$CONFIG" <<'EOF'
+{"version":1,"hot":[],"gstack":true,"codegraph":{"auto_index":"ask"},"obsidian":{"enabled":false,"vault_path":"madebykaito/helpmekaito","api_url":null}}
+EOF
+}
+
+install_store() {
+  SKILLS=""
+  mkdir -p "$STORE"
+  set --
+  for d in "$REPO"/*/; do
+    d=${d%/} n=${d##*/}
+    [ -f "$d/SKILL.md" ] && [ "$n" != gstack ] || continue
+    set -- "$@" "$REPO/$n"
+    SKILLS="$SKILLS $n"; N_SKILLS=$((N_SKILLS + 1))
+  done
+  [ $# -gt 0 ] && rsync -a --delete --exclude .git --exclude node_modules --exclude dist "$@" "$STORE/"
+  cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
+  # Remove only skills an earlier run put here. Anything else in the store is not ours.
+  for n in $(node "$J" get "$STATE" store_skills | json_list); do
+    case "$n" in .*) continue ;; esac
+    has "$n" "$SKILLS" || rm -rf "${STORE:?}/${n:?}"
+  done
+  node "$J" set "$STATE" store_skills "$(to_json "$SKILLS")"
+  return 0
+}
+
+# Build gstack in its store copy (never the repo), render it per host, and pick
+# the Claude skills to link into GS. Codex gets no gstack links.
+gstack_stage() {
+  command -v bun >/dev/null || { echo "setup needs bun on PATH for gstack (or pass --no-gstack)" >&2; exit 1; }
+  G="$STORE/gstack"
+  mkdir -p "$G"
+  # Excluded paths are never deleted in the store, so node_modules and builds survive re-runs.
+  rsync -a --delete --exclude .git --exclude node_modules --include /lib/diagram-render/dist/ --exclude dist "$REPO/gstack/" "$G/"
+  (
+    cd "$G"
+    bun install
+    bun run build
+    v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || true)  # the store copy has no .git
+    for f in */dist/.version; do if [ -e "$f" ]; then echo "$v" > "$f"; fi; done
+    bun --no-env-file --config=/dev/null --eval 'import { chromium } from "playwright"; const b = await chromium.launch(); await b.close();' >/dev/null 2>&1 ||
+      bun x playwright install chromium
+    for h in claude codex; do
+      rm -rf "$STORE/_gstack-$h"
+      bun run gen:skill-docs:user --host "$h" --install-root "$G" --out-dir "$STORE/_gstack-$h" --link-root "$STORE/_gstack-$h"
+    done
+  )
+  # A few copied reference files still point at gstack's own install path.
+  grep -rl '~/.claude/skills/gstack/' "$STORE/_gstack-claude" | while IFS= read -r f; do
+    sed -i.bak "s|~/.claude/skills/gstack/|$G/|g" "$f" && rm "$f.bak"
+  done
+  if foreign "$CLAUDE_SKILLS/gstack"; then
+    echo "warning: $CLAUDE_SKILLS/gstack is not ours, skipping all gstack links"; return 0
+  fi
+  # The router is the render root; sub-skills are its folders with a SKILL.md.
+  [ -f "$STORE/_gstack-claude/SKILL.md" ] && GS=gstack
+  for d in "$STORE/_gstack-claude"/*/; do
+    d=${d%/} n=${d##*/}
+    [ -f "$d/SKILL.md" ] || continue
+    if has "$n" "$SKILLS"; then echo "warning: gstack skill $n skipped, kaito skill $n wins"; else GS="$GS $n"; fi
+  done
+}
+
+# link_dir <dir> <names>: link each name to the store, remove our links not in names.
+link_dir() {
+  mkdir -p "$1"
+  for n in $2; do
+    p="$1/$n" t="$STORE/$n"
+    has "$n" "$GS" && t="$STORE/_gstack-claude/$n"
+    [ "$t" = "$STORE/_gstack-claude/gstack" ] && t="$STORE/_gstack-claude"
+    if [ -L "$p" ] && [ "$(readlink "$p")" = "$t" ]; then :
+    elif [ -L "$p" ] && ours "$(readlink "$p")"; then ln -sfn "$t" "$p"; N_LINKED=$((N_LINKED + 1))
+    elif [ -e "$p" ] || [ -L "$p" ]; then skip "$p"; continue
+    else ln -s "$t" "$p"; N_LINKED=$((N_LINKED + 1))
+    fi
+    LINKS="$LINKS $p"
+    [ "$1" = "$CLAUDE_SKILLS" ] && CLAUDE_LINKED="$CLAUDE_LINKED $n"
+  done
+  unlink_dir "$1" "$2"
+}
+
+unlink_dir() {
+  [ -d "$1" ] || return 0
+  for p in "$1"/*; do
+    [ -L "$p" ] && ! has "${p##*/}" "$2" && ours "$(readlink "$p")" || continue
+    rm "$p"; N_UNLINKED=$((N_UNLINKED + 1))
+  done
+}
+
+link_all() {
+  LINKS="" CLAUDE_LINKED=""
+  HOT=$(node "$J" get "$CONFIG" hot | json_list)
+  codex="helpmekaito"
+  for n in $HOT; do has "$n" "$SKILLS" && codex="$codex $n"; done
+  link_dir "$CLAUDE_SKILLS" "$SKILLS $GS"
+  for d in $CODEX_SKILL_DIRS; do link_dir "$d" "$codex"; done
+  for d in $LINK_DIRS; do
+    [ "$d" = "$CLAUDE_SKILLS" ] || has "$d" "$CODEX_SKILL_DIRS" || unlink_dir "$d" ""
+  done
+}
+
+# Claude lists every linked skill name-only, except the router and the hot list.
+# Any other value is the user's own and is left alone, on re-run and uninstall.
+write_overrides() {
+  prev=$(node "$J" get "$STATE" managed_overrides | json_list)
+  cur=$(node "$J" get "$SETTINGS" skillOverrides)
+  MANAGED="" new=""
+  for n in $CLAUDE_LINKED; do
+    [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
+    case "$cur" in
+      *"\"$n\":\"name-only\""*) ;;  # already there: ours to manage even if state.json was lost
+      *"\"$n\":"*) continue ;;
+      *) new="$new $n" ;;
+    esac
+    MANAGED="$MANAGED $n"
+  done
+  # State first, so an interrupted run still knows what it wrote.
+  node "$J" set "$STATE" managed_overrides "$(to_json "$prev $MANAGED")"
+  for n in $new; do
+    node "$J" set "$SETTINGS" "skillOverrides.$n" '"name-only"'; N_OVERRIDES=$((N_OVERRIDES + 1))
+  done
+  drop_overrides "$prev" "$MANAGED"
+}
+
+# drop_overrides <names> <keep>
+drop_overrides() {
+  c=$(node "$J" get "$SETTINGS" skillOverrides)
+  for n in $1; do
+    has "$n" "$2" && continue
+    case "$c" in *"\"$n\":\"name-only\""*) node "$J" del "$SETTINGS" "skillOverrides.$n" ;; esac
+  done
+}
+
+write_state() {
+  v=unknown
+  [ -e "$REPO/.git" ] && v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
+  node "$J" set "$STATE" store_version "\"$v\""
+  node "$J" set "$STATE" managed_overrides "$(to_json "$MANAGED")"
+  node "$J" set "$STATE" links "$(to_json "$LINKS")"
+}
+
+codegraph_stage() {
+  command -v npm >/dev/null || { echo "codegraph: skipped, npm not found"; return 0; }
+  pin=$(cat "$REPO/codegraph.version")
+  have=0; case "$(codegraph --version 2>/dev/null || true)" in *"$pin"*) have=1 ;; esac
+  # Connecting is tracked on its own: the right version can be installed and still not connected.
+  if [ "$have" = 0 ] || [ "$(node "$J" get "$STATE" codegraph_connected)" != "\"$pin\"" ]; then
+    if ask codegraph "Install codegraph $pin globally and connect it to Claude and Codex?" y; then
+      [ "$have" = 1 ] || npm i -g "@colbymchenry/codegraph@$pin"
+      codegraph install --target claude,codex --location global -y
+      node "$J" set "$STATE" codegraph_connected "\"$pin\""
+    fi
+  fi
+  gi="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
+  grep -qxF .codegraph "$gi" 2>/dev/null && return 0
+  if ask gitignore "Add .codegraph to $gi?" y; then
+    mkdir -p "${gi%/*}"; echo .codegraph >> "$gi"
+  fi
+}
+
+# in_json "<json text>" <string>: true if the string is an element in the text.
+in_json() { case "$1" in *"\"$2\""*) return 0 ;; esac; return 1; }
+
+# The rules we manage: ~ form only when under HOME, plus absolute Bash rules.
+perm_rules() {
+  t=${KAITO_HOME#"$HOME"/} s=${STORE#"$HOME"/}
+  if [ "$t" != "$KAITO_HOME" ]; then
+    printf '%s\n' "Read(~/$t/**)" "Edit(~/$t/memory/**)"
+  fi
+  for p in "gstack/bin/*" "gstack/browse/dist/browse *" "helpmekaito/scripts/*"; do
+    printf 'Bash(%s/%s)\n' "$STORE" "$p"
+    if [ "$s" != "$STORE" ]; then printf 'Bash(~/%s/%s)\n' "$s" "$p"; fi
+  done
+}
+
+# Rules already in the user's file are left alone and not recorded as ours.
+perms_stage() {
+  rules=$(perm_rules)  # drop rules an older setup managed and this one no longer writes
+  node "$J" each "$STATE" managed_permissions | while IFS= read -r r; do
+    printf '%s\n' "$rules" | grep -qxF -- "$r" && continue
+    node "$J" rm "$SETTINGS" permissions.allow "\"$r\""
+    node "$J" rm "$STATE" managed_permissions "\"$r\""
+  done
+  ask perms "Add allow rules for kaito scripts and ~/.kaito?" n || return 0
+  perm_rules | while IFS= read -r r; do
+    { in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" ||
+      ! in_json "$(node "$J" get "$SETTINGS" permissions.allow)" "$r"; } || continue
+    node "$J" add "$STATE" managed_permissions "\"$r\""  # state first, as in write_overrides
+    node "$J" add "$SETTINGS" permissions.allow "\"$r\""
+  done
+}
+
+# add_block <file> <begin> <end> <lines>: append a marked block once.
+add_block() {
+  grep -qxF "$2" "$1" 2>/dev/null && return 0
+  mkdir -p "${1%/*}"
+  if [ -s "$1" ] && [ -n "$(tail -c1 "$1")" ]; then echo >> "$1"; fi
+  printf '%s\n%s\n%s\n' "$2" "$4" "$3" >> "$1"
+}
+remove_block() {
+  [ -f "$1" ] && grep -qxF "$2" "$1" || return 0
+  if ! grep -qxF "$3" "$1"; then echo "kaito: $1 has $2 but no $3, left it alone."; return 0; fi
+  t=$(mktemp) && sed "/^$2\$/,/^$3\$/d" "$1" > "$t" && cat "$t" > "$1"  # cat keeps symlink and mode
+  rm -f "$t"
+}
+
+nudge_stage() {
+  ask nudge "Add a one-line helpmekaito nudge to ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md?" n || return 0
+  for f in "$HOME/.claude/CLAUDE.md" "$CODEX_DIR/AGENTS.md"; do
+    add_block "$f" "<!-- kaito:begin -->" "<!-- kaito:end -->" "$NUDGE_LINE"
+  done
+}
+
+hook_stage() {
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
+  prev=$(node "$J" get "$STATE" managed_hook)
+  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook, whatever the answer below
+    node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
+  fi
+  [ -f "$STORE/ponytail/SKILL.md" ] || return 0
+  ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
+  # The same hook already there and not recorded as ours is the user's: leave it, do not claim it.
+  if [ -z "$prev" ]; then case "$(node "$J" get "$SETTINGS" hooks.SessionStart)" in *"$e"*) return 0 ;; esac; fi
+  node "$J" set "$STATE" managed_hook "$e"
+  node "$J" add "$SETTINGS" hooks.SessionStart "$e"
+}
+
+codexwrite_stage() {
+  ask codexwrite "Let Codex write to ~/.kaito (adds it to Codex writable_roots)?" n || return 0
+  c="$CODEX_DIR/config.toml"
+  grep -qF "# kaito:begin" "$c" 2>/dev/null && return 0
+  if grep -qE 'writable_roots|^\[sandbox_workspace_write\]' "$c" 2>/dev/null; then
+    echo "codex: $c already sets writable_roots, add \"$KAITO_HOME\" to it yourself."; return 0
+  fi
+  add_block "$c" "# kaito:begin" "# kaito:end" "[sandbox_workspace_write]
+writable_roots = [\"$KAITO_HOME\"]"
+}
+
+consent_uninstall() {
+  node "$J" each "$STATE" managed_permissions | while IFS= read -r r; do
+    node "$J" rm "$SETTINGS" permissions.allow "\"$r\""
+  done
+  e=$(node "$J" get "$STATE" managed_hook)
+  if [ -n "$e" ]; then node "$J" rm "$SETTINGS" hooks.SessionStart "$e"; fi
+  remove_block "$HOME/.claude/CLAUDE.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
+  remove_block "$CODEX_DIR/AGENTS.md" "<!-- kaito:begin -->" "<!-- kaito:end -->"
+  remove_block "$CODEX_DIR/config.toml" "# kaito:begin" "# kaito:end"
+  # Codex rewrites config.toml and can drop the begin marker. Then take out our exact lines instead.
+  c="$CODEX_DIR/config.toml"
+  if [ -f "$c" ] && grep -qxF "writable_roots = [\"$KAITO_HOME\"]" "$c"; then
+    t=$(mktemp) && sed -e "/^\[sandbox_workspace_write\]\$/{N;\|\nwritable_roots = \[\"$KAITO_HOME\"\]\$|d;}" \
+      -e '/^# kaito:end$/d' "$c" > "$t" && cat "$t" > "$c"
+    rm -f "$t"
+  fi
+}
+
+uninstall() {
+  consent_uninstall
+  names=$(node "$J" get "$STATE" managed_overrides | json_list)
+  for p in "$CLAUDE_SKILLS"/*; do  # also covers a lost state.json
+    if [ -L "$p" ] && ours "$(readlink "$p")"; then names="$names ${p##*/}"; fi
+  done
+  for d in $LINK_DIRS; do unlink_dir "$d" ""; done
+  drop_overrides "$names" ""
+  rm -rf "$STORE" "$STATE"
+  # gstack registers its own hooks at run time. With the store gone they are dead: let gstack prune them.
+  h="$REPO/gstack/bin/gstack-settings-hook"
+  if [ -x "$h" ] && command -v bun >/dev/null; then GSTACK_SETTINGS_FILE="$SETTINGS" "$h" prune-stale >/dev/null 2>&1 || :; fi
+  [ "$PURGE" = 1 ] && rm -rf "$KAITO_HOME"
+  echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
+}
+
+summary() {
+  echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
+}
+
+check_paths
+command -v node >/dev/null || die "setup needs node on PATH"
+lock_and_check
+if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
+check_prereqs
+make_config
+[ "$(node "$J" get "$CONFIG" gstack)" = false ] && GSTACK=0
+install_store
+[ "$GSTACK" = 1 ] && gstack_stage
+link_all
+write_overrides
+write_state
+[ "$CODEGRAPH" = 1 ] && codegraph_stage
+perms_stage
+nudge_stage
+hook_stage
+codexwrite_stage
+summary

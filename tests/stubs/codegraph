@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "codegraph $*" >> "$HOME/stub.log"
+[ "${1:-}" = --version ] && echo "${CODEGRAPH_STUB_VERSION:-}"
+[ "${1:-}" = init ] && [ -n "${CODEGRAPH_STUB_FAIL:-}" ] && exit 1
+exit 0

@@ -6,6 +6,9 @@ Building and reviewing interfaces as a whole. For one visual treatment see [visu
 |---|---|---|
 | `frontend-design` | Building a new page, component or app UI that must not look generic. The default builder. | Reviewing existing UI. |
 | `impeccable` | A full design pass on a frontend: shape, critique, audit, polish, harden, or a `DESIGN.md` design system. Also native iOS and Android screens. | A single narrow rule question: use the matching `better-*` skill. |
+| `design-taste-frontend` | A landing page, portfolio or redesign where the user asks for taste or anti-slop, or a strict pre-flight check before shipping. | A full staged design workflow: `impeccable`. |
+| `stitch-design-taste` | Writing a `DESIGN.md` for Google Stitch. | A `DESIGN.md` for this codebase: `impeccable`. |
+| `image-to-code` | A site where the look matters most: it generates design images first, then codes to match them. | Images only, no code: `imagegen-frontend-web` in [media.md](media.md). |
 | `web-design-guidelines` | A quick compliance review of UI code against the Web Interface Guidelines. | A ranked, cross-discipline verdict: `better-interface`. |
 | `vercel-react-best-practices` | Writing or reviewing React or Next.js code for performance: data fetching, bundles, re-renders. | Local-first desktop apps: see [engineering.md](engineering.md). |
 | `tailwind-v4` | Setting up, upgrading or debugging Tailwind v4 in a real project. | Tailwind inside a HyperFrames video: `tailwind` in [video.md](video.md). |
@@ -18,6 +21,8 @@ Building and reviewing interfaces as a whole. For one visual treatment see [visu
 | `mobile-native` | A web app feels like a website on a phone: sticky hover, `100vh`, input zoom, safe areas. | React Native: `animate-expo` in [motion.md](motion.md). |
 
 Overlap rule: `frontend-design` and `impeccable` both build. Use `frontend-design` for a fresh build from a brief. Use `impeccable` when there is an existing frontend to critique, polish or systematize, or when the user wants its staged workflow.
+
+Overlap rule: `design-taste-frontend` also builds. It is the pick only when the user asks for taste, anti-slop or that skill by name. Otherwise a fresh build is `frontend-design` and existing UI is `impeccable`. Do not run two of the three on one task.
 
 Pairs:
 - New UI: `frontend-design`, then `better-interface` for the verdict, then `break-ui`.

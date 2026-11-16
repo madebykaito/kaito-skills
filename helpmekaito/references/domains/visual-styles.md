@@ -34,8 +34,12 @@ Image generation:
 | Skill | Use when |
 |---|---|
 | `minimal-zine-poster` | A theme or sentence becomes a minimal zine-style poster image. Needs `GEMINI_API_KEY`. Without it the user gets a prompt, not an image. |
+| `banner-design` | A banner: social cover, ad, website hero or print, with several art directions. |
+
+For product shots, thumbnails and other generated media see [media.md](media.md).
 
 Overlap rules:
 - `container-lines` adds guides to an existing layout. `framed-grid-layout` is the whole layout.
 - `css-border-gradient` is static and quiet. `liquid-metal-border` and `beam-glow-states` move.
+- A banner laid out with type and art direction is `banner-design`. A product photo used as a banner is `higgsfield-product-photoshoot`. A YouTube thumbnail is `higgsfield-youtube-thumbnail`.
 - A spotlight that reveals an image is `reveal-hover-effect`. A water-like distortion is `shaders-cursor-ripples`.

@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: hooked-skill-via-skill-tool
+expected_outcome: |
+  Fallback test. Never reads careful's SKILL.md by path. Where careful is installed it goes through the Skill tool;
+  in the eval sandbox it is not, so the reply tells the user to type /careful. This does not prove the hook runs.

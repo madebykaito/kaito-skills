@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: codegraph-first
+expected_outcome: |
+  Fallback test. With codegraph_explore it is the first code lookup; without it (the eval sandbox) the reply says so
+  and invents nothing. This does not prove the codegraph integration works.

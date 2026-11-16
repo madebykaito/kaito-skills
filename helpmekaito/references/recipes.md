@@ -10,7 +10,7 @@ Each step lists a tier for delegation. "Main" means keep it in the main session.
 2. `copywriting`: the copy for each section. Add `ogilvy` if the headline is the hard part. Main.
 3. `frontend-design`: build it. Add `visual-style-presets` if no visual direction was given. Main.
 4. `better-interface`: one ranked verdict, then fix the top findings. Hard tier if delegated.
-5. `seo-audit` and `schema-markup`: metadata and structured data. Standard tier.
+5. `schema-markup`: metadata and structured data. Standard tier. Use `seo-audit` in its place only if the page already exists and ranks badly.
 6. `gstack` `/qa`: test it in a browser.
 
 ## Pricing page
