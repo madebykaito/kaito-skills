@@ -203,7 +203,7 @@ test_tasks_trello_no_credentials_stays_pending() {
   assert_eq "$(cfg tasks.state)" '"pending"' pending
   assert_eq "$(cfg tasks.steps.manager)" true manager
   assert_eq "$(cfg tasks.steps.memory)" true memory
-  assert_eq "$(cfg tasks.steps.credentials)" false credentials
+  assert_eq "$(cfg tasks.steps.credentials)" "" credentials_unset
   grep -q "kaito-tasks.sh login" "$HOME/out" || { cat "$HOME/out"; exit 1; }
   ! grep -qx 'login' "$HOME/calls" || exit 1  # no tty: login is never run
 }
