@@ -7,13 +7,26 @@ here="$(cd "$(dirname "$0")" && pwd -P)"
 # Some endpoint scanners hold every launch of the installed node for 0.5-3s; a private copy
 # starts in milliseconds. Test runs only; falls back to the normal node. KAITO_TEST_NODE_COPY=0 turns it off.
 if [ "${KAITO_TEST_NODE_COPY:-1}" != 0 ] && n=$(command -v node) && v=$(node -v 2>/dev/null); then
-  d="${TMPDIR:-/tmp}/kaito-test-node-$v"
+  d=${TMPDIR:-/tmp}; d="${d%/}/kaito-test-node-$v"
   if [ ! -x "$d/node" ]; then mkdir -p "$d" && cp "$n" "$d/node.$$" && mv "$d/node.$$" "$d/node"; fi
   if [ "$("$d/node" -v 2>/dev/null)" = "$v" ]; then PATH="$d:$PATH"; export PATH; fi
 fi
 
-logs=$(mktemp -d)
-trap 'rm -rf "$logs"' EXIT
+# Every temp folder a test makes (homes, repo copies) lands in one run folder, removed at the end.
+tmp=${TMPDIR:-/tmp}; run=$(mktemp -d "${tmp%/}/kaito-tests.XXXXXX")
+trap 'rm -rf "$run"' EXIT
+trap 'exit 130' INT TERM
+logs="$run/logs"; mkdir "$logs"
+# macOS mktemp ignores TMPDIR, so a wrapper puts template-less calls in the run folder.
+mkdir "$run/bin"
+real=$(command -v mktemp)
+cat > "$run/bin/mktemp" <<EOF
+#!/bin/sh
+for a in "\$@"; do case "\$a" in -*) ;; *) exec "$real" "\$@" ;; esac; done
+exec "$real" "\$@" "$run/tmp.XXXXXXXXXX"
+EOF
+chmod +x "$run/bin/mktemp"
+TMPDIR="$run"; PATH="$run/bin:$PATH"; export TMPDIR PATH
 for t in "$@"; do
   t=$(cd "$(dirname "$t")" && pwd -P)/$(basename "$t")
   sed -n 's/^\(test_[a-z0-9_]*\)().*/\1/p' "$t" | sed "s|^|$t |"
