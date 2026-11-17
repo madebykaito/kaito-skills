@@ -27,5 +27,5 @@ Replace a stale line rather than adding a second one. Architecture beyond that i
 - In routing, a local skill that fits the request beats a store skill, and beats a store skill of the same name.
 - A skill the user names still wins.
 - Claude: the repo's `.claude/skills` are already in the session; invoke by name through the Skill tool.
-- Codex and other hosts: read the `local_skill:` path and follow it, resolving relative paths against its folder.
+- Codex and other hosts: the `local_skill:` path is relative to the repo root. Read that file and follow it, resolving its own relative paths against its folder.
 - A path that no longer exists is dropped on the next `record`.
