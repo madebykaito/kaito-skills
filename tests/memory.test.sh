@@ -97,3 +97,12 @@ codegraph: yes") || exit 1
   (cd "$P" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" note global "password is hunter2" 2>/dev/null) && exit 1
   assert_no "$KAITO_HOME/memory/.lock"
 }
+
+test_dir_default_and_custom() {
+  mk_home
+  assert_eq "$(sh "$MEM" dir)" "$KAITO_HOME/memory" default
+  mkdir -p "$KAITO_HOME"; printf '{"memory":{"path":"~/vault/kaito"}}' > "$KAITO_HOME/config.json"
+  assert_eq "$(sh "$MEM" dir)" "$HOME/vault/kaito" custom
+  proj app; (cd "$P" && sh "$MEM" note global "moved") || exit 1
+  grep -q moved "$HOME/vault/kaito/global.md" || exit 1
+}

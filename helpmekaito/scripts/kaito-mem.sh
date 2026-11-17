@@ -1,9 +1,12 @@
 #!/bin/sh
 # Cross-project memory in $KAITO_HOME/memory.
-# Usage: kaito-mem.sh where | note global|project "<text>" | codegraph-decision yes|no
+# Usage: kaito-mem.sh dir | where | note global|project "<text>" | codegraph-decision yes|no
 set -eu
 here=$(dirname "$0")
-M="${KAITO_HOME:-$HOME/.kaito}/memory"
+K="${KAITO_HOME:-$HOME/.kaito}"
+# memory.path in config moves the memory folder; default $K/memory. A missing helper means the default.
+M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
+case "$M" in "~") M=$HOME ;; "~/"*) M="$HOME/${M#"~/"}" ;; "") M="$K/memory" ;; esac
 RO="memory is read-only here; to allow Codex writes run setup and answer yes to codexwrite"
 
 g=1; p=$(git rev-parse --show-toplevel 2>/dev/null) || { g=0; p=$(pwd); }
@@ -31,6 +34,7 @@ lock() {
 }
 
 case "${1:-}" in
+  dir) echo "$M" ;;
   where)
     if [ "$g" = 0 ] || [ "$p" = / ] || [ "$p" = "$(cd "$HOME" && pwd -P)" ]; then i=n/a
     elif [ -e "$p/.codegraph" ]; then i=yes; else i=no; fi  # a dangling link is not an index
@@ -64,5 +68,5 @@ case "${1:-}" in
     ) 2>/dev/null || { echo "$RO"; exit 0; }
     mirror "projects/$s.md" MEMORY.md
     ;;
-  *) echo "usage: kaito-mem.sh where | note global|project \"<text>\" | codegraph-decision yes|no" >&2; exit 2 ;;
+  *) echo "usage: kaito-mem.sh dir | where | note global|project \"<text>\" | codegraph-decision yes|no" >&2; exit 2 ;;
 esac
