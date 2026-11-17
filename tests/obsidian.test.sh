@@ -94,3 +94,53 @@ test_key_not_traced() {
   out=$(sh -x "$OB" push global.md 2>&1); kill $SPID
   case "$out" in *sekrit*) echo "key leaked under -x"; exit 1;; esac
 }
+
+test_mirror_reads_custom_memory_path() {
+  mk_home; stub; setup "$URL"
+  mkdir -p "$HOME/elsewhere"; echo "- moved" > "$HOME/elsewhere/global.md"
+  node "$JS" set "$KAITO_HOME/config.json" memory.path "\"$HOME/elsewhere\""
+  sh "$OB" push global.md; kill $SPID
+  assert_eq "$(node -pe 'JSON.parse(require("fs").readFileSync(0)).body' < "$REC")" "- moved" body
+}
+
+test_mirror_skipped_inside_vault_root() {
+  mk_home; stub; setup "$URL"
+  mkdir -p "$HOME/vault/kaito"; echo "- in vault" > "$HOME/vault/kaito/global.md"
+  node "$JS" set "$KAITO_HOME/config.json" memory.path '"~/vault/kaito"'
+  node "$JS" set "$KAITO_HOME/config.json" obsidian.vault_root '"~/vault"'
+  out=$(sh "$OB" push global.md); rc=$?
+  assert_eq "$rc" 0 rc
+  assert_eq "$out" "obsidian mirror skipped: memory is inside the vault" msg
+  assert_eq "$(wc -l < "$REC" | tr -d ' ')" 0 requests
+  # a memory folder outside the vault still mirrors
+  node "$JS" set "$KAITO_HOME/config.json" obsidian.vault_root "\"$HOME/other-vault\""
+  sh "$OB" push global.md; kill $SPID
+  assert_eq "$(wc -l < "$REC" | tr -d ' ')" 1 requests
+}
+
+test_vault_root_skip_is_silent_in_mem() {
+  mk_home; stub; setup "$URL"
+  mkdir -p "$HOME/vault/kaito" "$HOME/app"
+  node "$JS" set "$KAITO_HOME/config.json" memory.path "\"$HOME/vault/kaito\""
+  node "$JS" set "$KAITO_HOME/config.json" obsidian.vault_root "\"$HOME/vault\""
+  err=$(cd "$HOME/app" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" note global "x" 2>&1 >/dev/null); kill $SPID
+  assert_eq "$err" "" stderr
+  assert_eq "$(wc -l < "$REC" | tr -d ' ')" 0 requests
+}
+
+test_managers_and_tasks_notes() {
+  mk_home; stub; setup "$URL"
+  mkdir -p "$KAITO_HOME/memory/managers" "$KAITO_HOME/memory/tasks/app/sub"
+  echo "- m" > "$KAITO_HOME/memory/managers/trello.md"
+  echo "- t" > "$KAITO_HOME/memory/tasks/app/index.md"
+  echo "- x" > "$KAITO_HOME/memory/tasks/app/t-1-a.md"
+  echo "- d" > "$KAITO_HOME/memory/tasks/app/sub/index.md"
+  sh "$OB" push managers/trello.md; sh "$OB" push tasks/app/index.md
+  o1=$(sh "$OB" push tasks/app/t-1-a.md); o2=$(sh "$OB" push tasks/app/sub/index.md)
+  o3=$(sh "$OB" push managers/../global.md); o4=$(sh "$OB" push tasks/../../outside/index.md); kill $SPID
+  paths=$(node -pe 'require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(l=>JSON.parse(l).path).join(" ")' "$REC")
+  assert_eq "$paths" "/vault/madebykaito/helpmekaito/managers/trello.md /vault/madebykaito/helpmekaito/tasks/app/index.md" paths
+  for o in "$o1" "$o2" "$o3" "$o4"; do
+    case "$o" in "obsidian mirror skipped: unknown note "*) ;; *) echo "$o"; exit 1;; esac
+  done
+}
