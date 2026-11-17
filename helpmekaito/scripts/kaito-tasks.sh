@@ -1,5 +1,5 @@
 #!/bin/sh
-# Tasks for the current project. Trello: the board is the truth, tasks/<slug>/ is a read cache.
+# Tasks for the current project. Trello: the board is the truth, tasks/trello/<slug>/ is a read cache.
 # Obsidian: one note per task under tasks/<slug>/, no remote. Other managers go through their MCP.
 # Usage: kaito-tasks.sh status | login | boards | consent yes|no <boardId>... | discover | map <boardId> | pull | list
 #   add "<title>" [--list <name|id>] [--due <iso>] [--desc <text>] | item add <task> "<text>"
@@ -28,7 +28,8 @@ p=$(git rev-parse --show-toplevel 2>/dev/null) || p=$(pwd)
 p=$(cd "$p" && pwd -P)
 S=$(sh "$here/kaito-codegraph.sh" slug "$p")
 pf="$M/projects/$S.md"
-D="$M/tasks/$S"
+# Trello cache and Obsidian notes never share a folder, so a pull cannot delete notes.
+if [ "$mgr" = trello ]; then D="$M/tasks/trello/$S"; else D="$M/tasks/$S"; fi
 board=$(grep '^board: ' "$pf" 2>/dev/null | head -n1) || board=""
 B=$(printf %s "$board" | awk '{print $3}')
 export M S D B KT="$here/kaito-trello.mjs" MGR="$mgr"
@@ -67,7 +68,7 @@ mlock() {
 J() {
 node --input-type=module - "$@" <<'JS'
 import { readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, rmdirSync, readdirSync, statSync, existsSync, utimesSync, copyFileSync, unlinkSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { join, resolve, sep, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 const { trello, redact } = await import(pathToFileURL(process.env.KT).href);
@@ -156,11 +157,21 @@ function writeCard(dir, c, names, at) {
 }
 const namesOf = (lists) => Object.fromEntries(lists.map((l) => [l.id, l.name]));
 
+// A cache file edited after its sync keeps the edit as a conflict copy.
+function keepEdit(t, cdir) {
+  const synced = Date.parse(t.meta.synced_at);
+  if (!synced || Math.floor(statSync(t.path).mtimeMs / 1000) <= Math.floor(synced / 1000)) return;
+  mkdirSync(cdir, { recursive: true });
+  const name = `${t.f.slice(0, -3)}.conflict.md`;
+  copyFileSync(t.path, join(cdir, name));
+  console.error(`warning: ${t.f} was edited locally; your copy is in conflicts/${name}. Edit tasks through helpmekaito.`);
+}
+
 async function pull() {
   const lists = await trello('GET', `/boards/${B}/lists?filter=open&fields=name,pos`);
   const cards = await trello('GET', `/boards/${B}/cards/open?${CARD}`);
   const at = new Date().toISOString(), names = namesOf(lists);
-  const tmp = join(M, 'tasks', `.${S}.new.${process.pid}`);
+  const tmp = join(dirname(D), `.${S}.new.${process.pid}`);
   try {
     mkdirSync(tmp, { recursive: true });
     for (const c of cards) writeCard(tmp, c, names, at);
@@ -169,14 +180,7 @@ async function pull() {
   locked(() => {
     if (existsSync(D)) {
       const cdir = join(tmp, 'conflicts');
-      for (const t of taskFiles(D)) {  // edited after its sync: keep the edit as a conflict copy
-        const synced = Date.parse(t.meta.synced_at);
-        if (!synced || Math.floor(statSync(t.path).mtimeMs / 1000) <= Math.floor(synced / 1000)) continue;
-        mkdirSync(cdir, { recursive: true });
-        const name = `${t.f.slice(0, -3)}.conflict.md`;
-        copyFileSync(t.path, join(cdir, name));
-        console.error(`warning: ${t.f} was edited locally; your copy is in conflicts/${name}. Edit tasks through helpmekaito.`);
-      }
+      for (const t of taskFiles(D)) keepEdit(t, cdir);
       const old = join(D, 'conflicts');
       if (existsSync(old)) for (const f of readdirSync(old)) {
         mkdirSync(cdir, { recursive: true });
@@ -194,7 +198,7 @@ async function refresh(id) {
   const lists = await boardLists();
   locked(() => {
     mkdirSync(D, { recursive: true });
-    for (const t of taskFiles(D)) if (t.meta.card_id === c.id) unlinkSync(t.path);
+    for (const t of taskFiles(D)) if (t.meta.card_id === c.id) { keepEdit(t, join(D, 'conflicts')); unlinkSync(t.path); }
     if (!c.closed && c.idBoard === B) writeCard(D, c, namesOf(lists), new Date().toISOString());
     writeIndex();
   });
@@ -453,7 +457,7 @@ EOF
       list="$list${list:+,}\"$b\""
     done
     node "$here/kaito-json.mjs" set "$CFG" tasks.discovery "{\"consent\":\"$a\",\"boards\":[$list],\"at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
-    node "$here/kaito-json.mjs" set "$CFG" tasks.steps.discovery true
+    [ "$a" = yes ] || node "$here/kaito-json.mjs" set "$CFG" tasks.steps.discovery true  # yes: done once discover succeeds
     echo "discovery consent: $a${list:+ for $*}"
     ;;
   discover)
@@ -464,6 +468,7 @@ EOF
     need_creds
     # shellcheck disable=SC2086  # ids are checked to [A-Za-z0-9] by consent
     J discover $bs
+    node "$here/kaito-json.mjs" set "$CFG" tasks.steps.discovery true
     ;;
   map)
     [ "$mgr" = trello ] || die "map is for Trello"

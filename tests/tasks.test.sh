@@ -12,7 +12,7 @@ stub() {
   # started from a throwaway shell so its kill prints no job notice
   SPID=$(sh -c 'node "$@" >/dev/null 2>&1 & echo $!' _ "$TESTS_DIR/stubs/trello-api.mjs" "$LOG" "$HOME/port")
   trap 'kill $SPID 2>/dev/null' EXIT
-  i=0; while [ ! -s "$HOME/port" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done
+  i=0; while [ ! -s "$HOME/port" ] && [ $i -lt 300 ]; do sleep 0.1; i=$((i+1)); done
   KAITO_TRELLO_API="http://127.0.0.1:$(cat "$HOME/port")/1"; export KAITO_TRELLO_API
 }
 # home <manager>: temp home, config, project folder as cwd; trello also gets the stub and fake creds
@@ -29,7 +29,11 @@ count() { node -e 'const [f,m,p]=process.argv.slice(1);console.log(require("fs")
 reqs() { grep -c . "$LOG" | tr -d ' '; }
 # last <METHOD> <path-prefix> <field>...: fields (dot paths) of the last matching request, space separated
 last() { node -e 'const [f,m,p,...ks]=process.argv.slice(1);const e=require("fs").readFileSync(f,"utf8").split("\n").filter(Boolean).map(JSON.parse).filter(e=>e.method===m&&e.path.startsWith(p)).pop();console.log(e?ks.map(k=>{const v=k.split(".").reduce((o,x)=>o?.[x],e);return Array.isArray(v)?v.join():String(v)}).join(" "):"none")' "$LOG" "$@"; }
-cache() { echo "$MEM/tasks/$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/proj")"; }
+# cache: the project's task folder (Trello cache lives under tasks/trello/)
+cache() {
+  sl=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/proj")
+  if [ "$(node "$JS" get "$KAITO_HOME/config.json" tasks.manager)" = '"trello"' ]; then echo "$MEM/tasks/trello/$sl"; else echo "$MEM/tasks/$sl"; fi
+}
 mapped() { sh "$T" map b1 >/dev/null || { echo "  map failed"; exit 1; }; }
 # c1 <field>: a field of the seeded "[HI] Fix login" card, read straight from the stub
 c1() { KAITO_TRELLO_KEY=$FK KAITO_TRELLO_TOKEN=$FT node "$TR" GET /boards/b1/cards/all | node -pe 'JSON.parse(require("fs").readFileSync(0)).find(c=>c.name.includes("Fix login"))[process.argv[1]]' "$1"; }
@@ -87,8 +91,10 @@ test_login_refuses_without_tty() {
 test_login_stores_creds_and_keeps_other_lines() {
   home trello; printf 'OBSIDIAN_API_KEY=keepme\nTRELLO_KEY=old\n' > "$KAITO_HOME/.env"
   command -v script >/dev/null || return 0
-  # ponytail: typed after a pause, so echo is already off, as for a person at a prompt
-  out=$( { sleep 4; printf '%s\n%s\n' "$FK" "$FT"; sleep 3; } | script -q /dev/null sh "$T" login 2>&1)
+  # type only once the key prompt shows (echo is off by then), as a person would; give up after 30s
+  : > "$HOME/out"
+  out=$( { i=0; until grep -q "Trello API key:" "$HOME/out" || [ $i -ge 300 ]; do sleep 0.1; i=$((i+1)); done
+           printf '%s\n%s\n' "$FK" "$FT"; sleep 3; } | script -q /dev/null sh "$T" login 2>&1 | tee "$HOME/out")
   case "$out" in *"$FT"*) echo "  token echoed"; exit 1;; esac
   grep -qx "OBSIDIAN_API_KEY=keepme" "$KAITO_HOME/.env" || { echo "  lost other line"; exit 1; }
   grep -qx "TRELLO_TOKEN=$FT" "$KAITO_HOME/.env" || { echo "$out"; exit 1; }
@@ -362,4 +368,33 @@ test_obsidian_concurrent_item_add() {
   i=1; while [ $i -le 6 ]; do sh "$T" item add "$id" "step $i" >/dev/null & i=$((i+1)); done; wait
   f=$(ls "$(cache)"/"$id"-*.md)
   assert_eq "$(grep -c '^- \[ \] step [0-9] <!-- id:i-' "$f" | tr -d ' ')" 6 "all items landed"
+}
+
+test_trello_pull_keeps_obsidian_notes() {
+  home obsidian; id=$(sh "$T" add "Keep me" | awk '{print $2}'); n=$(ls "$(cache)"/"$id"-*.md)
+    node "$JS" set "$KAITO_HOME/config.json" tasks.manager '"trello"'
+  stub; printf 'TRELLO_KEY=%s\nTRELLO_TOKEN=%s\n' "$FK" "$FT" > "$KAITO_HOME/.env"
+  mapped; sh "$T" pull >/dev/null || { echo "  pull failed"; exit 1; }
+  assert_file "$n"
+  assert_file "$(cache)/index.md"
+}
+
+test_refresh_keeps_local_edit() {
+  home trello; mapped; sh "$T" pull >/dev/null
+  d=$(cache); f=$(ls "$d"/*fix-login.md); b=$(basename "$f" .md)
+  echo "my local note" >> "$f"; touch -t 203001010000 "$f"
+  sh "$T" comment "$(sed -n 's/^id: "\(.*\)"$/\1/p' "$f")" "hi" >/dev/null 2>&1 || { echo "  comment failed"; exit 1; }
+  grep -q "my local note" "$d/conflicts/$b.conflict.md" || { ls -R "$d"; exit 1; }
+}
+
+test_consent_yes_marks_step_only_after_discover() {
+  home trello
+  sh "$T" consent yes b1 >/dev/null
+  assert_eq "$(node "$JS" get "$KAITO_HOME/config.json" tasks.steps.discovery 2>/dev/null)" "" "not done before discover"
+  kill $SPID; STUB_FAIL="GET /boards/b1 500 9" stub
+  sh "$T" discover >/dev/null 2>&1 && { echo "  should fail"; exit 1; }
+  assert_eq "$(node "$JS" get "$KAITO_HOME/config.json" tasks.steps.discovery 2>/dev/null)" "" "not done after failed discover"
+  kill $SPID; stub
+  sh "$T" discover >/dev/null || { echo "  discover failed"; exit 1; }
+  assert_eq "$(node "$JS" get "$KAITO_HOME/config.json" tasks.steps.discovery)" true "done after discover"
 }

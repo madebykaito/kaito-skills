@@ -161,13 +161,13 @@ test_store_keeps_foreign_dirs_and_ships_licenses() {
   assert_file "$KAITO_HOME/store/THIRD_PARTY_LICENSES.md"; assert_file "$KAITO_HOME/store/LICENSE"
 }
 
-# A stub kaito-tasks.sh in the repo copy: records calls, credentials=$HOME/cred or no.
+# A stub kaito-tasks.sh in the repo copy: records calls, "credentials: <$HOME/cred or no>".
 stub_tasks() {
   cat > "$R/helpmekaito/scripts/kaito-tasks.sh" <<'STUB'
 #!/bin/sh
 echo "$*" >> "$HOME/calls"
 case "$1" in
-  status) echo "credentials=$(cat "$HOME/cred" 2>/dev/null || echo no)" ;;
+  status) echo "credentials: $(cat "$HOME/cred" 2>/dev/null || echo no)" ;;
   boards) echo "b1 Board One" ;;
 esac
 exit 0

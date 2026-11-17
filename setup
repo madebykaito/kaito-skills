@@ -455,8 +455,8 @@ setup_tasks() {
   if ! tstep credentials; then
     case "$m" in
       trello)
-        if [ -f "$TS" ] && sh "$TS" status 2>/dev/null | grep -qx 'credentials=yes'; then tmark credentials
-        elif interactive && [ -f "$TS" ] && sh "$TS" login && sh "$TS" status 2>/dev/null | grep -qx 'credentials=yes'; then tmark credentials
+        if [ -f "$TS" ] && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
+        elif interactive && [ -f "$TS" ] && sh "$TS" login && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
         else echo "tasks: Trello credentials are not set. Run this in your terminal, then re-run ./setup:"; echo "  sh $TS login"
         fi ;;
       asana|jira|other) echo "tasks: add the $m connector (MCP) to your agent so helpmekaito can use it."; tmark credentials ;;

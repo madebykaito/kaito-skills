@@ -4,12 +4,12 @@ helpmekaito keeps the user's tasks with their task manager and helps do them. `S
 
 ## Onboarding
 
-`./setup` runs this when it has a terminal. If `sh $S/kaito-tasks.sh status` shows `state=pending` (or no state), finish the first step not yet done, in chat. Ask one question at a time. "skip" at any step sets `tasks.state` to `skipped`; stop asking.
+`./setup` runs this when it has a terminal. If `sh $S/kaito-tasks.sh status` shows `onboarding: pending`, finish the first step not yet done, in chat. Ask one question at a time. "skip" at any step sets `tasks.state` to `skipped`; stop asking.
 
 1. **Manager.** "Where do you keep tasks: Trello, Obsidian, Asana, Jira, something else, or nowhere?" Then `node $S/kaito-json.mjs set ~/.kaito/config.json tasks.manager '"<trello|obsidian|asana|jira|other|none>"'` and `tasks.steps.manager true`.
 2. **Memory folder.** "Memory and Obsidian tasks live in `~/.kaito/memory`. Use another folder, such as one inside your Obsidian vault?" On a path: set `memory.path`. If it is inside a vault, also set `obsidian.vault_root` to the vault folder. Set `tasks.steps.memory true`.
 3. **Credentials.**
-   - Trello: if `status` shows `credentials=no`, tell the user to run `sh ~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh login` in their terminal. It explains how to get the key and token and stores them safely. Never ask for a key or token in chat, and never read `~/.kaito/.env`. Suggest the Trello connector too (Claude settings, Connectors, Trello) for reads the script does not cover.
+   - Trello: if `status` shows `credentials: no`, tell the user to run `sh ~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh login` in their terminal. It explains how to get the key and token and stores them safely. Never ask for a key or token in chat, and never read `~/.kaito/.env`. Suggest the Trello connector too (Claude settings, Connectors, Trello) for reads the script does not cover.
    - Asana, Jira, others: check their MCP tools are in the session. If not, tell the user to add the connector and come back.
    - Obsidian, none: nothing to do.
 4. **Discovery consent.** For Trello, show `kaito-tasks.sh boards` and ask which boards to use. Then ask:
@@ -20,14 +20,16 @@ helpmekaito keeps the user's tasks with their task manager and helps do them. `S
 
 ## Per project
 
-On a routed task in a repo where a manager is set:
+On a routed task in a repo where Trello is the manager:
 
 - No `board:` line in `kaito-mem.sh where`: ask "Which board is this project on?" with names from `managers/<manager>.md`, then `kaito-tasks.sh map <boardId>`. "none" maps nothing; do not ask again in this repo (`kaito-mem.sh set board none`).
 - A new board that is not in the consented list needs the consent question again.
 
+Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others: ask which project or board once, and save it with `kaito-mem.sh set board "<manager> <id> <name>"`.
+
 ## Sync
 
-- **Trello**: the board is the truth. Run `kaito-tasks.sh pull` at the start of a task route, then read from `<memory>/tasks/<slug>/`. Those files are a cache: change tasks only through the script, which writes to Trello first. A `.conflict.md` copy means someone edited the cache; tell the user and apply what they want through the script.
+- **Trello**: the board is the truth. Run `kaito-tasks.sh pull` at the start of a task route, then read from `<memory>/tasks/trello/<slug>/`. Those files are a cache: change tasks only through the script, which writes to Trello first. A `.conflict.md` copy means someone edited the cache; tell the user and apply what they want through the script.
 - **Obsidian**: the notes in `<memory>/tasks/<slug>/` are the tasks. The script keeps ids and `index.md`.
 - **Asana, Jira, others**: use their MCP for every read and write. Keep only the board map and the project's `board:` line locally.
 
