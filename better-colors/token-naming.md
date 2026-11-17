@@ -1,34 +1,30 @@
-# Token Naming
+# Token naming
 
-Naming is what makes a palette usable by anyone who did not build it. For which ramps exist and what each step is for, see [palette-structure.md](palette-structure.md).
+Naming is what makes a palette usable by anyone who did not build it. For which ramps exist and what each step does, see [palette-structure.md](palette-structure.md).
 
 ## Two tiers
 
-**Primitives** name a value. They are the ramp, and they are named by hue and step: `--blue-500`, `--neutral-200`. A primitive describes what the color *is*, so it never changes meaning between themes and is never applied directly in a component.
-
-**Semantics** name a job. They point at a primitive and are named by the role they fill: `--color-text-secondary`, `--color-border-subtle`. Components only ever reference this tier.
-
 ```css
 :root {
-  /* Tier 1: primitives — named by appearance, never used directly */
-  --blue-500: #3b82f6;
+  /* Tier 1: primitives, named by hue and step. Never used directly. */
+  --blue-600: #2563eb;
   --neutral-200: #e5e7eb;
   --neutral-700: #374151;
 
-  /* Tier 2: semantics — named by role, this is what components use */
-  --color-accent-solid: var(--blue-500);
+  /* Tier 2: semantics, named by role. This is what components use. */
+  --color-accent-solid: var(--blue-600);
   --color-border: var(--neutral-200);
   --color-text-secondary: var(--neutral-700);
 }
 ```
 
-The tiering is what makes theming possible. Dark mode, a white-label theme, and an increased-contrast variant all repoint the semantic tier and leave both the primitives and every component untouched. A codebase that applies `--blue-500` directly in components has no theming seam, and adding one later means auditing every usage to work out which ones meant "the accent" and which just wanted blue.
+Dark mode, a white-label theme and an increased-contrast variant all repoint the semantic tier. A codebase applying `--blue-600` directly in components has no theming seam. Adding one later means auditing every usage to work out which meant "the accent" and which just wanted blue.
 
-Add a third, component-level tier (`--color-button-danger-bg`) only when a component genuinely diverges from the system and that divergence is intentional. One component token is a documented exception; twenty are a sign the semantic tier is missing roles.
+Add a third, component-level tier (`--color-button-danger-bg`) only where a component genuinely and intentionally diverges from the system. One component token is a documented exception; twenty mean the semantic tier is missing roles.
 
 ## The role inventory
 
-A system is complete when every role below has a token. Build against this list rather than adding tokens as components demand them, or the palette ends up shaped like whichever screen was built first.
+A system is complete when every role below has a token. Build against this list rather than adding tokens as components demand them, or the palette ends up shaped like whichever screen came first.
 
 | Group | Roles |
 | --- | --- |
@@ -38,20 +34,22 @@ A system is complete when every role below has a token. Build against this list 
 | Accent | subtle background, border, solid, solid hover, text |
 | Status | per status shipped: subtle background, border, solid, text |
 
-Separator and border are separate roles even when they share a value today. A separator divides content; a border encloses a control. They diverge the first time someone restyles inputs, and a system that conflated them has to be untangled at that moment.
+Separator and border are separate roles even when they share a value today. A separator divides content; a border encloses a control. They diverge the first time someone restyles inputs, and a system that conflated them gets untangled at that moment.
 
 ## Naming grammar
 
-Use one shape and never deviate: `--color-{role}-{variant}-{state}`.
+Use one shape and never deviate. Neutral roles lead with the property, as `--color-{bg|text|border}-{variant}-{state}`. Accent and status roles lead with the role, as `--color-{accent|danger|…}-{subtle|border|solid|text}-{state}`.
 
 ```css
 --color-bg-surface
 --color-text-secondary
 --color-border-strong
 --color-accent-solid-hover
+--color-danger-subtle
+--color-accent-text
 ```
 
-Pick one word per concept and use only that word. The vocabulary matters less than its consistency — a reader who has seen `--color-text-primary` must be able to guess `--color-text-disabled` without looking:
+Pick one word per concept and use only that word. Consistency matters more than the vocabulary. A reader who has seen `--color-text-primary` must be able to guess `--color-text-disabled` without looking:
 
 | Concept | Pick one | Never mix in |
 | --- | --- | --- |
@@ -60,7 +58,7 @@ Pick one word per concept and use only that word. The vocabulary matters less th
 | Edge | `border` | `stroke`, `outline`, `line` |
 | Brand color | `accent` | `primary`, `brand`, `theme` used interchangeably |
 
-Reserve `primary` for exactly one meaning. `--color-text-primary` (the main body text) and `--color-primary` (the brand color) in one codebase is the most common naming collision there is, and it makes every `primary` token ambiguous until you open its definition. Use `accent` for the brand and let `primary` mean "the most prominent of its group".
+Reserve `primary` for exactly one meaning. `--color-text-primary` for body text beside `--color-primary` for the brand is the most common naming collision there is, and it makes every `primary` token ambiguous until you open its definition. Use `accent` for the brand and let `primary` mean "the most prominent of its group".
 
 ## Anti-patterns
 
@@ -71,27 +69,27 @@ Reserve `primary` for exactly one meaning. `--color-text-primary` (the main body
 | `--color-light-gray` | Lies in dark mode, where it is the dark one | `--neutral-200` as a primitive |
 | `--color-text-2` | Numbered semantics carry no meaning; nobody can guess what `3` would be | `--color-text-secondary` |
 | `--color-gray-hover` | Mixes a hue with a state and belongs to no tier | `--color-bg-surface-hover` |
-| `--blue-500` used in a component | Skips the semantic tier and removes the theming seam | Point a semantic token at it |
-
-The rule underneath all of them: **never borrow a token because its value is right today.** If a role has no token, add the token. Reusing `--color-border` as a text color works until borders get lighter, and then the text goes with it — see [color-usage.md](color-usage.md).
+| `--blue-600` used in a component | Skips the semantic tier and removes the theming seam | Point a semantic token at it |
 
 ## In Tailwind projects
 
-Tailwind v4 generates utilities from `@theme`, so names declared there become the API. Declare primitives and semantics in the same block; the `--color-*` namespace is what produces `bg-*`, `text-*`, and `border-*`:
+Tailwind v4 generates utilities from `@theme`, so names declared there become the API. Declare primitives and semantics in the same block; the `--color-*` namespace is what produces `bg-*`, `text-*` and `border-*`:
 
 ```css
 @theme {
   /* Primitives */
-  --color-brand-50: #eff6ff;
-  --color-brand-500: #3b82f6;
-  --color-brand-900: #1e3a8a;
+  --color-blue-50: #eff6ff;
+  --color-blue-600: #2563eb;
+  --color-blue-900: #1e3a8a;
 
-  /* Semantics — these are what templates should use */
-  --color-accent-solid: var(--color-brand-500);
+  /* Semantics: what templates should use */
+  --color-accent-solid: var(--color-blue-600);
   --color-text-secondary: var(--color-neutral-700);
 }
 ```
 
-This yields `bg-accent-solid` and `text-secondary` alongside `bg-brand-500`. Both are reachable, so the discipline is a convention rather than a constraint: templates use the semantic utilities, and a raw `bg-brand-500` in a component is the thing to flag in review.
+That yields `bg-accent-solid` and `text-text-secondary` alongside `bg-blue-600`. Tailwind prefixes every `--color-*` name with the utility, so a `text-` token doubles. Accept the doubling, or follow the convention the project already uses. Both tiers are reachable, so the discipline is a convention rather than a constraint. Templates use the semantic utilities, and a raw `bg-blue-600` in a component is the thing to flag.
 
-Opacity modifiers work on either tier — `bg-accent-solid/50` — but a color carrying alpha cannot be contrast-checked against a static background, since what it renders depends on what is behind it. Use solid tokens for anything with text on it.
+Repoint semantics for dark mode in a `.dark` block outside `@theme`. Leave the block without `inline`, so utilities read the semantic variable at render time.
+
+Opacity modifiers work on either tier, as in `bg-accent-solid/50`. But a color carrying alpha cannot be contrast-checked against a static background, because what it renders depends on what sits behind it. Use solid tokens for anything with text on it.
