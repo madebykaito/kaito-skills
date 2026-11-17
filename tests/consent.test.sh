@@ -20,7 +20,7 @@ test_permissions_default_no() {
 test_permissions_yes_exact_rules() {
   mk_home; mk_repo; KAITO_ANSWERS=perms=y run_setup
   st=$KAITO_HOME/store
-  want=$(printf '%s\n' 'Read(~/.kaito/**)' 'Edit(~/.kaito/memory/**)' \
+  want=$(printf '%s\n' 'Read(~/.kaito/store/**)' 'Read(~/.kaito/memory/**)' 'Read(~/.kaito/config.json)' 'Edit(~/.kaito/memory/**)' \
     'Bash(~/.kaito/store/gstack/bin/*)' "Bash($st/gstack/bin/*)" \
     'Bash(~/.kaito/store/gstack/browse/dist/browse *)' "Bash($st/gstack/browse/dist/browse *)" \
     'Bash(~/.kaito/store/helpmekaito/scripts/*)' "Bash($st/helpmekaito/scripts/*)" | sort)
@@ -36,7 +36,7 @@ test_stale_managed_rule_dropped() {
   node "$J" add "$KAITO_HOME/state.json" managed_permissions "\"$old\""
   run_setup
   ! allow | grep -qxF "$old" || exit 1
-  assert_eq "$(allow | wc -l | tr -d ' ')" 8 kept
+  assert_eq "$(allow | wc -l | tr -d ' ')" 10 kept
 }
 
 test_permissions_outside_home_absolute_only() {
@@ -51,7 +51,7 @@ test_permissions_idempotent_and_uninstall_keeps_others() {
   echo '{"permissions":{"allow":["Bash(git status)","Read(~/.kaito/**)"]},"model":"m"}' > "$(S)"
   KAITO_ANSWERS=perms=y run_setup; KAITO_ANSWERS=perms=y run_setup
   assert_eq "$(allow | grep -cxF 'Read(~/.kaito/**)')" 1 nodup
-  assert_eq "$(allow | wc -l | tr -d ' ')" 9 total
+  assert_eq "$(allow | wc -l | tr -d ' ')" 12 total
   run_setup --uninstall
   assert_eq "$(allow | sort)" 'Bash(git status)
 Read(~/.kaito/**)' left
@@ -182,4 +182,31 @@ test_codexwrite_uninstall_without_begin_marker() {  # Codex rewrites config.toml
   grep -vxF '# kaito:begin' "$HOME/.codex/config.toml" > "$HOME/t" && cat "$HOME/t" > "$HOME/.codex/config.toml"
   run_setup --uninstall
   assert_eq "$(grep -v '^$' "$HOME/.codex/config.toml")" 'model = "x"' leftover
+}
+
+test_old_managed_broad_read_retired() {
+  mk_home; mk_repo; KAITO_ANSWERS=perms=y run_setup
+  old='Read(~/.kaito/**)'
+  node "$J" add "$(S)" permissions.allow "\"$old\""
+  node "$J" add "$KAITO_HOME/state.json" managed_permissions "\"$old\""
+  KAITO_ANSWERS=perms=y run_setup
+  ! allow | grep -qxF "$old" || exit 1
+  allow | grep -qxF 'Read(~/.kaito/store/**)' || exit 1
+}
+
+test_user_owned_broad_read_kept_and_warned() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude"
+  echo '{"permissions":{"allow":["Read(~/.kaito/**)"]}}' > "$(S)"
+  KAITO_ANSWERS=perms=y run_setup
+  allow | grep -qxF 'Read(~/.kaito/**)' || exit 1
+  grep -q '^warning: .*Read(~/.kaito/\*\*)' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+test_memory_outside_kaito_gets_rules() {
+  mk_home; mk_repo
+  mkdir -p "$KAITO_HOME"; echo '{"memory":{"path":"~/vault/mem"}}' > "$KAITO_HOME/config.json"
+  KAITO_ANSWERS=perms=y run_setup
+  allow | grep -qxF 'Read(~/vault/mem/**)' || exit 1
+  allow | grep -qxF 'Edit(~/vault/mem/**)' || exit 1
 }

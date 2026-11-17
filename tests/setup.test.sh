@@ -160,3 +160,85 @@ test_store_keeps_foreign_dirs_and_ships_licenses() {
   assert_file "$KAITO_HOME/store/myskill/SKILL.md"
   assert_file "$KAITO_HOME/store/THIRD_PARTY_LICENSES.md"; assert_file "$KAITO_HOME/store/LICENSE"
 }
+
+# A stub kaito-tasks.sh in the repo copy: records calls, credentials=$HOME/cred or no.
+stub_tasks() {
+  cat > "$R/helpmekaito/scripts/kaito-tasks.sh" <<'STUB'
+#!/bin/sh
+echo "$*" >> "$HOME/calls"
+case "$1" in
+  status) echo "credentials=$(cat "$HOME/cred" 2>/dev/null || echo no)" ;;
+  boards) echo "b1 Board One" ;;
+esac
+exit 0
+STUB
+}
+cfg() { node "$J" get "$KAITO_HOME/config.json" "$1"; }
+
+test_tasks_default_yes_leaves_pending() {
+  mk_home; mk_repo; stub_tasks; run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  assert_eq "$(cfg tasks.manager)" "" nothing_asked
+  assert_no "$HOME/calls"
+}
+
+test_tasks_none_skips() {
+  mk_home; mk_repo; stub_tasks; KAITO_ANSWERS=tasks_manager=none run_setup
+  assert_eq "$(cfg tasks.state)" '"skipped"' skipped
+  assert_no "$HOME/calls"
+}
+
+test_tasks_obsidian_done() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS="tasks_manager=obsidian,tasks_memory=$HOME/vault/mem,tasks_vault=$HOME/vault" run_setup
+  assert_eq "$(cfg tasks.state)" '"done"' done
+  assert_eq "$(cfg memory.path)" "\"$HOME/vault/mem\"" memory
+  assert_eq "$(cfg obsidian.vault_root)" "\"$HOME/vault\"" vault
+  assert_eq "$(cfg tasks.steps.discovery)" true discovery
+}
+
+test_tasks_trello_no_credentials_stays_pending() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=trello run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  assert_eq "$(cfg tasks.steps.manager)" true manager
+  assert_eq "$(cfg tasks.steps.memory)" true memory
+  assert_eq "$(cfg tasks.steps.credentials)" false credentials
+  grep -q "kaito-tasks.sh login" "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  ! grep -qx 'login' "$HOME/calls" || exit 1  # no tty: login is never run
+}
+
+test_tasks_trello_discovery_consent() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=b1 b2" run_setup
+  assert_eq "$(cfg tasks.state)" '"done"' done
+  grep -qx 'consent yes b1 b2' "$HOME/calls" || { cat "$HOME/calls"; exit 1; }
+  grep -qx 'discover' "$HOME/calls" || exit 1
+}
+
+test_tasks_trello_discovery_refused() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=b1,tasks_discover=n" run_setup
+  assert_eq "$(cfg tasks.state)" '"done"' done
+  grep -qx 'consent no b1' "$HOME/calls" || exit 1
+  ! grep -qx 'discover' "$HOME/calls" || exit 1
+}
+
+test_tasks_resume_does_not_reask() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=trello run_setup  # credentials missing: pending
+  echo yes > "$HOME/cred"
+  # manager and memory are done; a different manager answer must not be used
+  KAITO_ANSWERS="tasks_manager=asana,tasks_boards=b1" run_setup
+  assert_eq "$(cfg tasks.manager)" '"trello"' not_reasked
+  assert_eq "$(cfg tasks.state)" '"done"' done
+}
+
+test_tasks_done_asks_only_change() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=obsidian run_setup
+  KAITO_ANSWERS=tasks_manager=none run_setup
+  assert_eq "$(cfg tasks.manager)" '"obsidian"' kept
+  KAITO_ANSWERS=tasks_change=y,tasks_manager=none run_setup
+  assert_eq "$(cfg tasks.state)" '"skipped"' changed
+}
