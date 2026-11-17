@@ -93,8 +93,11 @@ test_login_stores_creds_and_keeps_other_lines() {
   command -v script >/dev/null || return 0
   # type only once the key prompt shows (echo is off by then), as a person would; give up after 30s
   : > "$HOME/out"
+  # BSD script (macOS) takes the command as args; util-linux script (Linux) takes it with -c
+  pty() { if script --version 2>/dev/null | grep -q util-linux; then script -q -e -c "sh '$T' login" /dev/null
+          else script -q /dev/null sh "$T" login; fi; }
   out=$( { i=0; until grep -q "Trello API key:" "$HOME/out" || [ $i -ge 300 ]; do sleep 0.1; i=$((i+1)); done
-           printf '%s\n%s\n' "$FK" "$FT"; sleep 3; } | script -q /dev/null sh "$T" login 2>&1 | tee "$HOME/out")
+           printf '%s\n%s\n' "$FK" "$FT"; sleep 3; } | pty 2>&1 | tee "$HOME/out")
   case "$out" in *"$FT"*) echo "  token echoed"; exit 1;; esac
   grep -qx "OBSIDIAN_API_KEY=keepme" "$KAITO_HOME/.env" || { echo "  lost other line"; exit 1; }
   grep -qx "TRELLO_TOKEN=$FT" "$KAITO_HOME/.env" || { echo "$out"; exit 1; }

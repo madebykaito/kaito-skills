@@ -1,0 +1,36 @@
+name: Bug
+description: Something is broken, or a skill fires when it shouldn't.
+labels: [bug, needs-triage]
+body:
+  - type: input
+    id: skill
+    attributes:
+      label: Skill or script
+      description: Which skill, or `setup`, or a script path.
+      placeholder: better-ui
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Paste the prompt and the agent's reply if a skill is involved.
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      placeholder: Claude Code 2.x, Codex 1.x
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 26, Ubuntu 24.04
+  - type: input
+    id: version
+    attributes:
+      label: kaito-skills version or commit
+      description: Output of `git describe --tags --always`.

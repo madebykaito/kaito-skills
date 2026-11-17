@@ -25,6 +25,9 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
 | `banner-design` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), Next Level Builder | MIT |
 | `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `scaffold-research-project`, `semantic-wiki-review`, `wiki-graph`, `wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.41.1, Patrick Leiverkus | MIT |
+| `analytics-tracking`, `competitor-alternatives`, `content-strategy`, `copy-editing`, `copywriting`, `page-cro`, `programmatic-seo`, `schema-markup`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills), Corey Haines, by way of [boraoztunc/skills](https://github.com/boraoztunc/skills) | MIT |
+| `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav, by way of [boraoztunc/skills](https://github.com/boraoztunc/skills) | MIT |
+| `adversarial-review`, `ogilvy`, `tailwind-v4`, `visual-style-presets` | [boraoztunc/skills](https://github.com/boraoztunc/skills), Bora Öztunç | MIT, stated in its README; the repository ships no license file of its own |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
 
 ## Notices carried from upstream
@@ -381,6 +384,58 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2026 Patrick Leiverkus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT, Corey Haines (marketingskills)
+
+```text
+MIT License
+
+Copyright (c) 2025 Corey Haines
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT, Parth Jadhav (app-store-screenshots)
+
+```text
+MIT License
+
+Copyright (c) 2026 Parth Jadhav
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,0 +1,26 @@
+name: Stale
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+permissions:
+  issues: write
+  pull-requests: write
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          # Issues: only ones waiting on the reporter. 23 + 7 = 30 days without a reply.
+          only-issue-labels: needs-info
+          days-before-issue-stale: 23
+          days-before-issue-close: 7
+          stale-issue-message: This issue is waiting on more information. It closes in 7 days without a reply.
+          # PRs: stale after 30 days of no activity, closed 14 days later.
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-message: This PR has had no activity for 30 days. It closes in 14 days unless updated.
+          exempt-issue-labels: keep-open,security
+          exempt-pr-labels: keep-open,security,dependencies
+          exempt-draft-pr: true

@@ -278,6 +278,10 @@ For long, source-heavy research projects. From research-superpowers.
 - Moving `memory.path` later is manual: move the folder, then change the key.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 
+## Contributing
+
+Fixes and new skills are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md), then pick an issue labeled [`good first issue`](https://github.com/madebykaito/kaito-skills/labels/good%20first%20issue) or open one. Security reports go through [`SECURITY.md`](SECURITY.md). Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md). Changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Credits
 
 Many skills here are adapted from other open-source work. Sources and their licenses are in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
