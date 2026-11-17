@@ -1,0 +1,39 @@
+name: New skill
+description: Propose a skill to add, yours or from another repo.
+labels: [new-skill, needs-triage]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Skill name
+      placeholder: better-forms
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it does and why it belongs here
+      description: Which existing skills does it overlap with?
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source and license
+      description: Upstream repo and license if it is someone else's work. Leave empty if it is yours.
+      placeholder: https://github.com/someone/skills (MIT)
+  - type: textarea
+    id: triggers
+    attributes:
+      label: Trigger prompts
+      description: 3 prompts that should fire it, 2 that should not.
+    validations:
+      required: true
+  - type: checkboxes
+    id: limits
+    attributes:
+      label: Needs
+      options:
+        - label: an API key or account
+        - label: a paid package
+        - label: a setup step
