@@ -2,6 +2,10 @@
 name: source-ingester
 description: Dispatched by ingest-source or executing-research-plan. Reads ONE source PDF/text under a specific focus and produces a focus-driven Source page + entity pages + BibTeX entry + log line. Re-ingest of an existing source page appends a new focus block rather than overwriting. Fresh context per dispatch.
 implements: ingest-source
+skills:
+  - ingest-source
+model: inherit
+disallowedTools: Agent
 ---
 
 # Source Ingester Subagent
@@ -43,6 +47,10 @@ frontmatter.
   append the letter suffix **after the year** (`mazar-2011b-iron-age`)
 - Min. 1 verbatim quote per focus block, with page number, max ~5
 - Min. 1–5 claims per focus block, each one sentence with page reference
+- **Scope-faithful:** every thesis and claim keeps the source's hedges
+  (*probably*, *suggests*), its scope (site, stratum, region, period, corpus,
+  sample) and its conditions. Never widen a claim beyond what the page says;
+  when the qualifier matters, quote it verbatim with the page
 - **BibTeX `keywords`:** on first ingest, 3–8 terms — canonical name plus known
   synonyms/aliases (spelling variants, other disciplines' names, stems). See
   "BibTeX Entry Convention" in the embedded skill.
@@ -54,6 +62,14 @@ frontmatter.
   (`ambiguous` if unclear), plus a one-line `because`. `target` must resolve
   to an existing page. Plain entity mentions stay as wikilinks — no
   `relations:` entry. See "Typed relations" in the embedded skill.
+- **Research chronology:** record what the source says about earlier positions,
+  its own author's included, as `responds-to` / `supersedes` / `revises` with a
+  `basis` (new-evidence / new-method / reinterpretation / argument).
+  `supersedes` is `extracted` only when the source names the earlier work and
+  says its position fails. Never write a stance edge to a source later than
+  this one — put it on the later page and report that you did. Set `orig_year`
+  for a reprint / translation and `evidence_until` when the source states its
+  data cut-off. See "Research chronology" in the embedded skill.
 - Re-ingest mode (when source page already exists): append a new `## Focus:`
   block, do not overwrite previous focus blocks; replace `## Other content
   in this source`; union the `## Mentioned entities` and `## Connections`
@@ -101,6 +117,9 @@ fresh | append-section (existing focus blocks: N) | update-existing-focus (warne
 ### Typed relations written
 | Target | Type | Confidence | Because (short) |
 <one row per `relations:` entry, or "none — no stance-bearing connections">
+
+### Research chronology
+<year the source is dated by; `orig_year` / `evidence_until` if set; edges written to earlier sources; edges added or moved on later pages; or "no earlier or later position in the wiki">
 
 ### BibTeX entry (unchanged from prior ingest, or "keywords updated: added <term>, <term>" if re-ingest recognized new terms)
 \`\`\`bibtex

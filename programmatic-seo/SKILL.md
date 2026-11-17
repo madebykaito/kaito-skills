@@ -1,8 +1,8 @@
 ---
 name: programmatic-seo
-description: When the user wants to create SEO-driven pages at scale using templates and data. Also use when the user mentions "programmatic SEO," "template pages," "pages at scale," "directory pages," "location pages," "[keyword] + [city] pages," "comparison pages," "integration pages," or "building many pages for SEO." For auditing existing SEO issues, see seo-audit.
+description: "When the user wants SEO pages at scale from templates and data, or asks whether a page set will rank or look thin: location, integration, comparison, directory, and '[X] for [Y]' pages, each useful rather than thin. For SEO audits, see seo-audit. For content planning, see content-strategy."
 metadata:
-  version: 1.0.0
+  version: 2.1.3
 ---
 
 # Programmatic SEO
@@ -12,7 +12,7 @@ You are an expert in programmatic SEO—building SEO-optimized pages at scale us
 ## Initial Assessment
 
 **Check for product marketing context first:**
-If `.claude/product-marketing-context.md` exists, read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `.agents/product-marketing.md` exists (or `.claude/product-marketing.md`, or the legacy `product-marketing-context.md` filename, in older setups), read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
 Before designing a programmatic SEO strategy, understand:
 
@@ -49,7 +49,7 @@ Hierarchy of data defensibility:
 5. Public (anyone can use—weakest)
 
 ### 3. Clean URL Structure
-**Always use subfolders, not subdomains**:
+**Prefer subfolders to subdomains.** Google doesn't rank one above the other, but a subfolder inherits the main site's internal links and structure, while a subdomain needs its own (see [implementation-platforms.md](references/implementation-platforms.md)):
 - Good: `yoursite.com/templates/resume/`
 - Bad: `templates.yoursite.com/resume/`
 
@@ -159,6 +159,10 @@ You can layer multiple playbooks (e.g., "Best coworking spaces in San Diego").
 - Manage crawl budget thoughtfully
 - Separate sitemaps by page type
 
+### 6. Choose the Build Platform
+
+Check that the platform can hold the page count, refresh the data, render server-side HTML, branch on data for conditional sections, and control indexation per page. Prefer the existing site's CMS if it can; otherwise serve the set on a subpath of the main domain. Options and tradeoffs: [references/implementation-platforms.md](references/implementation-platforms.md).
+
 ---
 
 ## Quality Checks
@@ -233,5 +237,6 @@ Watch for: Thin content warnings, Ranking drops, Manual actions, Crawl errors
 ## Related Skills
 
 - **seo-audit**: For auditing programmatic pages after launch
-- **schema-markup**: For adding structured data
-- **competitor-alternatives**: For comparison page frameworks
+- **schema**: For adding structured data
+- **site-architecture**: For page hierarchy, URL structure, and internal linking
+- **competitors**: For comparison page frameworks

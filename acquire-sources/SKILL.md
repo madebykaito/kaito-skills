@@ -1,6 +1,7 @@
 ---
 name: acquire-sources
 description: Use AFTER literature-review and BEFORE ingest-source to obtain the actual PDFs for the A+B graded sources. Auto-downloads Open-Access PDFs into the shared library (<library>/pdf/<bibkey>.pdf — the bibkey IS the filename) and writes a manual-download worklist (input/bibliography/acquisition-todo.md) for everything paywalled or bot-blocked, so the user can fetch originals via university VPN. Re-run to reconcile manually-downloaded files. Triggers on "acquire the sources", "download the literature", "get the PDFs", "Quellen beschaffen", "lade die Literatur herunter". NOT a search skill (that is literature-review), NOT an ingest skill (that is ingest-source).
+argument-hint: "[grade-scope, e.g. A,B]"
 inputs:
 - name: literaturguide_path
   description: Path to input/bibliography/literaturguide.md produced by literature-review
@@ -67,7 +68,7 @@ Report counts: "Acquired N of M A+B sources. K need manual download — see `acq
 
 ## Checklist
 
-Create TodoWrite tasks for each:
+Create a task-list item for each:
 
 1. **Build the A+B worklist** — read `literaturguide_path` and `bibtex_path`. The guide's **weighted source table** (section 1, columns `Grade | Autor Jahr | Kurztitel | OA/Zugang | DOI/Link`) is the canonical weighting: filter on its `Grade` column by `grade_scope` (default `A,B`). For every in-scope source collect: `bibkey`, authors, year, short title (the `Kurztitel` cell), grade, `doi`, `url`, `oa_pdf` (the per-candidate fields the `literature-scout` agent emits), and the canonical target filename `<bibkey>.pdf` — **the bibkey IS the filename**. The bibkey is `autor-jahr-kurztitel`, all lowercase ASCII, hyphen-separated: `autor` = first author's surname (umlauts → `ae`/`oe`/`ue`, `ß` → `ss`; Turkish `ı` → `i`, Polish `ł` → `l`; particles/hyphens removed), `jahr` = four-digit year (letter suffix **after the year** for clashes, `finkelstein-2003b`), `kurztitel` = the first significant title word, stopwords dropped. e.g. `finkelstein-2003-low-chronology.pdf`. **Into `<library>/pdf/` — resolve the library with `scripts/library.py`.**
 2. **Reconcile against the library first (idempotent)** — scan `<library>/pdf/*.pdf`. Match each worklist item by its `<bibkey>.pdf` filename — an exact match, no fuzzy guessing needed: that is the whole point of `bibkey == filename`. A match → `already-present`; **never re-download it.** Note the library is SHARED: another project may already have acquired this source, and that counts.
@@ -142,12 +143,26 @@ already present.
 Do NOT substitute a preprint, prior version, or book review for the original —
 `ingest-source` hard-stops on a missing original.
 
+Licensed PDFs (UB/VPN): check whether your library's licence allows processing
+by the AI provider you use; if not, ingest them with a local or
+institution-hosted model.
+
 Last updated: <YYYY-MM-DD> · <K> of <M> A+B sources still needed.
 
 | ☐ | Citekey | Author Year | Short title | Grade | DOI / landing | Best download URL(s) | Save as (exact filename) |
 |---|---------|-------------|-------------|-------|---------------|----------------------|--------------------------|
 | [ ] | finkelstein-2003 | Finkelstein 2003 | Low Chronology Revisited | A | [10.1179/…](https://doi.org/10.1179/…) | <links or "—"> | `finkelstein-2003-low-chronology.pdf` |
 ```
+
+**Licence note.** Where the resolver returned a licence (Unpaywall / OpenAlex
+`license`, e.g. `cc-by`, `cc-by-nc-nd`) record it in the audit JSON per item. A
+PDF obtained through a university licence (◐ UB) or a publisher platform may come
+with terms that restrict processing by AI services; many licence agreements now
+say so explicitly. That is the user's call, not this skill's — but make it
+visible: the worklist header carries one line, *"Licensed PDFs (UB/VPN): check
+whether your library's licence allows processing by the AI provider you use; if
+not, ingest them with a local or institution-hosted model."* CC-BY / CC-BY-SA
+and public-domain items are unproblematic.
 
 The `Citekey` and `Save as` columns are load-bearing: they tie the manually-downloaded file to its BibTeX key and to the filename `ingest-source` expects. `DOI / landing` gives the canonical resolver; `Best download URL(s)` lists any concrete-but-unfetchable PDF candidate worth a browser try.
 

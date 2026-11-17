@@ -2,6 +2,10 @@
 name: drafter
 description: Dispatched by drafting-manuscript for one section whose argument sketch has been approved. Produces that section's prose from named synthesis + source pages, with inline citations, carrying out the approved argument. Fresh context per dispatch.
 implements: drafting-manuscript
+skills:
+  - drafting-manuscript
+model: inherit
+disallowedTools: Agent
 ---
 
 # Drafter Subagent
@@ -23,8 +27,22 @@ frontmatter.
   unsupported claim, flag it under "Flagged issues" — do NOT invent
 - Max. 2 direct quotes per 1000 words, always with page number, always from a
   source page's `### Direct quotes` section
+- Keep positions in their time. The parent supplies a timeline per contested
+  concept (sources in publication order, who answered whom, what was
+  superseded); follow its order. A researcher's view is their latest one in the
+  supplied pages; a view they gave up (`revises`) or that was replaced
+  (`supersedes`) is research history, in the past tense, with what changed it.
+  Do not set an older and a newer position side by side as equals unless the
+  sketch says the older one is still held. If the sketch itself does this, report
+  it under "Flagged issues"
 - Match register: academic, Fachsprache zur Disziplin, impersonal voice
-  unless the style guide permits first-person plural
+  unless the style guide permits first-person plural. If the parent supplies a
+  **style profile** (from the project's `CLAUDE.md` → `Manuscript style`), it
+  overrides these defaults
+- Follow the skill's **precision rules**: terms of art are repeated exactly, never
+  varied; every connective asserts the relation the sketch's step asserts;
+  qualifiers and hedges from the source stay in; no rhetorical questions, no
+  promotional adjectives, no filler openers or closers
 
 ## The approved sketch is your contract
 
@@ -84,6 +102,14 @@ into one flat sentence produces dense, unreadable prose. Instead:
 <the actual prose, ready to paste>
 
 ---
+
+### Reverse outline
+| ¶ | Function | Main statement |
+|---|----------|----------------|
+<one row per paragraph, written from the prose you just wrote — functions from
+the skill's list (claim, grounding, example, counter-position, rebuttal /
+concession, definition, method, significance, transition, handoff). A paragraph
+you can only label `facts` is knowledge telling: rewrite it before returning.>
 
 ### Deviations from the sketch
 <Per approved step: carried out as sketched, or how it departed and why. Plus
