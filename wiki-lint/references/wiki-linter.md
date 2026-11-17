@@ -2,6 +2,10 @@
 name: wiki-linter
 description: Dispatched by wiki-lint for large wikis (>50 pages) or heavy cleanup. Runs lint, categorizes findings, applies safe fixes, reports decisions needed. Fresh context per dispatch.
 implements: wiki-lint
+skills:
+  - wiki-lint
+model: sonnet
+disallowedTools: Agent
 ---
 
 # Wiki Linter Subagent

@@ -1,6 +1,6 @@
 ---
 name: executing-research-plan
-description: Use AFTER writing-research-plan has produced a ready plan (status=ready for hermeneutic projects, status=pre-registered for quantitative/mixed). Reads `input/ideas/<slug>-plan.md`, creates TodoWrite items, runs a pre-ingest acquisition gate (acquire-sources) so originals are on disk before any source-ingester runs, and works tasks via subagent dispatch (source-acquirer, source-ingester, analyst, drafter) with two-stage review. Does not execute anything outside the plan.
+description: Use AFTER writing-research-plan has produced a ready plan (status=ready for hermeneutic projects, status=pre-registered for quantitative/mixed). Reads `input/ideas/<slug>-plan.md`, creates one task-list item per plan task, runs a pre-ingest acquisition gate (acquire-sources) so originals are on disk before any source-ingester runs, and works tasks via subagent dispatch (source-acquirer, source-ingester, analyst, drafter) with two-stage review. Does not execute anything outside the plan.
 inputs:
 - name: plan_path
   description: Path to input/ideas/<slug>-plan.md — status=ready (hermeneutic) or status=pre-registered (quantitative/mixed)
@@ -49,21 +49,22 @@ deviations go into the deviation log.
 
 1. **Load the plan** — read `input/ideas/<slug>-plan.md` end-to-end
 2. **Verify the plan is ready** (methodology-aware): `methodology: hermeneutic` → frontmatter `status: ready` is enough (no frozen hypothesis); `methodology: quantitative`/`mixed` (or a task block marked `pre-registered: true`) → `status: pre-registered` + user confirmation of the hypothesis
-3. **Create TodoWrite items** — one per task in the plan (use the plan's own wording)
-4. **Acquisition gate (before any ingest task)** — guarantee the originals are on disk first; run the **Acquisition gate** algorithm below. `literature-review` only searches — without this gate every `source-ingester` hard-stops on a missing PDF.
-5. **Route each task to the right subagent:**
+3. **Create task-list items** — one per task in the plan (use the plan's own wording)
+4. **Personal-data check (before any task that reads `input/data/` or `input/notes/`)** — interviews, questionnaires, field notes or excavation diaries naming living people, correspondence, unpublished data shared by colleagues. Ask once: does this material contain personal or confidential data, and do the consent forms / data agreements allow processing by the AI provider this session uses? If not, or unknown: stop that task and say so — the options are anonymising first (remove names, places, identifiers before the file is read), or running the task with a local / institution-hosted model (e.g. KISSKI/GWDG, a local Ollama or LM Studio model). Record the answer in the plan's task block (`personal_data: none | anonymised | local-model-only`) so the next session does not ask again. Published scholarship and the user's own non-personal notes need no check
+5. **Acquisition gate (before any ingest task)** — guarantee the originals are on disk first; run the **Acquisition gate** algorithm below. `literature-review` only searches — without this gate every `source-ingester` hard-stops on a missing PDF.
+6. **Route each task to the right subagent:**
    - **Ingest task** → `source-ingester` (dispatch a general subagent with `references/source-ingester.md` as its brief)
    - **Analysis task** → `analyst` (runs Python/R in `output/data-analysis/`; brief: `references/analyst.md`)
    - **Synthesis task** → main conversation, not subagent (high context integration)
    - **Draft task** → invoke `drafting-manuscript` skill (which may dispatch `drafter`)
-6. **Two-stage review per task:**
+7. **Two-stage review per task:**
    - **Spec reviewer** (fresh subagent): does the output match the task spec exactly?
    - **Quality reviewer** (fresh subagent): is the code/page/result methodologically sound?
    - Any "no" → route back to the executing subagent with reviewer feedback
-7. **Log deviations** — if findings force change, append to `knowledge/_meta/log.md` and mark subsequent analyses as exploratory
-8. **Run wiki-lint after every ingest and synthesis task**
-9. **After all tasks done:** check plan's Verification section; only green on all boxes means complete
-10. **Transition:** if plan output target is book/article → `drafting-manuscript`; if grant → `grant-finder`; if done → `finishing-a-research-project`
+8. **Log deviations** — if findings force change, append to `knowledge/_meta/log.md` and mark subsequent analyses as exploratory
+9. **Run wiki-lint after every ingest and synthesis task**
+10. **After all tasks done:** check plan's Verification section; only green on all boxes means complete
+11. **Transition:** if plan output target is book/article → `drafting-manuscript`; if grant → `grant-finder`; if done → `finishing-a-research-project`
 
 ## Acquisition gate (before any ingest task)
 
@@ -87,7 +88,7 @@ per-source hard-stops.
    - **a. Offer the list.** Present the missing sources from `acquisition-todo.md`
      plus the manual-download instruction (university VPN / library proxy; save
      each into `<library>/pdf/` under the exact `<bibkey>.pdf`
-     filename). Mark the dependent ingest TodoWrite items `blocked` and **pause** —
+     filename). Mark the dependent ingest tasks as blocked and **pause** —
      do not dispatch those ingests.
    - **b. On the user's resume signal**, re-scan `<library>/pdf/` for the newly
      added PDFs and **reconcile** — re-run `acquire-sources` in reconcile mode:
@@ -117,7 +118,7 @@ digraph executing {
     "Load plan" [shape=box];
     "Pre-registered & signed?" [shape=diamond];
     "Back to writing-research-plan" [shape=box];
-    "Create TodoWrite from plan" [shape=box];
+    "Create task list from plan" [shape=box];
     "Acquisition gate: scan the library" [shape=box];
     "All originals present?" [shape=diamond];
     "Run acquire-sources" [shape=box];
@@ -145,8 +146,8 @@ digraph executing {
 
     "Load plan" -> "Pre-registered & signed?";
     "Pre-registered & signed?" -> "Back to writing-research-plan" [label="no"];
-    "Pre-registered & signed?" -> "Create TodoWrite from plan" [label="yes"];
-    "Create TodoWrite from plan" -> "Acquisition gate: scan the library";
+    "Pre-registered & signed?" -> "Create task list from plan" [label="yes"];
+    "Create task list from plan" -> "Acquisition gate: scan the library";
     "Acquisition gate: scan the library" -> "All originals present?";
     "All originals present?" -> "Next task" [label="yes"];
     "All originals present?" -> "Run acquire-sources" [label="no"];
@@ -225,7 +226,7 @@ just task spec + output):
 > You are a spec compliance reviewer. Task spec: <paste from plan>. Output: <paste or path>. Does the output match the spec exactly? Report mismatches. Do not assess quality.
 
 **Quality reviewer prompt template:**
-> You are a methodological quality reviewer. Output: <paste or path>. Methodological context: <paste plan Method section>. Is this sound? Check: (1) are assumptions stated, (2) are limitations named, (3) would a peer reviewer accept this? Report issues.
+> You are a methodological quality reviewer. Output: <paste or path>. Methodological context: <paste plan Method section>. Is this sound? Check: (1) are assumptions stated, (2) are limitations named, (3) does the script contain control checks with known answers, and do they pass, (4) does the load-bearing result agree across the independent recomputation, (5) is each procedure's choice justified by the plan rather than by its result, (6) would a peer reviewer accept this? Report issues.
 
 Both "yes" → task done. Any "no" → feedback back to the executing subagent.
 

@@ -1,6 +1,7 @@
 ---
 name: add-to-library
 description: Add ONE document (a PDF) directly to the shared master library — outside the project ingest flow. Auto-discovers the bibliographic metadata, VERIFIES it against Crossref/OpenAlex (never guessing), derives keywords cheaply from the PDF's docinfo + first-page abstract (no full read), computes the canonical bibkey, places the PDF at <library>/pdf/<bibkey>.pdf and appends the entry to <library>/references.bib. Stops and asks when metadata cannot be verified. Triggers on "add this PDF to the library", "add to the master bibliography", "put this straight in the library", "füge das Dokument der Bibliothek hinzu", "nimm das PDF in die Bibliothek auf". NOT ingest-source (which reads a source into a project's wiki), NOT acquire-sources (which downloads a review's worklist).
+argument-hint: "<path-to-pdf> [doi]"
 inputs:
 - name: source_path
   description: Path to the single PDF to add to the library
@@ -56,7 +57,7 @@ If a condition is unmet: name it, ask for a one-line reason, write it to `knowle
 
 ## Checklist
 
-Create TodoWrite tasks for each:
+Create a task-list item for each:
 
 1. **Resolve the library.** `python scripts/add-to-library.py inspect <pdf>` resolves it via `scripts/library.py`. If it reports the library is not configured, that is the machine-local `.research-library` problem — surface the message, do not proceed.
 
@@ -70,8 +71,11 @@ Create TodoWrite tasks for each:
 3. **Discover and VERIFY the metadata** (this is the load-bearing step). Prefer the `dao-paper-search-mcp` (see [`references/recommended-mcps.md`](references/recommended-mcps.md)); fall back to a manual Crossref lookup if it is absent.
    - **With a DOI** (from step 2 or the `doi` input):
      ```text
-     dao-paper-search-mcp.search_crossref(doi=<doi>)
-       → response.inline_citation.authoritative_bibliography_line   (verbatim)
+     dao-paper-search-mcp.search_crossref(query=<doi>)
+       → exactly one hit; check that its identifiers.doi IS <doi>
+         (a DOI query is a direct lookup from dao-paper-search-mcp 1.2.0;
+          older versions search and can return a different work)
+       → hit.inline_citation.authoritative_bibliography_line   (verbatim)
      ```
      or manually: `curl -s https://api.crossref.org/works/<doi>`.
    - **Without a DOI:** search `search_crossref` / `search_openalex` by the title + author from docinfo, and require a **confident** single match.

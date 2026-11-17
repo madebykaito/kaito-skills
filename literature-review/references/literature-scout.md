@@ -2,6 +2,10 @@
 name: literature-scout
 description: Dispatched by literature-review skill. Executes database queries across OpenAlex, IxTheo, Zenon-DAI, Propylaeum, Persée, OpenEdition, CORE, BASE, Crossref, DNB, arXiv. Returns graded candidate list with full bibdata. Fresh context per dispatch.
 implements: literature-review
+skills:
+  - literature-review
+model: sonnet
+disallowedTools: Agent
 ---
 
 # Literature Scout Subagent
@@ -24,7 +28,16 @@ skill's frontmatter.
   verbatim from the MCP response — especially `inline_citation.markdown`,
   `inline_citation.authoritative_bibliography_line`, `audit.source_class`,
   `audit.warn_marker`. Otherwise fall back to the manual path.
-- Respect polite-pool email headers and rate limits
+- Respect rate limits. Send no e-mail address: OpenAlex ended its `mailto`
+  polite pool in 2026 (an API key, if the environment has `OPENALEX_API_KEY`,
+  is what raises the budget), and a user's address does not belong in a
+  request header
+- **Forward pass.** When the parent names works to run it on (A-graded, not
+  among the newest), run `python scripts/forward-search.py <bibkey-or-doi>
+  --author --json` for each and screen the three lists as the skill's "The
+  forward pass" section describes. Report replies and later statements by the
+  author as candidates, graded like the rest, each with `answers: <bibkey>`.
+  Say "none found", never "unanswered" — neither list is complete
 - Deduplicate by DOI / title across databases
 - **Dedup against the library too.** The parent may embed an "already in the
   shared library" list of `bibkey` / DOI (from its step-3 `bib-search` pass).
@@ -65,6 +78,7 @@ skill's frontmatter.
     "doi": "...", "url": "...", "oa_pdf": "...",
     "abstract": "...",
     "grade": "A",
+    "answers": "bibkey of the earlier work this one replies to, if found by the forward pass",
     "rationale": "...",
     "source_database": "...",
     "source_class": "primary_publisher | academic_repository | preprint_server | aggregator | suspect | grey_lit_or_unknown",
@@ -81,6 +95,10 @@ skill's frontmatter.
 
 ### C-grade (optional, top-5)
 (same structure)
+
+## Forward pass
+| Work | Cited by (OpenAlex) | Named in owned works | Later by the author | Kept as candidates |
+<one row per work the pass ran on, or "not requested">
 
 ## Search queries executed
 - OpenAlex: `...`

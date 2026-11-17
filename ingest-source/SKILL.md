@@ -1,6 +1,7 @@
 ---
 name: ingest-source
 description: Use when adding a scholarly source (PDF, book chapter, article) to the research project wiki under a specific focus. Produces a focus-driven Source page (claims relevant to the project, not a generic summary), extracts Entities, updates BibTeX, and logs the ingest. On re-ingest of the same source with a new focus, appends a new focus block to the existing page rather than overwriting. This is the ONLY skill for bringing sources into the knowledge wiki.
+argument-hint: "<path-to-pdf> [focus]"
 inputs:
 - name: source_path
   description: Absolute path to the already-acquired PDF or text file in the shared library (<library>/pdf/<bibkey>.pdf, obtained via acquire-sources). No URL auto-download happens here — if the original is missing, the skill hard-stops (see step 2).
@@ -45,7 +46,7 @@ Before closing the ingest, check that all five artefacts exist and are linked:
 (3) BibTeX entry in `output/bibtex/references.bib` with matching key,
 (4) entry in `knowledge/_meta/log.md`,
 (5) `scripts/lint-wiki.py` exit code 0 for this source,
-(6) every `## Connections` line that asserts a stance toward another page (confirms / contradicts / supplements / builds-on / cites) has a matching entry in the page's `relations:` frontmatter, each with a `confidence` value (see "Typed relations" below). Plain mentions stay as wikilinks — no `relations:` entry required for them,
+(6) every `## Connections` line that asserts a stance toward another page (confirms / contradicts / supplements / builds-on / cites) has a matching entry in the page's `relations:` frontmatter, each with a `confidence` value (see "Typed relations" below). Plain mentions stay as wikilinks — no `relations:` entry required for them. No stance edge points from this source to a *later* one, and what the source says about earlier positions — its own author's included — is recorded as `responds-to` / `supersedes` / `revises` (see "Research chronology" below),
 (7) the BibTeX entry's `keywords` field carries 3–8 curated terms (first ingest) or has newly-recognized terms unioned in (re-ingest under a new focus) — see "BibTeX Entry Convention" below.
 
 If any condition is missing: explain to the user which, ask for a short reason for skipping, write it to `knowledge/_meta/gate-overrides.log`, and close out the ingest.
@@ -58,11 +59,11 @@ If any condition is missing: explain to the user which, ask for a short reason f
 - Re-reading an already-ingested source under a new focus (a new chapter draws on a different aspect of the same source)
 - Batch ingest from a literature list — loop this skill, one source per iteration, focus repeated or per-source
 
-**NOT for:** modifying existing focus blocks (edit directly), pure BibTeX-only entries without reading (use `file-converter` or shell), or single-fact lookups.
+**NOT for:** modifying existing focus blocks (edit directly), pure BibTeX-only entries without reading (edit the `.bib` directly, or `add-to-library` for a PDF you only want catalogued), or single-fact lookups.
 
 ## Checklist
 
-Create TodoWrite tasks for each:
+Create a task-list item for each:
 
 1. **Determine focus** — read `input/description/*.md` if present; extract the project's research question (look for `## Research question` heading or first H2). Propose: "Default focus from project description: «<research question>». Use this for the ingest or refine? (e.g. 'focus on the stratigraphic argument for Megiddo IVA' is more useful than the whole research question)." If `input/description/` is absent, ask explicitly: "What's the focus for this ingest? One sentence — what aspect of this source serves your project?" **Do not proceed without an explicit confirmed focus string.**
 2. **Locate the acquired original** — the PDF lives in the **shared library**, not in the project: `<library>/pdf/<bibkey>.pdf` (placed there by `acquire-sources`; e.g. `finkelstein-2003-low-chronology.pdf`). Resolve the library with `python scripts/library.py`, or from Python: `from library import pdf_for; pdf_for("<bibkey>")`.
@@ -86,7 +87,7 @@ Create TodoWrite tasks for each:
    - *The library is not configured on this machine* (`library.py` says so): the user must point this project at it — one line in `.research-library`. Do not report this as "PDF missing"; the file may well exist.
    - *The library is configured but has no PDF for this bibkey*: the source was never acquired. Point the user at `input/bibliography/acquisition-todo.md` and offer to run `acquire-sources`.
 3. **Settle the depth** — read the project's **Ingest depth** block in `CLAUDE.md` (if absent, `standard` applies) and set `depth:` in the frontmatter. It decides how much of step 3a you owe: `map` = the section map only; `standard` = map + at least 10 Kernthesen; `deep` = map + at least 20, long form. A re-ingest may **raise** it, never lower it. When the user says a source matters — "this is one of the most important articles I ever wrote" — that is a `deep` instruction; record it in the frontmatter rather than in the answer, so the next session still knows.
-4. **Read the source thoroughly** under the chosen focus — full text, not just abstract. Use `pdf` skill / `ocr` skill if scanned. Read with the focus question actively in mind; mark anything that bears on it.
+4. **Read the source thoroughly** under the chosen focus — full text, not just abstract. If it is a scan (no text layer), OCR it first — `ocrmypdf`, the tool `bib-search` and the drift report name, or the host's PDF/OCR skill if one is installed. Read with the focus question actively in mind; mark anything that bears on it.
 5. **Write the Erschließung — what the source contains, independent of the focus.** This is the half a focus-only ingest leaves out, and it is what a *later, different* question needs. It is written **once**, on first ingest, and only extended afterwards. Three sections (see the template below): the **section map** with page ranges and a coverage column, the **Kernthesen** (the source's own theses, ausgeführt, with page anchors — *not* only those the current focus needs), and **what the source does not address**, naming where it is treated instead.
    ⚠ **Kernthesen are the source's theses, not the project's.** The temptation is to write ten restatements of the focus; that produces a second focus block under a different name and helps nobody later. Write what the *author* argues, including the parts this project has no use for today.
 6. **Derive `bibkey` and slug — they are NOT the same thing.**
@@ -98,6 +99,7 @@ Create TodoWrite tasks for each:
 9. **Identify entities** mentioned in passages relevant to the focus (persons, places, artefacts, concepts). Only entities relevant to the focus — others can be added later.
 10. **Create or append `knowledge/sources/<slug>.md`** using the Source template (frontmatter + focus block — see below)
 11. **Derive typed relations** — for every connection that asserts a *stance* toward another page (confirms / contradicts / supplements / builds-on / cites), add a structured entry to the page's `relations:` frontmatter (see "Typed relations" below). This lifts the relation semantics into the machine-readable, typed graph layer instead of leaving them as flat wikilinks. Set `confidence: extracted` only when a verbatim quote + page backs the relation, else `inferred` (`ambiguous` if the relation is unclear), and add a one-line `because` with the quote/page where possible. **Never `asserted` during ingest** — that value marks an edge the project puts there on its own authority, and an ingest reads a source rather than deciding anything.
+    - **Place the source in the research history** (see "Research chronology" below): which earlier positions does it answer, replace or — in the author's own case — take back? Write those as `responds-to` / `supersedes` / `revises` edges with a `basis`. The project's `literaturguide.md` may already name what this source answers (its "Verlauf" blocks, from the forward pass) — read them as pointers to the passages to look for, not as findings. Then look the other way: does the wiki already hold a *later* source that answers this one? If so, the edge belongs on that later page; add or correct it there instead of writing a forward-pointing edge here.
 12. **Create/extend entity pages** — for each NEW entity, `knowledge/entities/<entity-slug>.md`; for existing, update with wikilink back to source. **Follow the Entity template in the project's `CLAUDE.md` (§ Page types)** — it carries the same two halves as a source page: what the thing *is* (location and authority data, what one sees, history of research, the evidence, what is contested) and what *this project* takes from it. An entity created during ingest may start with the second half only, but the page is not finished until the first exists — that is the half a later, different question needs.
 13. **Add BibTeX entry** to `output/bibtex/references.bib` with key = slug. On first ingest, include a `keywords` field: 3–8 terms — the method/topic's canonical name plus known synonyms and aliases (spelling variants, other disciplines' names, stems — the same discipline `drafting-manuscript`'s "Searching for a concept, not a string" documents). This is the one field that changes on re-ingest: union any newly-recognized terms in, deduped case-insensitively (see "BibTeX Entry Convention" below). Every other field is fixed at first ingest and does not change.
 
@@ -154,7 +156,7 @@ digraph ingest {
     "User consents to substitute?" [shape=diamond];
     "Record provenance (based_on)" [shape=box];
     "Scanned PDF?" [shape=diamond];
-    "Invoke ocr" [shape=box];
+    "OCR the scan (ocrmypdf)" [shape=box];
     "Read source under focus" [shape=box];
     "Derive slug" [shape=box];
     "Source page exists?" [shape=diamond];
@@ -182,9 +184,9 @@ digraph ingest {
     "User consents to substitute?" -> "HARD-STOP: point to acquisition-todo" [label="no"];
     "User consents to substitute?" -> "Record provenance (based_on)" [label="yes"];
     "Record provenance (based_on)" -> "Scanned PDF?";
-    "Scanned PDF?" -> "Invoke ocr" [label="yes"];
+    "Scanned PDF?" -> "OCR the scan (ocrmypdf)" [label="yes"];
     "Scanned PDF?" -> "Read source under focus" [label="no"];
-    "Invoke ocr" -> "Read source under focus";
+    "OCR the scan (ocrmypdf)" -> "Read source under focus";
     "Read source under focus" -> "Derive slug";
     "Derive slug" -> "Source page exists?";
     "Source page exists?" -> "Re-ingest mode" [label="yes"];
@@ -229,12 +231,17 @@ relations:
     type: contradicts
     confidence: extracted
     because: "Rejects the 10th-c. dating of Megiddo VA–IVB: «…verbatim…» (p. 156)."
-  - target: mazar-2011
-    type: contradicts
-    confidence: inferred
-    because: "Mazar later defends the Modified Conventional Chronology against this position; not stated in this source."
+  - target: finkelstein-1996-archaeology-united-monarchy
+    type: revises
+    basis: new-evidence
+    confidence: extracted
+    because: "«In light of the Tel Rehov dates I no longer hold…» (p. 152)."
 ---
 ```
+
+A source that is a reprint, a translation or an unrevised later edition also carries
+`orig_year`, and one that states its data cut-off carries `evidence_until` — both
+optional, both described under "Research chronology" below.
 
 The `relations:` block is **optional per the schema** (`scripts/lint-wiki.py` still passes a page without it), but this skill writes it by default for every stance-bearing connection — that is what populates the *typed*, confidence-tagged graph layer at ingest time (see "Typed relations" below). Plain entity mentions need no entry: the `## Mentioned entities` wikilinks already become `wikilink` edges.
 
@@ -281,6 +288,15 @@ its page. Written out, not a bullet: this section is the reason the page is
 worth reading instead of the PDF.>
 
 ### 2. <…> (pp. 155–165)
+
+*⚠ **Keep each thesis exactly as wide as the source makes it.** The typical
+failure of a model-written summary is not invention but **over-generalisation**:
+the qualifiers fall away and the claim grows. Carry over the source's hedges
+(*probably*, *tentatively*, *may*), its scope (which site, stratum, region,
+period, corpus, manuscript tradition, sample), and its conditions ("if the
+Arad sequence holds…"). If the source says *in Strata VA–IVB at Megiddo*, the
+thesis does not say *in Iron IIA*; if it says *suggests*, the thesis does not
+say *shows*. When in doubt, quote the qualifying phrase verbatim with its page.*
 
 *⚠ **These are the SOURCE's theses, not the project's.** Include what the current
 question has no use for — that is precisely what makes a shifted question
@@ -344,6 +360,7 @@ The source-wide boundary lives above, in "What this source does not address".*
 
 ## Connections
 - Confirms / contradicts / supplements: [[other-source]]
+- Responds to / supersedes / revises: [[earlier-source]] — and why (new evidence, new method, reinterpretation, argument)
 - Referenced in: …
 *Union of all focus passes. Every stance line here (confirms / contradicts /
 supplements / builds-on / cites) is mirrored by a typed entry in the
@@ -394,6 +411,9 @@ sticking to these keeps `relations --type …` queries useful):
 | supplements / extends / builds on | `builds-on` |
 | draws on / cites / relies on | `cites` |
 | (generic association, no stance) | `mentions` |
+| answers / engages / replies to an earlier work | `responds-to` |
+| replaces / renders obsolete / overturns an earlier position | `supersedes` |
+| the same author corrects or abandons their own earlier position | `revises` |
 
 **`confidence` — be honest, lint measures it.** `lint-wiki.py` reports the
 `inferred + ambiguous` share as the wiki's inference-rate, so do not inflate to
@@ -402,7 +422,7 @@ sticking to these keeps `relations --type …` queries useful):
 - `extracted` — explicitly supported by *this* source, ideally with a verbatim
   quote and page in `because`.
 - `inferred` — a defensible link you are adding, not stated in the source
-  (e.g. "Mazar later rebuts this"). The honest default when there is no quote.
+  (e.g. "shares the dating method of X"). The honest default when there is no quote.
 - `ambiguous` — the relation is real but its type/direction is unclear.
 
 **`because`** is one line, ideally a quote + page for `extracted` entries. It is
@@ -417,6 +437,59 @@ relations:
     because: "«The conventional dating of Megiddo VA–IVB to the 10th century cannot be sustained» (p. 156)."
 ```
 
+## Research chronology
+
+Two sources in a wiki are not two equal voices. One was written knowing the other,
+and often knowing finds the other could not. Researchers also change their minds. A
+wiki that records only "A contradicts B" loses this, and a manuscript drafted from it
+sets a position from 1996 beside one from 2020 as if both were on the table today.
+
+**When a source is dated.** By the year in its bibkey — there is no separate
+publication-year field. Two optional frontmatter fields correct the cases where that
+year misleads:
+
+```yaml
+orig_year: 1996        # the text is a reprint / translation / unrevised later edition
+evidence_until: 2005   # data cut-off the source itself states (last season, dataset, curve)
+```
+
+Set `orig_year` when the edition you cite is later than the text. Do not set it for a
+revised edition whose argument changed. Set `evidence_until` only when the source says
+what it could take into account; do not estimate it.
+
+**Three relation types are directed in time.** They run from the later source to the
+earlier one, and `lint-wiki.py` fails the build when the dates say otherwise:
+
+| `type` | Meaning | Typical wording in the source |
+|---|---|---|
+| `responds-to` | engages an earlier work explicitly; the debate stays open | "contra X", "in reply to", "X has argued … but" |
+| `supersedes` | replaces an earlier position, which in this respect no longer stands | "can no longer be maintained", "is now ruled out by" |
+| `revises` | the same author corrects their own earlier position | "I previously argued", "contrary to my earlier view" |
+
+`contradicts` remains the type for a disagreement that is live on both sides.
+
+**`basis` says why** the later work departs from the earlier one:
+
+| `basis` | The later work has … |
+|---|---|
+| `new-evidence` | finds, data or texts the earlier work could not know |
+| `new-method` | the same material under a different method (new calibration curve, statistical model) |
+| `reinterpretation` | the same material and method, read differently |
+| `argument` | a logical or conceptual objection |
+
+**Later is not the same as right.** A 2022 paper that ignores a 2015 rebuttal has not
+superseded it. Write `supersedes` with `confidence: extracted` only when the later
+source engages the earlier one by name and says the earlier position fails; otherwise
+use `responds-to`, or `contradicts` if it does not engage it at all. Self-revision is
+the strongest case and the easiest to miss — search the source for the author's own
+earlier works in the bibliography and for first-person retractions.
+
+**No edges forward in time.** A 2003 source cannot take a stance on a 2011 one. When
+you ingest an older source and the wiki already holds its later answer, put the edge
+on the later page and leave a prose pointer in this page's `## Connections`
+("Later response: [[mazar-2011]]"). `lint-wiki.py` reports forward-pointing stance
+edges as `ANACHRONISM`.
+
 ## MCP Optimisation (recommended)
 
 > If `dao-paper-search-mcp` (see [`references/recommended-mcps.md`](references/recommended-mcps.md)) is available in the project, add two MCP steps to the ingest. Otherwise, stick with the manual path above.
@@ -424,8 +497,11 @@ relations:
 **For the BibTeX entry (step 10):** Instead of formatting by hand, fetch the ready-made reference string:
 
 ```text
-dao-paper-search-mcp.search_crossref(doi=<doi>)
-  → response.inline_citation.authoritative_bibliography_line
+dao-paper-search-mcp.search_crossref(query=<doi>)
+  → exactly one hit; check that its identifiers.doi IS <doi>
+    (a direct lookup from dao-paper-search-mcp 1.2.0; older versions search
+     and can return a different work)
+  → hit.inline_citation.authoritative_bibliography_line
 ```
 
 Take the string verbatim — it is structurally guarded against author/year hallucination. Optionally also embed `inline_citation.markdown` into the "Direct quotes" section as a clickable link.
@@ -433,10 +509,10 @@ Take the string verbatim — it is structurally guarded against author/year hall
 **When creating new entity pages (step 9):** Use the resolvers for persons and places:
 
 ```text
-resolve_author(name="Israel Finkelstein")
+resolve_author(name_string="Israel Finkelstein")
   → orcid="0000-…", wikidata_qid="Q461571", gnd_id="118533533", …
 
-resolve_site(name="Tel Megiddo")
+resolve_site(query="Tel Megiddo")
   → idai_gazetteer_id="2048473", coordinates=…
 ```
 
@@ -526,6 +602,7 @@ For batch ingest (≥ 3 sources), dispatch `source-ingester` subagent per source
 | "Re-ingest means I should overwrite the old focus block" | No — append. The old focus is still valid (the project still needs that aspect). New focus = new block. |
 | "If two focuses are similar I'll just pick one" | The skill warns at similar-focus detection but the user decides. Don't pretend two focus questions are the same when they aren't. |
 | "I'll just leave the contradiction as a `[[wikilink]]`" | Then the graph sees a generic edge and loses the stance. Mirror every confirms / contradicts / builds-on / cites into a typed `relations:` entry — that is the whole point of the typed-edge layer. |
+| "The qualifier is a detail — the gist is what matters" | The qualifier often *is* the claim. Dropping "in the excavated area" or "probably" turns a local, hedged finding into a general one the author never made — and the draft will cite it under their name. |
 | "I'll mark every relation `extracted` so it looks solid" | No — `extracted` means a quote + page backs it. Model-added links are `inferred`. Lint reports the inference-rate; inflating it is dishonest and hides which edges still need grounding. |
 
 ## Key Principles
@@ -539,3 +616,4 @@ For batch ingest (≥ 3 sources), dispatch `source-ingester` subagent per source
 - **Capture the examples, not just the claims** — the concrete cases a source uses (an artefact, site, dataset, passage) are what let a later draft develop a point instead of reflowing a bullet. Record them (or their page anchor) in `### Examples & illustrations`; a claim page with no examples produces dense prose downstream.
 - **Status: review on first pass** — only moves to `stable` after user review.
 - **Explicit boundaries** — name what the source does NOT address (within the focus). This honesty saves later confusion.
+- **Scope-faithful** — every thesis and claim keeps the source's hedges, scope and conditions; a summary that is wider than its source is a misquotation.

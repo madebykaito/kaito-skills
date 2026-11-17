@@ -53,6 +53,7 @@ project-root/
 │   ├── library.py         ← Resolves the shared library (env → dotfile → global)
 │   ├── bib-subset.py      ← output/bibtex/references.bib ← the cited subset
 │   ├── bib-search.py      ← page-level full-text search across the library (FTS5)
+│   ├── forward-search.py  ← who cites a work, who names it in the library, what its author wrote later
 │   ├── lint-wiki.py       ← Structural check of the wiki
 │   ├── wiki-to-graph.py   ← Knowledge-graph export + live queries
 │   ├── graph_mcp.py       ← MCP server exposing the graph queries
@@ -145,6 +146,11 @@ Git is already the sync — the cloud carries only what git cannot hold.
   merged by reciprocal rank fusion, so no alias can flood another's hits out of
   the ranking. The alias-building recipe lives in `drafting-manuscript`
   ("Searching for a concept, not a string").
+
+  A plain query of 3–6 words that finds fewer pages than `--limit` is filled from
+  its two-word pairs. Those hits are marked `~` and name the pair that found them:
+  they matched **part** of the query, so read the page before relying on one.
+  `--no-relax` returns only pages that carry every word.
 
   The page it reports is the **physical** PDF page — exactly what you need to *open*
   the file, and exactly what you must **not** cite. Read the printed page number off
@@ -316,6 +322,19 @@ project's discipline and genre.** Defaults:
   counts on Draft tasks so the draft is forced to elaborate rather than compress.
 - **Register:** academic, discipline-appropriate Fachsprache, impersonal voice
   (adjust here if the project wants first-person plural, essayistic tone, etc.).
+- **Precision before fluency.** Terms of art are repeated exactly, never varied
+  for elegance; connectives (*because*, *although*, *whereas*, *indem*,
+  *wenngleich*) must assert the relation the argument actually makes; hedges and
+  scope qualifiers from the sources stay in; no rhetorical questions or
+  promotional adjectives.
+- **Every drafted section comes with a reverse outline** (function + main
+  statement per paragraph) so you can check intent without rereading.
+
+#### Style profile
+
+<Optional. Filled by `drafting-manuscript` from 2–3 pages of your own published
+prose, then confirmed by you: sentence length, person, hedging, how sources are
+introduced, paragraph length, reader guidance. Delete this placeholder if unused.>
 
 ## Frontmatter schema
 
@@ -394,6 +413,17 @@ One source from the shared library, worked up in two halves — the **Erschließ
 (section map, Kernthesen, what the source does not address: what is in there at
 all) and one **Focus block per ingest** (what this project takes under one
 question). `ingest-source` owns the full template; see also **Ingest depth** below.
+
+*Sources are not equal voices.* A source is dated by the year in its `bibkey`
+(`orig_year` for a reprint or translation; `evidence_until` for a stated data
+cut-off). What a later source does to an earlier position is a typed relation on the
+**later** page — `responds-to`, `supersedes`, or `revises` when an author corrects
+their own earlier view — with a `basis` (`new-evidence`, `new-method`,
+`reinterpretation`, `argument`). Syntheses and manuscripts keep positions in their
+time: a researcher's view is their latest one, and an abandoned or replaced position
+is research history. Later is not the same as right — `supersedes` needs a later
+source that engages the earlier one. `scripts/lint-wiki.py` reports the order under
+`Research chronology`.
 
 ### Synthesis (`knowledge/synthesis/`)
 Cross-cutting analyses that connect several sources and concepts. The structure
@@ -477,7 +507,10 @@ exists. Nothing is drafted in one pass.
 
 Steps:
 1. LLM gathers relevant Synthesis and Source pages.
-2. **Architecture first.** LLM writes an outline — thesis, claim chain, a claim
+2. **Your thesis first.** The LLM asks you what the chapter establishes, in
+   your own words (rough is fine), before it proposes anything; it then sharpens
+   and checks that formulation against the wiki.
+   **Architecture next.** LLM writes an outline — your formulation, the sharpened thesis, claim chain, a claim
    per section with its evidence, scope boundary and word budget — to
    `output/<book|article>/outline/<basename>.md` (derived from the target file:
    `book/text/03-methods.qmd` → `book/outline/03-methods.md`). It is never
@@ -541,6 +574,7 @@ python scripts/wiki-to-graph.py bridges                      # load-bearing enti
 python scripts/wiki-to-graph.py communities                  # thematic clusters (auto-detected, labelled)
 python scripts/wiki-to-graph.py report                       # GRAPH_REPORT.md to stdout
 python scripts/wiki-to-graph.py relations --type contradicts # typed edges by type/confidence
+python scripts/wiki-to-graph.py timeline <concept>           # a debate in publication order: who answered whom
 python scripts/wiki-to-graph.py search <term>                # find a node
 python scripts/wiki-to-graph.py stats                        # counts + inference-rate
 # add --json to any query for machine-readable output
@@ -550,7 +584,8 @@ The same queries are exposed as an **MCP server** (`scripts/graph_mcp.py`,
 stdlib-only, a thin wrapper over the CLI). `.mcp.json` registers it for
 **Claude Code** automatically, so in a session the agent can call the
 `graph_neighbors` / `graph_path` / `graph_god_nodes` / `graph_bridges` /
-`graph_communities` / `graph_relations` / `graph_search` / `graph_stats` tools
+`graph_communities` / `graph_relations` / `graph_timeline` / `graph_search` /
+`graph_stats` tools
 natively. For
 **OpenCode**, add the equivalent to `opencode.json`:
 
@@ -837,10 +872,10 @@ we recommend:
   Propylaeum, OpenAlex, Crossref, Semantic Scholar and others; returns
   structurally verified citation blocks (Author-Year + references line)
   and authority IDs (Wikidata, iDAI.gazetteer, GND) for entity pages.
-- **`dao-searxng-mcp`** — web search with `source_class` detection
-  (primary / aggregator / suspect) and automatic DOI detection.
 
-Both are **optional**: skills keep working without them. Setup and
+It is **optional**: skills keep working without it. Cited web sources are
+classified by the rubric in `source-classes.md` (shipped with the `semantic-wiki-review` skill).
+Setup and
 rationale: see `research-superpowers/docs/recommended-mcps.md`.
 
 ### Ingest workflow in a team

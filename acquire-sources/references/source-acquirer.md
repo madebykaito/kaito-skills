@@ -2,6 +2,10 @@
 name: source-acquirer
 description: Dispatched by acquire-sources for large worklists (≥ ~8 sources). Runs the resolve→curl→validate download batch for the A+B graded sources and returns a compact status table. Isolates the noisy download chatter (curl output, HTML dumps from blocked pages) from the main conversation. Fresh context per dispatch.
 implements: acquire-sources
+skills:
+  - acquire-sources
+model: sonnet
+disallowedTools: Agent
 ---
 
 # Source Acquirer Subagent
