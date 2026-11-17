@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: first-run-tasks
+expected_outcome: |
+  Onboarding test. Setup ran without a terminal, so task onboarding is pending; the first
+  task request resumes it in chat, one question at a time, and never asks for a secret in chat.
+  The scripts themselves are covered by tests/tasks.test.sh and tests/setup.test.sh.

@@ -1,6 +1,6 @@
 ---
 name: helpmekaito
-description: Router and loader for the kaito-skills collection: picks and loads the right skill or chain of skills, and the model tier for delegated work. Use whenever the user tags helpmekaito or /helpmekaito, says "kaito, help me with", asks "which skill should I use", "what skill is there for" or "route this", or hands over a design, UI, motion, copy, SEO, video, media, research, code review, QA, debugging, security, planning or shipping task without naming a skill. Also use for "/helpmekaito <skill> <task>" and when the user asks which model to use or wants work split across models (haiku, sonnet, opus, fable, luna, terra, sol, astra, Gemini, Grok, OpenRouter, opencode).
+description: Router and loader for the kaito-skills collection: picks and loads the right skill or chain of skills, and the model tier for delegated work. Also keeps the user's tasks in sync with Trello or Obsidian (Asana, Jira through their MCP) and helps do them, and learns each repo and its local skills. Use whenever the user tags helpmekaito or /helpmekaito, says "kaito, help me with", asks "what are my tasks", "do this task", "add a task", asks "which skill should I use", "what skill is there for" or "route this", or hands over a design, UI, motion, copy, SEO, video, media, research, code review, QA, debugging, security, planning or shipping task without naming a skill. Also use for "/helpmekaito <skill> <task>" and when the user asks which model to use or wants work split across models (haiku, sonnet, opus, fable, luna, terra, sol, astra, Gemini, Grok, OpenRouter, opencode).
 ---
 
 # helpmekaito
@@ -17,6 +17,7 @@ Write script commands exactly as shown. `KAITO_HOME` overrides `~/.kaito`.
 - If `~/.kaito/store` or `codegraph` is missing, say "run ./setup in kaito-skills" and go on without it.
 - At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where`; skip if not found. Facts shape the route. Read `references/memory.md` before writing.
 - `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `codegraph.auto_index` in `~/.kaito/config.json`. `ask`: ask once, run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh codegraph-decision yes|no`, on yes `~/.kaito/store/helpmekaito/scripts/kaito-codegraph.sh init`. `true`: init without asking. `false`: skip.
+- Tasks and project, in a routed task: if `~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh status` shows `onboarding: pending`, read [tasks.md](references/tasks.md) and finish onboarding first. If the request is about tasks ("what are my tasks", "do <task>", "add a task"), or a manager is set and the project has no `board:` line, follow [tasks.md](references/tasks.md). In a git repo, follow [project.md](references/project.md) to keep the brief and local skills current.
 
 **Direct mode:** `/helpmekaito <skill> <task>` skips routing. Load that skill now (step 5).
 
@@ -53,6 +54,7 @@ For a goal that needs a chain, read [recipes.md](references/recipes.md) first. I
 Pick at most three skills, or one recipe. A recipe is a menu, not a load list: load a step's skill when you reach that step. Name and load at most six skills in one task, counting optional steps and the final QA. Drop the least needed.
 
 - Each domain file has overlap rules. Use them when two skills look alike.
+- `local_skill:` lines in memory are this repo's own skills. One that fits beats a store skill, including one with the same name ([project.md](references/project.md)).
 - Route only to installed skills. If the best fit is not installed, say so and name the next best.
 - Never invoke a user-only skill (marked user-invoked). Tell the user to type `/<skill>` and why. Outside Claude Code the command does not exist: say it runs only in Claude Code.
 - If nothing fits, say so and do the work directly. A forced match is worse than none.

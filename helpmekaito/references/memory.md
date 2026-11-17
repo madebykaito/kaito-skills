@@ -1,6 +1,6 @@
 # Memory
 
-Notes live in `~/.kaito/memory`: `MEMORY.md` (index), `global.md`, `projects/<slug>.md`. Read them with `kaito-mem.sh where`.
+Notes live in the memory folder: `sh ~/.kaito/store/helpmekaito/scripts/kaito-mem.sh dir` prints it (`memory.path` in `~/.kaito/config.json`, default `~/.kaito/memory`). It holds `MEMORY.md` (index), `global.md`, `projects/<slug>.md`, `managers/` (board maps) and `tasks/` (see [tasks.md](tasks.md)). Read notes with `kaito-mem.sh where`.
 
 ## Store
 
@@ -8,20 +8,22 @@ Notes live in `~/.kaito/memory`: `MEMORY.md` (index), `global.md`, `projects/<sl
 - Stack facts (framework, package manager, test runner).
 - Verify commands (the exact build, test and lint commands).
 - The codegraph decision (`kaito-mem.sh codegraph-decision yes|no`).
+- The project brief and local skills ([project.md](project.md)).
 
 ## Never store
 
 - Secrets: keys, tokens, passwords. The script rejects the obvious shapes only, so do not rely on it.
 - Code or diffs.
-- One-off task state or progress.
+- One-off task state or progress in notes. Tasks live in `tasks/` through `kaito-tasks.sh`, never in notes.
 
 ## Write
 
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note global "<text>"` for facts true everywhere.
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note project "<text>"` for facts about the current project.
+`kaito-mem.sh set board|brief_fp "<value>"` for keyed project lines.
 
 One line per note; line breaks are flattened. If it prints that memory is read-only, carry on, do not retry.
 
 ## Obsidian
 
-If Obsidian MCP tools are in the session and `obsidian.enabled` is true in `~/.kaito/config.json`, also write the same note through MCP to `<obsidian.vault_path>/Memory.md`, `Global.md` or `projects/<slug>.md`. Otherwise the script's REST mirror handles it.
+The scripts mirror notes to Obsidian through its REST API when `obsidian.enabled` is true. Do not also write them through an Obsidian MCP. When the memory folder is inside the vault (`obsidian.vault_root`), there is nothing to mirror.

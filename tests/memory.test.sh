@@ -97,3 +97,54 @@ codegraph: yes") || exit 1
   (cd "$P" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" note global "password is hunter2" 2>/dev/null) && exit 1
   assert_no "$KAITO_HOME/memory/.lock"
 }
+
+test_dir_default_and_custom() {
+  mk_home
+  assert_eq "$(sh "$MEM" dir)" "$KAITO_HOME/memory" default
+  mkdir -p "$KAITO_HOME"; printf '{"memory":{"path":"~/vault/kaito"}}' > "$KAITO_HOME/config.json"
+  assert_eq "$(sh "$MEM" dir)" "$HOME/vault/kaito" custom
+  proj app; (cd "$P" && sh "$MEM" note global "moved") || exit 1
+  grep -q moved "$HOME/vault/kaito/global.md" || exit 1
+}
+
+test_custom_path_note_where_decision() {
+  mk_home; proj app; s=$(sh "$CG" slug "$P")
+  mkdir -p "$KAITO_HOME"; printf '{"memory":{"path":"~/mem"}}' > "$KAITO_HOME/config.json"
+  (cd "$P" && sh "$MEM" note project "uses pnpm" && sh "$MEM" codegraph-decision yes) || exit 1
+  grep -q 'uses pnpm' "$HOME/mem/projects/$s.md" || exit 1
+  grep -qx 'codegraph: yes' "$HOME/mem/projects/$s.md" || exit 1
+  grep -q "projects/$s.md" "$HOME/mem/MEMORY.md" || exit 1
+  out=$(cd "$P" && sh "$MEM" where)
+  echo "$out" | grep -qx "project_file=$HOME/mem/projects/$s.md" || { echo "$out"; exit 1; }
+  echo "$out" | grep -q 'uses pnpm' || exit 1
+  assert_no "$KAITO_HOME/memory"
+}
+
+test_where_board_and_skills_first() {
+  mk_home; proj app
+  (cd "$P" && sh "$MEM" set board "trello b1 Main" && sh "$MEM" set brief_fp abc123 &&
+    printf 'one\t.claude/skills/one/SKILL.md\tdoes one\n' | sh "$MEM" local-skills) || exit 1
+  for i in $(seq 1 60); do (cd "$P" && sh "$MEM" note project "fact $i"); done
+  out=$(cd "$P" && sh "$MEM" where)
+  assert_eq "$(echo "$out" | sed -n 4p)" "board: trello b1 Main" board
+  assert_eq "$(echo "$out" | sed -n 5p)" "local_skill: one .claude/skills/one/SKILL.md does one" skill
+  assert_eq "$(echo "$out" | wc -l | tr -d ' ')" 40 lines
+  assert_eq "$(echo "$out" | grep -c '^board:')" 1 "board once"
+  assert_eq "$(echo "$out" | grep -c '^local_skill:')" 1 "skill once"
+}
+
+test_set_and_local_skills_replace() {
+  mk_home; proj app; s=$(sh "$CG" slug "$P"); f="$KAITO_HOME/memory/projects/$s.md"
+  (cd "$P" && sh "$MEM" set board "trello b1 A" && sh "$MEM" set board "trello b2 B" && sh "$MEM" set brief_fp x1 && sh "$MEM" set brief_fp x2 &&
+    printf 'a\tpa\tda\nb\tpb\tdb\n' | sh "$MEM" local-skills && printf 'c\tpc\tdc\n' | sh "$MEM" local-skills) || exit 1
+  assert_eq "$(grep -c '^board:' "$f")" 1 board
+  grep -qx 'board: trello b2 B' "$f" || exit 1
+  grep -qx 'brief_fp: x2' "$f" || exit 1
+  assert_eq "$(grep -c '^local_skill:' "$f")" 1 skills
+  grep -qx 'local_skill: c pc dc' "$f" || exit 1
+  assert_eq "$(grep -c "projects/$s.md" "$KAITO_HOME/memory/MEMORY.md")" 1 index
+  (cd "$P" && sh "$MEM" set board "token: abc" 2>/dev/null); assert_eq "$?" 2 secret
+  (cd "$P" && sh "$MEM" set other x 2>/dev/null); assert_eq "$?" 2 key
+  (cd "$P" && printf 'a\tp\tpassword is x\n' | sh "$MEM" local-skills 2>/dev/null); assert_eq "$?" 2 secret2
+  grep -qx 'board: trello b2 B' "$f" || exit 1
+}

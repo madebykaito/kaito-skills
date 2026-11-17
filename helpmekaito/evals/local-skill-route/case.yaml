@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: local-skill-route
+expected_outcome: |
+  Route test. Project memory lists a local repo skill that fits; the route picks it over store
+  writing skills. The sandbox has no repo, so this checks the choice; tests/project.test.sh
+  checks the scan, and tests/live-load.sh checks real loading.

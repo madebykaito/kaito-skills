@@ -80,6 +80,31 @@ ask() {
   case "${a:-$d}" in [yY]*) return 0 ;; *) return 1 ;; esac
 }
 
+# interactive: a tty and no --yes. --yes alone never answers a question that has no safe default.
+interactive() { [ "$YES" = 0 ] && { true </dev/tty; } 2>/dev/null; }
+# answer_for <key>: the KAITO_ANSWERS value. Values can't contain commas.
+answer_for() {
+  P=",${KAITO_ANSWERS:-},"
+  a=${P#*",$1="}; echo "${a%%,*}"
+}
+has_answer() { case ",${KAITO_ANSWERS:-}," in *",$1="*) return 0 ;; esac; return 1; }
+
+# ask_text <key> "<question>" <default>: echoes the answer. Same precedence as ask.
+ask_text() {
+  a=""
+  if has_answer "$1"; then a=$(answer_for "$1")
+  elif interactive; then
+    { printf '%s [%s] ' "$2" "$3" >/dev/tty && read -r a </dev/tty; } 2>/dev/null || a=""
+  fi
+  if has_answer "$1" || [ -n "$a" ]; then echo "$a"; else echo "$3"; fi
+}
+
+# ask_choice <key> "<question>" <opt1|opt2|...> <default>: echoes one option, or the default.
+ask_choice() {
+  a=$(ask_text "$1" "$2 ($3)" "$4")
+  case "|$3|" in *"|$a|"*) echo "$a" ;; *) echo "$4" ;; esac
+}
+
 check_prereqs() {
   # ponytail: paths are passed around in space-separated lists; quote them all if this bites
   case "$REPO" in *[[:space:]]*) die "the repo path must not contain spaces" ;; esac
@@ -254,12 +279,35 @@ codegraph_stage() {
 # in_json "<json text>" <string>: true if the string is an element in the text.
 in_json() { case "$1" in *"\"$2\""*) return 0 ;; esac; return 1; }
 
+# memory.path from config, ~ expanded, default $KAITO_HOME/memory.
+mem_path() {
+  m=$(node "$J" get "$CONFIG" memory.path 2>/dev/null | tr -d '"') || m=""
+  case "$m" in "~") m=$HOME ;; "~/"*) m="$HOME/${m#"~/"}" ;; "") m="$KAITO_HOME/memory" ;; esac
+  echo "${m%/}"
+}
+
+# Warn about rules the user owns that still let the agent auto-read credentials.
+warn_broad() {
+  t=${KAITO_HOME#"$HOME"/}
+  node "$J" each "$SETTINGS" permissions.allow | while IFS= read -r r; do
+    case "$r" in "Read(~/$t/**)"|"Read(~/$t/*)"|*.env*) ;; *) continue ;; esac
+    in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" && continue
+    echo "warning: your settings allow $r, which can cover kaito's credentials (.env). Consider narrowing it."
+  done
+}
+
 # The rules we manage: ~ form only when under HOME, plus absolute Bash rules.
 perm_rules() {
   t=${KAITO_HOME#"$HOME"/} s=${STORE#"$HOME"/}
+  # Read is narrowed: the store, memory and config, never the whole folder (it holds .env).
   if [ "$t" != "$KAITO_HOME" ]; then
-    printf '%s\n' "Read(~/$t/**)" "Edit(~/$t/memory/**)"
+    printf '%s\n' "Read(~/$t/store/**)" "Read(~/$t/memory/**)" "Read(~/$t/config.json)" "Edit(~/$t/memory/**)"
   fi
+  mp=$(mem_path)
+  case "$mp/" in "$KAITO_HOME/memory/"*) ;; *)
+    case "$mp/" in "$HOME"/*) r="~/${mp#"$HOME"/}" ;; *) r="/$mp" ;; esac
+    printf '%s\n' "Read($r/**)" "Edit($r/**)" ;;
+  esac
   for p in "gstack/bin/*" "gstack/browse/dist/browse *" "helpmekaito/scripts/*"; do
     printf 'Bash(%s/%s)\n' "$STORE" "$p"
     if [ "$s" != "$STORE" ]; then printf 'Bash(~/%s/%s)\n' "$s" "$p"; fi
@@ -274,6 +322,7 @@ perms_stage() {
     node "$J" rm "$SETTINGS" permissions.allow "\"$r\""
     node "$J" rm "$STATE" managed_permissions "\"$r\""
   done
+  warn_broad
   ask perms "Add allow rules for kaito scripts and ~/.kaito?" n || return 0
   perm_rules | while IFS= read -r r; do
     { in_json "$(node "$J" get "$STATE" managed_permissions)" "$r" ||
@@ -325,8 +374,11 @@ codexwrite_stage() {
   if grep -qE 'writable_roots|^\[sandbox_workspace_write\]' "$c" 2>/dev/null; then
     echo "codex: $c already sets writable_roots, add \"$KAITO_HOME\" to it yourself."; return 0
   fi
+  # ponytail: a memory folder outside KAITO_HOME is listed too; --uninstall's fallback matches only the one-root line
+  wr="\"$KAITO_HOME\""
+  case "$(mem_path)/" in "$KAITO_HOME"/*) ;; *) wr="$wr, \"$(mem_path)\"" ;; esac
   add_block "$c" "# kaito:begin" "# kaito:end" "[sandbox_workspace_write]
-writable_roots = [\"$KAITO_HOME\"]"
+writable_roots = [$wr]"
 }
 
 consent_uninstall() {
@@ -363,6 +415,72 @@ uninstall() {
   echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
 }
 
+# --- task onboarding. State: config tasks.state (pending|done|skipped), tasks.steps.*, tasks.manager.
+# Follows helpmekaito/references/tasks.md. Secrets only through kaito-tasks.sh login, never here.
+tset() { node "$J" set "$CONFIG" "$1" "$2"; }
+tget() { node "$J" get "$CONFIG" "$1" | tr -d '"'; }
+tstep() { [ "$(node "$J" get "$CONFIG" "tasks.steps.$1")" = true ]; }
+tmark() { tset "tasks.steps.$1" true; }
+jstr() { node -e 'console.log(JSON.stringify(process.argv[1]))' "$1"; }
+
+setup_tasks() {
+  TS="$STORE/helpmekaito/scripts/kaito-tasks.sh"
+  st=$(tget tasks.state)
+  case "$st" in done|skipped)
+    ask tasks_change "Change task manager settings?" n || return 0
+    tset tasks.state '"pending"'
+    for s in manager memory credentials discovery; do tset "tasks.steps.$s" false; done ;;
+  esac
+  # No one to answer (no tty, --yes alone): leave it for helpmekaito to finish in chat.
+  if ! tstep manager && ! interactive && ! has_answer tasks_manager; then
+    [ -n "$st" ] || tset tasks.state '"pending"'
+    echo "tasks: not set up yet; helpmekaito will ask on your first task."
+    return 0
+  fi
+  if ! tstep manager; then
+    m=$(ask_choice tasks_manager "Where do you keep tasks?" "trello|obsidian|asana|jira|other|none" none)
+    tset tasks.manager "\"$m\""
+    tmark manager
+    if [ "$m" = none ]; then tset tasks.state '"skipped"'; return 0; fi
+  fi
+  m=$(tget tasks.manager)
+  if ! tstep memory; then
+    d=$(tget memory.path); [ -n "$d" ] || d="$KAITO_HOME/memory"
+    p=$(ask_text tasks_memory "Memory folder" "$d")
+    [ "$p" = "$d" ] || tset memory.path "$(jstr "$p")"
+    v=$(ask_text tasks_vault "Obsidian vault folder (empty if none)" "")
+    [ -z "$v" ] || tset obsidian.vault_root "$(jstr "$v")"
+    tmark memory
+  fi
+  if ! tstep credentials; then
+    case "$m" in
+      trello)
+        if [ -f "$TS" ] && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
+        elif interactive && [ -f "$TS" ] && sh "$TS" login && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
+        else echo "tasks: Trello credentials are not set. Run this in your terminal, then re-run ./setup:"; echo "  sh $TS login"
+        fi ;;
+      asana|jira|other) echo "tasks: add the $m connector (MCP) to your agent so helpmekaito can use it."; tmark credentials ;;
+      *) tmark credentials ;;
+    esac
+  fi
+  if ! tstep discovery; then
+    if [ "$m" != trello ]; then tmark discovery
+    elif tstep credentials && [ -f "$TS" ]; then
+      sh "$TS" boards || :
+      b=$(ask_text tasks_boards "Board ids to use (space separated)" "")
+      if [ -n "$b" ]; then
+        if ask tasks_discover "Sync these boards' structure (lists, labels, custom fields, member ids and usernames, all IDs, a summary of card style; no card contents) into local memory?" y
+        then sh "$TS" consent yes $b && sh "$TS" discover && tmark discovery
+        else sh "$TS" consent no $b && tmark discovery
+        fi
+      fi
+    fi
+  fi
+  if tstep manager && tstep memory && tstep credentials && tstep discovery; then tset tasks.state '"done"'
+  else tset tasks.state '"pending"'; echo "tasks: unfinished; helpmekaito picks up the rest in chat."
+  fi
+}
+
 summary() {
   echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
 }
@@ -379,6 +497,7 @@ install_store
 link_all
 write_overrides
 write_state
+setup_tasks
 [ "$CODEGRAPH" = 1 ] && codegraph_stage
 perms_stage
 nudge_stage
