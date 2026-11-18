@@ -2,7 +2,8 @@
 //   node kaito-sync.mjs mirror [-x PAT]... [-i PAT]... SRC DEST   make DEST's contents match SRC
 //   node kaito-sync.mjs into   [-x PAT]... [-i PAT]... DIR SRC... mirror each SRC into DIR/<name>
 //   node kaito-sync.mjs link TARGET PATH                          a symlink (a junction on Windows)
-// PAT is a name matched anywhere, or a /path from the SRC root. Excluded entries are neither
+// PAT is a name matched anywhere, or a ./path (or /path) from the SRC root. Use ./ in Git Bash,
+// which rewrites a /path argument into a Windows path. Excluded entries are neither
 // copied nor deleted in DEST, the way rsync --exclude works without --delete-excluded. -i wins over -x.
 import { lstatSync, readdirSync, mkdirSync, copyFileSync, rmSync, symlinkSync, readlinkSync, utimesSync, chmodSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -14,7 +15,8 @@ while (args[0] === '-x' || args[0] === '-i') { const f = args.shift(); (f === '-
 const die = (m) => { console.error(`kaito-sync: ${m}`); process.exit(1); };
 const win = process.platform === 'win32';
 
-const hit = (pats, name, rel) => pats.some((p) => (p.startsWith('/') ? p.replace(/\/$/, '') === rel : p === name));
+const anchor = (p) => (p.startsWith('./') ? p.slice(1) : p).replace(/\/$/, '');
+const hit = (pats, name, rel) => pats.some((p) => { const a = anchor(p); return a.startsWith('/') ? a === rel : p === name; });
 const skip = (name, rel) => !hit(inc, name, rel) && hit(ex, name, rel);
 const stat = (p) => { try { return lstatSync(p); } catch { return null; } };
 

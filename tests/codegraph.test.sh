@@ -5,7 +5,7 @@ PIN=$(cat "$REPO/codegraph.version")
 
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x /gstack -x /.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
 }
 run_setup() { "$R/setup" --no-gstack "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }; }
 GI() { echo "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"; }

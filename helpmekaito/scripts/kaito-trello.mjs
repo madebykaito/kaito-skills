@@ -48,7 +48,12 @@ export async function trello(method, path, body) {
 export { redact };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const [method, path, raw] = process.argv.slice(2);
+  const [method, arg, raw] = process.argv.slice(2);
+  // Git Bash rewrites a /path argument to C:/Program Files/Git/path before node sees it. Undo that.
+  // shortcut: keys on the first Trello resource name in the path; fine unless Git's install folder contains one.
+  const m = /^[A-Za-z]:[\\/]/.test(arg || '') &&
+    /[\\/](?:1[\\/])?(?:members|cards|boards|lists|checklists|labels|actions|search|organizations|customFields?|tokens|webhooks|notifications|batch)(?=[\\/?]|$)/.exec(arg);
+  const path = m ? arg.slice(m.index).replace(/\\/g, '/') : arg;
   if (!method || !path) {
     console.error('usage: node kaito-trello.mjs <METHOD> <path> [json-body]');
     process.exit(2);

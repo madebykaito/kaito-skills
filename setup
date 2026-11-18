@@ -7,7 +7,11 @@ set -eu
 IS_WIN=0
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
 posix() { if [ "$IS_WIN" = 1 ]; then cygpath -u "$1"; else printf '%s\n' "$1"; fi; }
-if [ "$IS_WIN" = 1 ]; then HOME=$(posix "$HOME"); [ -z "${KAITO_HOME:-}" ] || KAITO_HOME=$(posix "$KAITO_HOME"); fi
+if [ "$IS_WIN" = 1 ]; then
+  HOME=$(posix "$HOME"); [ -z "${KAITO_HOME:-}" ] || KAITO_HOME=$(posix "$KAITO_HOME")
+  # JSON values go to node as arguments; stop Git Bash rewriting the paths inside them.
+  MSYS2_ARG_CONV_EXCL='";[;{'; export MSYS2_ARG_CONV_EXCL
+fi
 
 CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILL_DIRS="$HOME/.agents/skills"
@@ -160,7 +164,7 @@ gstack_stage() {
   G="$STORE/gstack"
   mkdir -p "$G"
   # Excluded paths are never deleted in the store, so node_modules and builds survive re-runs.
-  node "$SYNC" mirror -x .git -x node_modules -i /lib/diagram-render/dist -x dist "$REPO/gstack" "$G"
+  node "$SYNC" mirror -x .git -x node_modules -i ./lib/diagram-render/dist -x dist "$REPO/gstack" "$G"
   (
     cd "$G"
     bun install
@@ -365,8 +369,7 @@ nudge_stage() {
 }
 
 hook_stage() {
-  hp="$STORE/ponytail/SKILL.md"; [ "$IS_WIN" = 0 ] || hp=$(cygpath -m "$hp")
-  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$hp\\\"\"}]}"
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
   prev=$(node "$J" get "$STATE" managed_hook)
   if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook, whatever the answer below
     node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
