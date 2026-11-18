@@ -24,11 +24,12 @@ home() {
   fi
   MEM="$KAITO_HOME/memory"
 }
-# count <METHOD> <path>: matching requests in the stub log
-count() { node -e 'const [f,m,p]=process.argv.slice(1);console.log(require("fs").readFileSync(f,"utf8").split("\n").filter(Boolean).map(JSON.parse).filter(e=>e.method===m&&e.path===p).length)' "$LOG" "$1" "$2"; }
+# count <METHOD> <path>: matching requests in the stub log. The path goes to node JSON-quoted, which
+# Git Bash leaves alone (it rewrites a bare /path into a Windows path).
+count() { node -e 'const [f,m,q]=process.argv.slice(1);const p=JSON.parse(q);console.log(require("fs").readFileSync(f,"utf8").split("\n").filter(Boolean).map(JSON.parse).filter(e=>e.method===m&&e.path===p).length)' "$LOG" "$1" "\"$2\""; }
 reqs() { grep -c . "$LOG" | tr -d ' '; }
 # last <METHOD> <path-prefix> <field>...: fields (dot paths) of the last matching request, space separated
-last() { node -e 'const [f,m,p,...ks]=process.argv.slice(1);const e=require("fs").readFileSync(f,"utf8").split("\n").filter(Boolean).map(JSON.parse).filter(e=>e.method===m&&e.path.startsWith(p)).pop();console.log(e?ks.map(k=>{const v=k.split(".").reduce((o,x)=>o?.[x],e);return Array.isArray(v)?v.join():String(v)}).join(" "):"none")' "$LOG" "$@"; }
+last() { _lm=$1 _lp=$2; shift 2; node -e 'const [f,m,q,...ks]=process.argv.slice(1);const p=JSON.parse(q);const e=require("fs").readFileSync(f,"utf8").split("\n").filter(Boolean).map(JSON.parse).filter(e=>e.method===m&&e.path.startsWith(p)).pop();console.log(e?ks.map(k=>{const v=k.split(".").reduce((o,x)=>o?.[x],e);return Array.isArray(v)?v.join():String(v)}).join(" "):"none")' "$LOG" "$_lm" "\"$_lp\"" "$@"; }
 # cache: the project's task folder (Trello cache lives under tasks/trello/)
 cache() {
   sl=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/proj")
