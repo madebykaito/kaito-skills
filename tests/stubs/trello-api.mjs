@@ -6,7 +6,7 @@
 //   STUB_NODONE=1          board b1 has no Done list
 //   STUB_PS=1              log ps_leak: true if the token shows in any process argv
 import { createServer } from 'node:http';
-import { writeFileSync, appendFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const [logFile, portFile] = process.argv.slice(2);
@@ -146,8 +146,11 @@ createServer((req, res) => {
     try { if (raw) body = JSON.parse(raw); } catch { body = { raw }; }
     const entry = { method: req.method, path, query, creds: !!(key && token), body };
     if (process.env.STUB_PS && token) {
-      const ps = execFileSync('ps', ['-Ao', 'args'], { encoding: 'utf8' });
-      entry.ps_leak = ps.split('\n').some((l) => l.includes(token));
+      // BSD and GNU ps take -Ao args; busybox (Alpine) does not, so read /proc there.
+      let ps = null;
+      try { ps = execFileSync('ps', ['-Ao', 'args'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
+      catch { try { ps = readdirSync('/proc').filter((d) => /^\d+$/.test(d)).map((d) => { try { return readFileSync(`/proc/${d}/cmdline`, 'utf8').replace(/\0/g, ' '); } catch { return ''; } }).join('\n'); } catch {} }
+      entry.ps_leak = ps === null ? null : ps.split('\n').some((l) => l.includes(token));  // null: no process list here (Windows)
     }
     appendFileSync(logFile, JSON.stringify(entry) + '\n');
     const send = (status, obj) => {

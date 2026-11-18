@@ -5,7 +5,7 @@ NUDGE='For design, motion, copy, SEO, video, media, research or code-quality wor
 
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  rsync -a --exclude .git --exclude /gstack/ --exclude /.superpowers/ --exclude node_modules "$@" "$REPO/" "$R/"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x /gstack -x /.superpowers -x node_modules "$@" "$REPO" "$R"
 }
 run_setup() { "$R/setup" --yes --no-gstack --no-codegraph "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }; }
 S() { echo "$HOME/.claude/settings.json"; }
@@ -82,7 +82,7 @@ fake_ponytail() { mkdir -p "$R/ponytail"; printf -- '---\nname: ponytail\n---\n'
 ss() { node "$J" get "$(S)" hooks.SessionStart; }
 
 test_ponytail_only_when_present() {
-  mk_home; mk_repo --exclude /ponytail/; KAITO_ANSWERS=ponytail=y run_setup
+  mk_home; mk_repo -x /ponytail; KAITO_ANSWERS=ponytail=y run_setup
   assert_eq "$(ss)" "" none
 }
 
@@ -150,7 +150,7 @@ test_nudge_symlinked_file_survives() {
   run_setup --uninstall
   [ -L "$HOME/.claude/CLAUDE.md" ] && assert_eq "$(readlink "$HOME/.claude/CLAUDE.md")" "$HOME/dots/c.md" target2
   assert_eq "$(cat "$HOME/dots/c.md")" mine content
-  assert_eq "$(ls -l "$HOME/dots/c.md" | cut -c1-10)" "-rw-r-----" mode
+  [ "$IS_WIN" = 1 ] || assert_eq "$(ls -l "$HOME/dots/c.md" | cut -c1-10)" "-rw-r-----" mode  # Windows keeps no modes
 }
 
 test_inline_marker_mention_kept() {

@@ -2,6 +2,12 @@
 # Test helpers. Source from a *.test.sh. Never touches the real home.
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 REPO="$(dirname "$TESTS_DIR")"
+IS_WIN=0
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
+# Fixtures made with ln -s must be real symlinks on Windows, not Git Bash's default copies.
+[ "$IS_WIN" = 0 ] || { MSYS="${MSYS:-} winsymlinks:native"; export MSYS; }
+# skip_on_win "<why>": end this test early on Windows, with the reason in the log.
+skip_on_win() { [ "$IS_WIN" = 1 ] || return 1; echo "skip: $1 (Windows)"; }
 
 mk_home() {
   HOME="$(mktemp -d)"

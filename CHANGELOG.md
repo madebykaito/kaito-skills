@@ -4,6 +4,28 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-18
+
+### Added
+
+- Windows support through Git Bash. `setup.ps1` checks for Git, Node and bun, then runs `./setup`. Skills are linked with directory junctions, so no admin rights are needed.
+- Docs in `docs/`: install per OS, using the skills, how it works, troubleshooting. The README has a quick start.
+- CI on Windows and Alpine Linux, plus `tests/smoke.sh`, a real install and uninstall on every platform.
+- `tests/docker.sh` runs the tests in Debian, Alpine and Fedora containers.
+- `.gitattributes` keeps LF line endings in a Windows checkout.
+
+### Changed
+
+- Setup copies and links with `helpmekaito/scripts/kaito-sync.mjs` instead of `rsync` and `ln -s`, so it runs where `rsync` is missing.
+- Codex leftovers are cleaned from `$CODEX_HOME/skills`, not always `~/.codex/skills`.
+
+### Fixed
+
+- `memory.path` and the Obsidian vault path are stored as typed, not rewritten by Git Bash.
+- The Obsidian mirror works with Git for Windows' curl.
+- `tests/run.sh` runs on busybox `xargs` (Alpine).
+- JSON writes retry when Windows holds the file for a moment.
+
 ## [1.1.1] - 2026-11-18
 
 ### Changed
@@ -41,7 +63,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/madebykaito/kaito-skills/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/madebykaito/kaito-skills/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/madebykaito/kaito-skills/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/madebykaito/kaito-skills/releases/tag/v1.0.0

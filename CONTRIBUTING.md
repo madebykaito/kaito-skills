@@ -21,7 +21,15 @@ tests/run.sh
 helpmekaito/scripts/check-routes.sh
 ```
 
-`tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS and Linux.
+`tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS, Linux (Ubuntu and Alpine) and Windows (Git Bash), plus `tests/smoke.sh`, a real install and uninstall into a throwaway home.
+
+To test Linux from a Mac or Windows machine, run the same checks in Docker containers for Debian, Alpine and Fedora:
+
+```bash
+tests/docker.sh
+```
+
+Scripts must run in plain `sh` on all three platforms. Do not use `rsync`, `ln -s` for links that setup manages, or GNU-only flags. Use `helpmekaito/scripts/kaito-sync.mjs` to copy and link.
 
 ## Adding a skill
 

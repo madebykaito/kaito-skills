@@ -6,13 +6,43 @@ Each skill is a folder with a `SKILL.md`. The agent reads the description and lo
 
 The work is the proof. Run it yourself.
 
-## Setup
+Works on macOS, Linux and Windows. Docs: [install](docs/install.md), [using the skills](docs/using-skills.md), [how it works](docs/how-it-works.md), [troubleshooting](docs/troubleshooting.md).
+
+## Quick start
+
+macOS and Linux:
 
 ```bash
 git clone https://github.com/madebykaito/kaito-skills.git
 cd kaito-skills
 ./setup
 ```
+
+Windows, in PowerShell (needs Git for Windows and Node; `setup.ps1` tells you what is missing):
+
+```powershell
+git clone https://github.com/madebykaito/kaito-skills.git
+cd kaito-skills
+.\setup.ps1
+```
+
+Then open a new Claude Code session and ask:
+
+```text
+/helpmekaito build a pricing page for a three-tier SaaS plan
+```
+
+```text
+/better-ui polish the settings screen
+```
+
+```text
+Review this diff and try to break it before I ship.
+```
+
+Call a skill by name, describe the task and let the agent pick, or let `helpmekaito` route it. See [using the skills](docs/using-skills.md).
+
+## Setup
 
 `setup` needs `git`, `node` and `npm`. It does this:
 
@@ -264,6 +294,7 @@ For long, source-heavy research projects. From research-superpowers.
 - `shaders-cursor-ripples` needs a paid package.
 - `minimal-zine-poster` needs a Gemini API key. Without it you get a prompt, not an image.
 - Node and npm are required for `./setup`.
+- Windows: setup runs in Git Bash (`setup.ps1` starts it). A user folder with a space in its name is not supported; use WSL. gstack tools are blocked by Smart App Control.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.

@@ -3,9 +3,16 @@
 # Usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
 set -eu
 
+# Windows runs this under Git Bash (MSYS2). Paths stay in /c/Users form here; cygpath converts.
+IS_WIN=0
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
+posix() { if [ "$IS_WIN" = 1 ]; then cygpath -u "$1"; else printf '%s\n' "$1"; fi; }
+if [ "$IS_WIN" = 1 ]; then HOME=$(posix "$HOME"); [ -z "${KAITO_HOME:-}" ] || KAITO_HOME=$(posix "$KAITO_HOME"); fi
+
+CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILL_DIRS="$HOME/.agents/skills"
 CLAUDE_SKILLS="$HOME/.claude/skills"
-LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $HOME/.codex/skills"
+LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $CODEX_DIR/skills"
 
 REPO_L="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$REPO_L" && pwd -P)"
@@ -14,9 +21,9 @@ STORE="$KAITO_HOME/store"
 CONFIG="$KAITO_HOME/config.json"
 STATE="$KAITO_HOME/state.json"
 SETTINGS="$HOME/.claude/settings.json"
-CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
 NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-quality work, load helpmekaito first.'
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
+SYNC="$REPO/helpmekaito/scripts/kaito-sync.mjs"
 
 GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
 for a in "$@"; do
@@ -35,7 +42,11 @@ has() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 json_list() { tr -cd 'A-Za-z0-9_.,-' | tr , ' '; }  # ["a","b"] -> a b
 to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
 ours() { case "$1" in "$REPO"/*|"$REPO_L"/*|"$STORE"/*) return 0 ;; esac; return 1; }
-foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(readlink "$1")"; }; }
+# On Windows links are directory junctions; Git Bash reports them as symlinks.
+rl() { r=$(readlink "$1"); if [ "$IS_WIN" = 1 ]; then posix "$r"; else printf '%s\n' "$r"; fi; }
+mk_link() { if [ "$IS_WIN" = 1 ]; then node "$SYNC" link "$1" "$2"; else ln -s "$1" "$2"; fi; }
+re_link() { if [ "$IS_WIN" = 1 ]; then rm "$2" && mk_link "$1" "$2"; else ln -sfn "$1" "$2"; fi; }
+foreign() { { [ -e "$1" ] || [ -L "$1" ]; } && ! { [ -L "$1" ] && ours "$(rl "$1")"; }; }
 skip() { echo "skip (not ours): $1"; N_SKIPPED=$((N_SKIPPED + 1)); }
 die() { echo "setup: $*" >&2; exit 1; }
 
@@ -44,7 +55,7 @@ check_paths() {
   for v in "$HOME" "$KAITO_HOME"; do
     case "$v" in /*) ;; *) die "HOME and KAITO_HOME must be absolute paths" ;; esac
     case "$v/" in */../*|*/./*) die "HOME and KAITO_HOME must not contain . or .. parts" ;; esac
-    case "$v" in *[[:space:]\$\`\"\\]*) die "HOME and KAITO_HOME must not contain spaces, quotes, \$, \` or backslashes" ;; esac
+    case "$v" in *[[:space:]\$\`\"\\]*) die "HOME and KAITO_HOME must not contain spaces, quotes, \$, \` or backslashes; see docs/troubleshooting.md" ;; esac
   done
   h=$(cd "$HOME" && pwd -P) k=${KAITO_HOME%/}
   if [ -d "$KAITO_HOME" ]; then k=$(cd "$KAITO_HOME" && pwd -P); fi
@@ -131,7 +142,7 @@ install_store() {
     set -- "$@" "$REPO/$n"
     SKILLS="$SKILLS $n"; N_SKILLS=$((N_SKILLS + 1))
   done
-  [ $# -gt 0 ] && rsync -a --delete --exclude .git --exclude node_modules --exclude dist "$@" "$STORE/"
+  [ $# -gt 0 ] && node "$SYNC" into -x .git -x node_modules -x dist "$STORE" "$@"
   cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
   # Remove only skills an earlier run put here. Anything else in the store is not ours.
   for n in $(node "$J" get "$STATE" store_skills | json_list); do
@@ -149,7 +160,7 @@ gstack_stage() {
   G="$STORE/gstack"
   mkdir -p "$G"
   # Excluded paths are never deleted in the store, so node_modules and builds survive re-runs.
-  rsync -a --delete --exclude .git --exclude node_modules --include /lib/diagram-render/dist/ --exclude dist "$REPO/gstack/" "$G/"
+  node "$SYNC" mirror -x .git -x node_modules -i /lib/diagram-render/dist -x dist "$REPO/gstack" "$G"
   (
     cd "$G"
     bun install
@@ -186,10 +197,10 @@ link_dir() {
     p="$1/$n" t="$STORE/$n"
     has "$n" "$GS" && t="$STORE/_gstack-claude/$n"
     [ "$t" = "$STORE/_gstack-claude/gstack" ] && t="$STORE/_gstack-claude"
-    if [ -L "$p" ] && [ "$(readlink "$p")" = "$t" ]; then :
-    elif [ -L "$p" ] && ours "$(readlink "$p")"; then ln -sfn "$t" "$p"; N_LINKED=$((N_LINKED + 1))
+    if [ -L "$p" ] && [ "$(rl "$p")" = "$t" ]; then :
+    elif [ -L "$p" ] && ours "$(rl "$p")"; then re_link "$t" "$p"; N_LINKED=$((N_LINKED + 1))
     elif [ -e "$p" ] || [ -L "$p" ]; then skip "$p"; continue
-    else ln -s "$t" "$p"; N_LINKED=$((N_LINKED + 1))
+    else mk_link "$t" "$p"; N_LINKED=$((N_LINKED + 1))
     fi
     LINKS="$LINKS $p"
     [ "$1" = "$CLAUDE_SKILLS" ] && CLAUDE_LINKED="$CLAUDE_LINKED $n"
@@ -200,7 +211,7 @@ link_dir() {
 unlink_dir() {
   [ -d "$1" ] || return 0
   for p in "$1"/*; do
-    [ -L "$p" ] && ! has "${p##*/}" "$2" && ours "$(readlink "$p")" || continue
+    [ -L "$p" ] && ! has "${p##*/}" "$2" && ours "$(rl "$p")" || continue
     rm "$p"; N_UNLINKED=$((N_UNLINKED + 1))
   done
 }
@@ -354,7 +365,8 @@ nudge_stage() {
 }
 
 hook_stage() {
-  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
+  hp="$STORE/ponytail/SKILL.md"; [ "$IS_WIN" = 0 ] || hp=$(cygpath -m "$hp")
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$hp\\\"\"}]}"
   prev=$(node "$J" get "$STATE" managed_hook)
   if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook, whatever the answer below
     node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
@@ -403,7 +415,7 @@ uninstall() {
   consent_uninstall
   names=$(node "$J" get "$STATE" managed_overrides | json_list)
   for p in "$CLAUDE_SKILLS"/*; do  # also covers a lost state.json
-    if [ -L "$p" ] && ours "$(readlink "$p")"; then names="$names ${p##*/}"; fi
+    if [ -L "$p" ] && ours "$(rl "$p")"; then names="$names ${p##*/}"; fi
   done
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
   drop_overrides "$names" ""
@@ -421,7 +433,8 @@ tset() { node "$J" set "$CONFIG" "$1" "$2"; }
 tget() { node "$J" get "$CONFIG" "$1" | tr -d '"'; }
 tstep() { [ "$(node "$J" get "$CONFIG" "tasks.steps.$1")" = true ]; }
 tmark() { tset "tasks.steps.$1" true; }
-jstr() { node -e 'console.log(JSON.stringify(process.argv[1]))' "$1"; }
+# A JSON string, built in sh: node would get a Git Bash path rewritten to C:/ form.
+jstr() { printf '"%s"\n' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
 
 setup_tasks() {
   TS="$STORE/helpmekaito/scripts/kaito-tasks.sh"
@@ -447,8 +460,10 @@ setup_tasks() {
   if ! tstep memory; then
     d=$(tget memory.path); [ -n "$d" ] || d="$KAITO_HOME/memory"
     p=$(ask_text tasks_memory "Memory folder" "$d")
+    case "$p" in [A-Za-z]:*) [ "$IS_WIN" = 0 ] || p=$(posix "$p") ;; esac
     [ "$p" = "$d" ] || tset memory.path "$(jstr "$p")"
     v=$(ask_text tasks_vault "Obsidian vault folder (empty if none)" "")
+    case "$v" in [A-Za-z]:*) [ "$IS_WIN" = 0 ] || v=$(posix "$v") ;; esac
     [ -z "$v" ] || tset obsidian.vault_root "$(jstr "$v")"
     tmark memory
   fi
