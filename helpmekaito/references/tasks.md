@@ -7,12 +7,15 @@ helpmekaito keeps the user's tasks with their task manager and helps do them. `S
 `./setup` runs this when it has a terminal. If `sh $S/kaito-tasks.sh status` shows `onboarding: pending`, finish the first step not yet done, in chat. Ask one question at a time. "skip" at any step sets `tasks.state` to `skipped`; stop asking.
 
 1. **Manager.** "Where do you keep tasks: Trello, Obsidian, Asana, Jira, something else, or nowhere?" Then `node $S/kaito-json.mjs set ~/.kaito/config.json tasks.manager '"<trello|obsidian|asana|jira|other|none>"'` and `tasks.steps.manager true`.
-2. **Memory folder.** "Memory and Obsidian tasks live in `~/.kaito/memory`. Use another folder, such as one inside your Obsidian vault?" On a path: set `memory.path`. If it is inside a vault, also set `obsidian.vault_root` to the vault folder. Set `tasks.steps.memory true`.
+2. **Memory folder.** Never ask for a vault path; read the vaults Obsidian knows from its `obsidian.json` (macOS `~/Library/Application Support/obsidian/`, Linux `~/.config/obsidian/`, Windows `%APPDATA%\obsidian\`).
+   - Obsidian manager: no vault found means "Install Obsidian and create or open a vault first"; stop here. Otherwise list the vaults by number, let the user pick one, and offer `<vault>/kaito` as the memory folder.
+   - Other managers: "Memory lives in `~/.kaito/memory`. Use another folder?"
+   - On a path: set `memory.path`. If it is inside a known vault, set `obsidian.vault_root` to that vault. Set `tasks.steps.memory true`.
 3. **Credentials.**
    - Trello: if `status` shows `credentials: no`, tell the user to run `sh ~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh login` in their terminal. It explains how to get the key and token and stores them safely. Never ask for a key or token in chat, and never read `~/.kaito/.env`. Suggest the Trello connector too (Claude settings, Connectors, Trello) for reads the script does not cover.
    - Asana, Jira, others: check their MCP tools are in the session. If not, tell the user to add the connector and come back.
    - Obsidian, none: nothing to do.
-4. **Discovery consent.** For Trello, show `kaito-tasks.sh boards` and ask which boards to use. Then ask:
+4. **Discovery consent.** For Trello, run `kaito-tasks.sh boards` and show the board names as a numbered list, never the ids. Ask which to use: numbers, "all" or "none". Then ask:
    > Sync these boards' structure into local memory? That is lists, labels, custom fields and their options, members (id and username), every ID, and a short summary of how cards are written. No card contents are stored.
 
    Run `kaito-tasks.sh consent yes|no <boardId>...`, then `kaito-tasks.sh discover` on yes. Asana/Jira: same question; on yes, read the structure through the MCP and write `<memory>/managers/<name>.md` in the same shape as `trello.md`.

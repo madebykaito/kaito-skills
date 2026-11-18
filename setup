@@ -439,6 +439,32 @@ tmark() { tset "tasks.steps.$1" true; }
 # A JSON string, built in sh: node would get a Git Bash path rewritten to C:/ form.
 jstr() { printf '"%s"\n' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
 
+# obsidian_vaults: one vault folder per line, read from Obsidian's own vault list. Empty: Obsidian has no vault here.
+# KAITO_OBSIDIAN_JSON, when set, is the only file read (tests).
+obsidian_vaults() {
+  if [ -n "${KAITO_OBSIDIAN_JSON+x}" ]; then set -- "$KAITO_OBSIDIAN_JSON"
+  else set -- "$HOME/Library/Application Support/obsidian/obsidian.json" "${XDG_CONFIG_HOME:-$HOME/.config}/obsidian/obsidian.json" \
+    "$HOME/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json" "$HOME/snap/obsidian/current/.config/obsidian/obsidian.json" \
+    "${APPDATA:-$HOME/AppData/Roaming}/obsidian/obsidian.json"
+  fi
+  for f; do
+    [ -f "$f" ] || continue
+    node -e 'try { for (const v of Object.values(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).vaults || {})) if (v && v.path) console.log(v.path) } catch {}' "$f" |
+      while IFS= read -r v; do [ "$IS_WIN" = 0 ] || v=$(posix "$v"); [ -d "$v" ] && echo "$v"; done
+    return 0
+  done
+}
+# pick_ids <"id name" lines> <answer>: "all" is every id, numbers pick lines, other words must be an id in the list.
+pick_ids() {
+  case "$2" in [aA][lL][lL]) printf '%s\n' "$1" | awk '{print $1}'; return 0 ;; esac
+  for w in $2; do
+    case "$w" in
+      *[!0-9]*) printf '%s\n' "$1" | awk -v w="$w" '$1 == w {print $1}' ;;
+      *) printf '%s\n' "$1" | awk -v n="$w" 'NR == n {print $1}' ;;
+    esac
+  done | awk '!seen[$0]++'
+}
+
 setup_tasks() {
   TS="$STORE/helpmekaito/scripts/kaito-tasks.sh"
   st=$(tget tasks.state)
@@ -461,13 +487,30 @@ setup_tasks() {
   fi
   m=$(tget tasks.manager)
   if ! tstep memory; then
-    d=$(tget memory.path); [ -n "$d" ] || d="$KAITO_HOME/memory"
+    cur=$(tget memory.path); d=${cur:-$KAITO_HOME/memory}
+    vl=$(obsidian_vaults)
+    if [ "$m" = obsidian ]; then
+      # Obsidian tasks are notes in the memory folder, so it goes inside a vault Obsidian already knows.
+      if [ -z "$vl" ]; then
+        echo "tasks: Obsidian has no vault on this machine. Install Obsidian (https://obsidian.md), create or open a vault, then re-run ./setup."
+        tset tasks.state '"pending"'; return 0
+      fi
+      i=1
+      if [ "$(printf '%s\n' "$vl" | wc -l | tr -d ' ')" -gt 1 ]; then
+        echo "Your Obsidian vaults:"; printf '%s\n' "$vl" | awk '{printf "  %d) %s\n", NR, $0}'
+        i=$(ask_text tasks_vault "Vault for tasks (number)" 1)
+      fi
+      v=$(printf '%s\n' "$vl" | sed -n "${i}p" 2>/dev/null); [ -n "$v" ] || v=$(printf '%s\n' "$vl" | sed -n 1p)
+      [ -n "$cur" ] || d="$v/kaito"
+    fi
     p=$(ask_text tasks_memory "Memory folder" "$d")
     case "$p" in [A-Za-z]:*) [ "$IS_WIN" = 0 ] || p=$(posix "$p") ;; esac
-    [ "$p" = "$d" ] || tset memory.path "$(jstr "$p")"
-    v=$(ask_text tasks_vault "Obsidian vault folder (empty if none)" "")
-    case "$v" in [A-Za-z]:*) [ "$IS_WIN" = 0 ] || v=$(posix "$v") ;; esac
-    [ -z "$v" ] || tset obsidian.vault_root "$(jstr "$v")"
+    [ "$p" = "$KAITO_HOME/memory" ] && [ -z "$cur" ] || tset memory.path "$(jstr "$p")"
+    # vault_root is found, never asked: the known vault the memory folder sits in.
+    v=$(printf '%s\n' "$vl" | while IFS= read -r x; do case "$p/" in ("$x"/*) echo "$x"; break ;; esac; done)
+    if [ -n "$v" ]; then tset obsidian.vault_root "$(jstr "$v")"
+    elif [ "$m" = obsidian ]; then echo "tasks: $p is outside your Obsidian vaults, so Obsidian will not show the task notes."
+    fi
     tmark memory
   fi
   if ! tstep credentials; then
@@ -484,10 +527,17 @@ setup_tasks() {
   if ! tstep discovery; then
     if [ "$m" != trello ]; then tmark discovery
     elif tstep credentials && [ -f "$TS" ]; then
-      sh "$TS" boards || :
-      b=$(ask_text tasks_boards "Board ids to use (space separated)" "")
-      if [ -n "$b" ]; then
-        if ask tasks_discover "Sync these boards' structure (lists, labels, custom fields, member ids and usernames, all IDs, a summary of card style; no card contents) into local memory?" y
+      bl=$(sh "$TS" boards 2>/dev/null) || bl=""
+      if [ -z "$bl" ]; then
+        echo "tasks: found no open Trello boards on this account. Create one in Trello, then re-run ./setup."
+      else
+        echo "Your Trello boards:"; printf '%s\n' "$bl" | awk '{$1 = ""; printf "  %d)%s\n", NR, $0}'
+        a=$(ask_text tasks_boards "Boards to use: numbers like 1 3, all, or none" all)
+        b=$(pick_ids "$bl" "$a" | tr '\n' ' ' | sed 's/ $//')
+        if [ "$a" = none ]; then sh "$TS" consent no && tmark discovery
+        elif [ -z "$b" ]; then echo "tasks: no board matches \"$a\". Re-run ./setup to pick again."
+        # shellcheck disable=SC2086  # board ids have no spaces
+        elif ask tasks_discover "Sync these boards' structure (lists, labels, custom fields, member ids and usernames, all IDs, a summary of card style; no card contents) into local memory?" y
         then sh "$TS" consent yes $b && sh "$TS" discover && tmark discovery
         else sh "$TS" consent no $b && tmark discovery
         fi

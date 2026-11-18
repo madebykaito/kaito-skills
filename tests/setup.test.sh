@@ -168,10 +168,16 @@ stub_tasks() {
 echo "$*" >> "$HOME/calls"
 case "$1" in
   status) echo "credentials: $(cat "$HOME/cred" 2>/dev/null || echo no)" ;;
-  boards) echo "b1 Board One" ;;
+  boards) printf 'b1 Board One\nb2 Board Two\n' ;;
 esac
 exit 0
 STUB
+  export KAITO_OBSIDIAN_JSON="$HOME/obsidian.json"  # never the real Obsidian's vault list
+}
+# mk_vaults <dir>...: Obsidian knows these vaults.
+mk_vaults() {
+  for v; do mkdir -p "$v"; done
+  node -e 'const o = {}; process.argv.slice(1).forEach((p, i) => { o["v" + i] = { path: p } }); console.log(JSON.stringify({ vaults: o }))' "$@" > "$KAITO_OBSIDIAN_JSON"
 }
 cfg() { node "$J" get "$KAITO_HOME/config.json" "$1"; }
 
@@ -189,8 +195,8 @@ test_tasks_none_skips() {
 }
 
 test_tasks_obsidian_done() {
-  mk_home; mk_repo; stub_tasks
-  KAITO_ANSWERS="tasks_manager=obsidian,tasks_memory=$HOME/vault/mem,tasks_vault=$HOME/vault" run_setup
+  mk_home; mk_repo; stub_tasks; mk_vaults "$HOME/vault"
+  KAITO_ANSWERS="tasks_manager=obsidian,tasks_memory=$HOME/vault/mem" run_setup
   assert_eq "$(cfg tasks.state)" '"done"' done
   assert_eq "$(cfg memory.path)" "\"$HOME/vault/mem\"" memory
   assert_eq "$(cfg obsidian.vault_root)" "\"$HOME/vault\"" vault
@@ -208,12 +214,56 @@ test_tasks_trello_no_credentials_stays_pending() {
   ! grep -qx 'login' "$HOME/calls" || exit 1  # no tty: login is never run
 }
 
-test_tasks_trello_discovery_consent() {
+test_tasks_obsidian_defaults_into_vault() {
+  mk_home; mk_repo; stub_tasks; mk_vaults "$HOME/notes" "$HOME/work"
+  KAITO_ANSWERS="tasks_manager=obsidian,tasks_vault=2" run_setup
+  assert_eq "$(cfg memory.path)" "\"$HOME/work/kaito\"" memory_in_vault
+  assert_eq "$(cfg obsidian.vault_root)" "\"$HOME/work\"" vault
+  grep -q '2) .*work' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+test_tasks_obsidian_without_vault_stays_pending() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=obsidian run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  assert_eq "$(cfg tasks.steps.memory)" "" memory_unset
+  grep -q 'Install Obsidian' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+test_tasks_trello_never_asks_for_a_vault() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"; mk_vaults "$HOME/vault"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_memory=$HOME/vault/mem,tasks_vault=$HOME/other" run_setup
+  assert_eq "$(cfg obsidian.vault_root)" "\"$HOME/vault\"" found_not_asked
+  ! grep -q 'Obsidian vaults' "$HOME/out" || exit 1
+}
+
+test_tasks_trello_boards_default_all() {
   mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
-  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=b1 b2" run_setup
+  KAITO_ANSWERS="tasks_manager=trello" run_setup
   assert_eq "$(cfg tasks.state)" '"done"' done
+  grep -q '1) Board One' "$HOME/out" || { cat "$HOME/out"; exit 1; }
   grep -qx 'consent yes b1 b2' "$HOME/calls" || { cat "$HOME/calls"; exit 1; }
   grep -qx 'discover' "$HOME/calls" || exit 1
+}
+
+test_tasks_trello_boards_by_number_or_id() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=2 b1 9 2" run_setup
+  grep -qx 'consent yes b2 b1' "$HOME/calls" || { cat "$HOME/calls"; exit 1; }
+}
+
+test_tasks_trello_boards_none() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=none" run_setup
+  assert_eq "$(cfg tasks.state)" '"done"' done
+  grep -qx 'consent no' "$HOME/calls" || { cat "$HOME/calls"; exit 1; }
+}
+
+test_tasks_trello_boards_no_match_stays_pending() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=trello,tasks_boards=7" run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  ! grep -q '^consent' "$HOME/calls" || exit 1
 }
 
 test_tasks_trello_discovery_refused() {
@@ -236,6 +286,7 @@ test_tasks_resume_does_not_reask() {
 
 test_tasks_done_asks_only_change() {
   mk_home; mk_repo; stub_tasks
+  mk_vaults "$HOME/vault"
   KAITO_ANSWERS=tasks_manager=obsidian run_setup
   KAITO_ANSWERS=tasks_manager=none run_setup
   assert_eq "$(cfg tasks.manager)" '"obsidian"' kept

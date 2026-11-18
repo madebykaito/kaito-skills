@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- Setup lists your Trello boards by name and lets you pick by number, `all` or `none`, instead of asking for board ids.
+- Setup no longer asks for an Obsidian vault path. It reads the vaults Obsidian knows, asks only when Obsidian is the task manager, and says to set up Obsidian first when there is no vault.
+
 ## [1.2.0] - 2026-11-18
 
 ### Added
