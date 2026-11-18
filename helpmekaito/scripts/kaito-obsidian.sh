@@ -35,7 +35,8 @@ esac
 [ -f "$M/$note" ] || skip "missing file $note"
 dest=$(node -e 'console.log(process.argv[1].split("/").map(encodeURIComponent).join("/"))' "$vault/$dest")
 # key goes via stdin config so it never appears in argv or output
-code=$(printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS --max-time 5 -K - -o /dev/null -w '%{http_code}' \
-  -X PUT -H 'Content-Type: text/markdown' --data-binary "@$M/$note" "$url/vault/$dest" 2>/dev/null) \
+# a relative @file: Git for Windows' native curl cannot read a /c/... path
+code=$(cd "$M" && printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS --max-time 5 -K - -o /dev/null -w '%{http_code}' \
+  -X PUT -H 'Content-Type: text/markdown' --data-binary "@$note" "$url/vault/$dest" 2>/dev/null) \
   || skip "api unreachable"
 case "$code" in 2??) ;; *) skip "http $code" ;; esac

@@ -26,7 +26,14 @@ const save = () => {
   const tmp = `${target}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n');
   if (mode !== undefined) chmodSync(tmp, mode);  // exact mode, whatever the umask
-  renameSync(tmp, target);
+  // Windows refuses a rename over a file an editor or antivirus has open for a moment: retry.
+  for (let i = 0; ; i++) {
+    try { renameSync(tmp, target); break; }
+    catch (e) {
+      if (i >= 8 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (i + 1));
+    }
+  }
 };
 const last = keys.pop();
 // Walk to the parent, creating missing objects. A scalar in the way is the user's value: refuse.

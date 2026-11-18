@@ -5,7 +5,7 @@ PIN=$(cat "$REPO/codegraph.version")
 
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  rsync -a --exclude .git --exclude /gstack/ --exclude /.superpowers/ --exclude node_modules "$REPO/" "$R/"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
 }
 run_setup() { "$R/setup" --no-gstack "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }; }
 GI() { echo "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"; }
@@ -88,6 +88,7 @@ test_adopt_moves_existing() {
 }
 
 test_no_tty_uses_defaults() {
+  skip_on_win "no setsid to drop the terminal" && return 0
   mk_home; mk_repo
   SH=sh; [ -x /bin/dash ] && SH=/bin/dash   # dash exits on a failed redirect of a special builtin
   python3 -c 'import os,sys;os.setsid();os.execvp(sys.argv[1],sys.argv[1:])' "$SH" "$R/setup" --no-gstack </dev/null >"$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }

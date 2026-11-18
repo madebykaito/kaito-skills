@@ -86,7 +86,7 @@ test_json_write_keeps_symlink_and_mode() {
   node "$J" set "$HOME/s.json" a 1 || exit 1
   [ -L "$HOME/s.json" ] || exit 1
   assert_eq "$(node "$J" get "$HOME/dots/s.json" a)" 1 written
-  assert_eq "$(ls -l "$HOME/dots/s.json" | cut -c1-10)" "-rw-------" mode
+  [ "$IS_WIN" = 1 ] || assert_eq "$(ls -l "$HOME/dots/s.json" | cut -c1-10)" "-rw-------" mode  # Windows keeps no modes
   assert_eq "$(ls "$HOME/dots" | wc -l | tr -d ' ')" 1 no_tmp_left
 }
 
@@ -95,11 +95,13 @@ test_json_scalar_parent_and_dangling_link() {
   echo '{"permissions":"keep"}' > "$HOME/p.json"
   node "$J" add "$HOME/p.json" permissions.allow '"x"' 2>/dev/null && exit 1
   assert_eq "$(tr -d ' \n' < "$HOME/p.json")" '{"permissions":"keep"}' scalar_kept
-  ln -s "$HOME/later/t.json" "$HOME/d.json"
-  node "$J" set "$HOME/d.json" a 1 || exit 1
-  [ -L "$HOME/d.json" ] || exit 1
-  assert_eq "$(node "$J" get "$HOME/later/t.json" a)" 1 through_link
+  if [ "$IS_WIN" = 0 ]; then  # Windows cannot make a symlink to a file that does not exist yet
+    ln -s "$HOME/later/t.json" "$HOME/d.json"
+    node "$J" set "$HOME/d.json" a 1 || exit 1
+    [ -L "$HOME/d.json" ] || exit 1
+    assert_eq "$(node "$J" get "$HOME/later/t.json" a)" 1 through_link
+  fi
   echo '{}' > "$HOME/m.json"; chmod 664 "$HOME/m.json"
   (umask 077; node "$J" set "$HOME/m.json" a 1)
-  assert_eq "$(ls -l "$HOME/m.json" | cut -c1-10)" "-rw-rw-r--" mode_exact
+  [ "$IS_WIN" = 1 ] || assert_eq "$(ls -l "$HOME/m.json" | cut -c1-10)" "-rw-rw-r--" mode_exact
 }

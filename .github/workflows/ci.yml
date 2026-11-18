@@ -8,13 +8,16 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+defaults:
+  run:
+    shell: bash  # Git Bash on Windows, the shell setup supports there
 jobs:
   test:
     name: test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,7 +28,27 @@ jobs:
           node-version: 22
       - name: Tests
         run: tests/run.sh
+      - name: Install smoke test
+        run: tests/smoke.sh
       - name: Routes
         run: |
           out=$(helpmekaito/scripts/check-routes.sh); echo "$out"
           echo "$out" | grep -qx 'routes ok'
+
+  alpine:
+    name: test (alpine)
+    runs-on: ubuntu-latest
+    container: node:22-alpine
+    steps:
+      - name: Tools
+        shell: sh
+        run: apk add --no-cache bash git curl python3 util-linux
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tests
+        shell: sh
+        run: git config --global --add safe.directory "$PWD" && tests/run.sh
+      - name: Install smoke test
+        shell: sh
+        run: tests/smoke.sh

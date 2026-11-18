@@ -5,6 +5,12 @@ set -eu
 KAITO_HOME="${KAITO_HOME:-$HOME/.kaito}"
 CG="$KAITO_HOME/codegraph"
 die() { echo "kaito-codegraph: $*" >&2; exit 1; }
+# A symlink, or on Windows (Git Bash) a directory junction, which needs no admin rights.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) mk_link() { node "$(dirname "$0")/kaito-sync.mjs" link "$1" "$2"; }
+    rl() { cygpath -u "$(readlink "$1")"; } ;;
+  *) mk_link() { ln -s "$1" "$2"; }; rl() { readlink "$1"; } ;;
+esac
 
 cmd=${1:-}
 p=$(cd "${2:-.}" && pwd -P) || exit 1
@@ -18,9 +24,9 @@ case "$cmd" in
     guard
     newlink=0 newdir=0
     [ -d "$d" ] || newdir=1
-    if [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ]; then mkdir -p "$d"
+    if [ -L "$l" ] && [ "$(rl "$l")" = "$d" ]; then mkdir -p "$d"
     elif [ -e "$l" ] || [ -L "$l" ]; then die "$l already exists, run: kaito-codegraph.sh adopt $p"
-    else newlink=1; mkdir -p "$d"; ln -s "$d" "$l"; fi
+    else newlink=1; mkdir -p "$d"; mk_link "$d" "$l"; fi
     echo "$p" > "$d/.kaito-path"
     (cd "$p" && codegraph init -y) || {
       # Leave no link behind that reads as "indexed" when the index was never built.
@@ -32,12 +38,12 @@ case "$cmd" in
     ;;
   adopt)
     guard
-    [ -L "$l" ] && [ "$(readlink "$l")" = "$d" ] && { echo "already adopted: $s"; exit 0; }
+    [ -L "$l" ] && [ "$(rl "$l")" = "$d" ] && { echo "already adopted: $s"; exit 0; }
     # An adopt cut off between the move and the link: the index is already central, relink it.
-    if [ ! -e "$l" ] && [ ! -L "$l" ] && [ -d "$d" ]; then ln -s "$d" "$l"; echo "adopted: $s"; exit 0; fi
+    if [ ! -e "$l" ] && [ ! -L "$l" ] && [ -d "$d" ]; then mk_link "$d" "$l"; echo "adopted: $s"; exit 0; fi
     [ -d "$l" ] && [ ! -L "$l" ] || die "no real .codegraph folder in $p"
     [ ! -e "$d" ] || die "$d already exists"
-    mkdir -p "$CG"; mv "$l" "$d"; ln -s "$d" "$l"
+    mkdir -p "$CG"; mv "$l" "$d"; mk_link "$d" "$l"
     echo "$p" > "$d/.kaito-path"
     echo "adopted: $s"
     ;;

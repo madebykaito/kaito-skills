@@ -6,6 +6,7 @@ here="$(cd "$(dirname "$0")" && pwd -P)"
 
 # Some endpoint scanners hold every launch of the installed node for 0.5-3s; a private copy
 # starts in milliseconds. Test runs only; falls back to the normal node. KAITO_TEST_NODE_COPY=0 turns it off.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) KAITO_TEST_NODE_COPY=0 ;; esac  # node.exe without .exe will not start
 if [ "${KAITO_TEST_NODE_COPY:-1}" != 0 ] && n=$(command -v node) && v=$(node -v 2>/dev/null); then
   d=${TMPDIR:-/tmp}; d="${d%/}/kaito-test-node-$v"
   if [ ! -x "$d/node" ]; then mkdir -p "$d" && cp "$n" "$d/node.$$" && mv "$d/node.$$" "$d/node"; fi
@@ -30,7 +31,7 @@ TMPDIR="$run"; PATH="$run/bin:$PATH"; export TMPDIR PATH
 for t in "$@"; do
   t=$(cd "$(dirname "$t")" && pwd -P)/$(basename "$t")
   sed -n 's/^\(test_[a-z0-9_]*\)().*/\1/p' "$t" | sed "s|^|$t |"
-done | KAITO_TEST_LOGS=$logs xargs -P "${KAITO_TEST_JOBS:-8}" -L 1 sh -c '
+done | KAITO_TEST_LOGS=$logs xargs -P "${KAITO_TEST_JOBS:-8}" -n 2 sh -c '
   # $0 = test file (tests find lib.sh through it), $1 = test name
   . "$0"; log="$KAITO_TEST_LOGS/$(basename "$0" .test.sh).$1"
   if ( "$1" ) > "$log" 2>&1; then : > "$log.ok"

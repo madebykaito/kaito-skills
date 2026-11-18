@@ -5,7 +5,7 @@ J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 # Copy the repo to a temp dir so setup never touches the real checkout.
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  rsync -a --exclude .git --exclude /gstack/ --exclude /.superpowers/ --exclude node_modules "$REPO/" "$R/"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
 }
 run_setup() {
   "$R/setup" --yes --no-gstack --no-codegraph "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }

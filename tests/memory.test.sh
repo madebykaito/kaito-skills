@@ -64,6 +64,8 @@ test_codegraph_decision() {
 }
 
 test_note_read_only_fallback() {
+  skip_on_win "chmod cannot make a folder read-only" && return 0
+  [ "$(id -u)" != 0 ] || { echo "skip: root ignores read-only folders"; return 0; }
   mk_home; proj app
   mkdir -p "$KAITO_HOME/memory"; chmod 555 "$KAITO_HOME/memory"
   out=$(cd "$P" && sh "$MEM" note global "x"); rc=$?

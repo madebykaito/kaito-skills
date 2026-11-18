@@ -85,6 +85,7 @@ test_traversal_and_url_chars() {
   out=$(sh "$OB" push 'projects/../../outside.md')
   sh "$OB" push 'projects/a#b?c.md'; kill $SPID
   assert_eq "$out" "obsidian mirror skipped: unknown note projects/../../outside.md" refused
+  [ "$IS_WIN" = 0 ] || return 0  # Windows file names cannot contain ?
   assert_eq "$(node -pe 'require("fs").readFileSync(process.argv[1],"utf8").trim().split("\n").map(l=>JSON.parse(l).path).join(" ")' "$REC")" \
     "/vault/madebykaito/helpmekaito/projects/a%23b%3Fc.md" encoded
 }
