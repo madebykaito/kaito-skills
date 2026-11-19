@@ -1,6 +1,6 @@
 ---
 name: helpmekaito
-description: Router and loader for the kaito-skills collection: picks and loads the right skill or chain of skills, and the model tier for delegated work. Also keeps the user's tasks in sync with Trello, Plane or Obsidian (Asana, Jira through their MCP) and helps do them, and learns each repo and its local skills. Use whenever the user tags helpmekaito or /helpmekaito, says "kaito, help me with", asks "what are my tasks", "do this task", "add a task", asks "which skill should I use", "what skill is there for" or "route this", or hands over a design, UI, motion, copy, SEO, video, media, research, code review, QA, debugging, security, planning or shipping task without naming a skill. Also use for "/helpmekaito <skill> <task>" and when the user asks which model to use or wants work split across models (haiku, sonnet, opus, fable, luna, terra, sol, astra, Gemini, Grok, OpenRouter, opencode).
+description: Router and loader for the kaito-skills collection: picks and loads the right skill or chain of skills, and the model tier for delegated work. Also keeps the user's tasks in sync with Trello, Plane or Obsidian (Asana, Jira through their MCP) and helps do them, and learns each repo and its local skills. Upgrades and uninstalls kaito-skills ("upgrade kaito", "update kaito skills", "what version of kaito", "uninstall kaito"). Use whenever the user tags helpmekaito or /helpmekaito, says "kaito, help me with", asks "what are my tasks", "do this task", "add a task", asks "which skill should I use", "what skill is there for" or "route this", or hands over a design, UI, motion, copy, SEO, video, media, research, code review, QA, debugging, security, planning or shipping task without naming a skill. Also use for "/helpmekaito <skill> <task>" and when the user asks which model to use or wants work split across models (haiku, sonnet, opus, fable, luna, terra, sol, astra, Gemini, Grok, OpenRouter, opencode).
 ---
 
 # helpmekaito
@@ -15,11 +15,12 @@ Write script commands exactly as shown. `KAITO_HOME` overrides `~/.kaito`.
 
 - A trivial request (step 1) skips this whole step: answer it.
 - If `~/.kaito/store` or `codegraph` is missing, say "run ./setup in kaito-skills" and go on without it.
+- At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-self.sh auto`; skip if not found. No output: go on. Any output: read [self.md](references/self.md). The first line of your final answer tells the user what it said (for example "kaito-skills upgraded 1.3.0 -> 1.4.0: <top change>"), even when the task itself fills the rest.
 - At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where`; skip if not found. Facts shape the route. Read `references/memory.md` before writing.
 - `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `codegraph.auto_index` in `~/.kaito/config.json`. `ask`: ask once, run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh codegraph-decision yes|no`, on yes `~/.kaito/store/helpmekaito/scripts/kaito-codegraph.sh init`. `true`: init without asking. `false`: skip.
 - Tasks and project, in a routed task: if `~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh status` shows `onboarding: pending`, read [tasks.md](references/tasks.md) and finish onboarding first. If the request is about tasks ("what are my tasks", "do <task>", "add a task"), or the user plans work to build ("let's implement X"), or a manager is set and the project has no `tracker:`, `board:` or `tracking:` line, follow [tasks.md](references/tasks.md): it sets up the project's trackers on first use and keeps planned work tracked where the user asked for it. In a git repo, follow [project.md](references/project.md) to keep the brief and local skills current.
 
-**Direct mode:** `/helpmekaito <skill> <task>` skips routing. Load that skill now (step 5).
+**Direct mode:** `/helpmekaito <skill> <task>` skips routing. Load that skill now (step 5). `/helpmekaito upgrade`, `/helpmekaito version` and `/helpmekaito uninstall` are not skill names: follow [self.md](references/self.md). So does any request to upgrade or uninstall kaito-skills, or about its version or updates; it skips routing.
 
 ## 1. Size the request
 

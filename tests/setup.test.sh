@@ -312,3 +312,214 @@ test_tasks_plane_no_credentials_names_login_and_mcp() {
   grep -q "Plane connector (MCP)" "$HOME/out" || { cat "$HOME/out"; exit 1; }
   ! grep -qx 'login' "$HOME/calls" || exit 1
 }
+
+test_state_records_version_and_repo() {
+  mk_home; mk_repo; run_setup
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" version)" "\"$(cat "$REPO/VERSION")\"" version
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" repo)" "\"$(cd "$R" && pwd -P)\"" repo
+  assert_file "$KAITO_HOME/store/setup"; assert_file "$KAITO_HOME/store/VERSION"; assert_file "$KAITO_HOME/store/CHANGELOG.md"
+  grep -q '^updates: auto ' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+# --upgrade answers nothing: a yes in KAITO_ANSWERS turns nothing on, and what an earlier run turned on stays.
+test_upgrade_flag_changes_no_consent() {
+  mk_home; mk_repo
+  KAITO_ANSWERS="nudge=y" run_setup
+  grep -q 'kaito:begin' "$HOME/.claude/CLAUDE.md" || exit 1
+  KAITO_ANSWERS="perms=y,ponytail=y,nudge=y" "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  grep -q 'kaito:begin' "$HOME/.claude/CLAUDE.md" || exit 1
+  assert_eq "$(node "$J" get "$HOME/.claude/settings.json" permissions.allow)" "" perms_not_added
+  assert_eq "$(node "$J" get "$HOME/.claude/settings.json" hooks.SessionStart)" "" hook_not_added
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+}
+
+# The clone is gone: a copy of the store's setup, pointed at the store, still uninstalls.
+test_store_setup_uninstalls_without_clone() {
+  mk_home; mk_repo; run_setup
+  rm -rf "$R"
+  cp "$KAITO_HOME/store/setup" "$HOME/setup-copy"
+  KAITO_SETUP_REPO="$KAITO_HOME/store" sh "$HOME/setup-copy" --uninstall > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_no "$HOME/.claude/skills/better-ui"; assert_no "$KAITO_HOME/store"
+  assert_eq "$(ov better-ui)" "" override_dropped
+  assert_file "$KAITO_HOME/config.json"
+}
+
+test_store_setup_refuses_to_install() {
+  mk_home; mk_repo; run_setup
+  cp "$KAITO_HOME/store/setup" "$HOME/setup-copy"
+  if KAITO_SETUP_REPO="$KAITO_HOME/store" sh "$HOME/setup-copy" --yes > "$HOME/out" 2>&1; then exit 1; fi
+  grep -q 'only uninstalls' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+# --- duplicates: same-name skills and plugins the user already has
+st() { node "$J" get "$KAITO_HOME/state.json" "$1"; }
+mk_dup() { mkdir -p "$HOME/.claude/skills/better-ui"; echo mine > "$HOME/.claude/skills/better-ui/SKILL.md"; }
+# mk_plugin <id> [enabledPlugins value]: an installed plugin with better-ui and one skill of its own.
+mk_plugin() {
+  pd="$HOME/.claude/plugins/cache/${1%%@*}"
+  mkdir -p "$pd/skills/better-ui" "$pd/skills/own"
+  echo x > "$pd/skills/better-ui/SKILL.md"; echo x > "$pd/skills/own/SKILL.md"
+  node -e 'const [f, id, p] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ version: 2, plugins: { [id]: [{ scope: "user", installPath: p }] } }))' \
+    "$HOME/.claude/plugins/installed_plugins.json" "$1" "$pd"
+  [ $# -lt 2 ] || echo "{\"enabledPlugins\":{\"$1\":$2}}" > "$HOME/.claude/settings.json"
+}
+# ep <id>: the plugin's value in the user settings. Not kaito-json: an id can contain dots.
+ep() { node -e 'const v = (JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).enabledPlugins || {})[process.argv[2]]; console.log(v === undefined ? "" : JSON.stringify(v))' "$HOME/.claude/settings.json" "$1"; }
+
+test_takeover_yes_moves_links_and_uninstall_restores() {
+  mk_home; mk_repo; mk_dup
+  KAITO_ANSWERS=takeover_skills=y run_setup
+  grep -q '^duplicates: 1 skills you already have, 0 plugins' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  ! grep -q '^skip' "$HOME/out" || exit 1
+  assert_eq "$(cat "$KAITO_HOME/backup/.claude/skills/better-ui/SKILL.md")" mine backup
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+  assert_eq "$(ov better-ui)" '"name-only"' override
+  st taken_over | grep -qF "$HOME/.claude/skills/better-ui" || exit 1
+  st links | grep -qF "$HOME/.claude/skills/better-ui" || exit 1
+  run_setup  # a re-run keeps the record and asks nothing
+  ! grep -q '^duplicates' "$HOME/out" || exit 1
+  st taken_over | grep -qF "$HOME/.claude/skills/better-ui" || exit 1
+  run_setup --uninstall
+  grep -q 'restored 1 skills and 0 plugins' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  [ ! -L "$HOME/.claude/skills/better-ui" ] || exit 1
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
+  assert_no "$KAITO_HOME/backup"; assert_no "$KAITO_HOME/state.json"
+}
+
+test_takeover_no_is_remembered() {
+  mk_home; mk_repo; mk_dup
+  KAITO_ANSWERS=takeover_skills=n run_setup
+  grep -q '^duplicates: 1 skills' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q '^skip (not ours): .*better-ui' "$HOME/out" || exit 1
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine untouched
+  assert_no "$KAITO_HOME/backup"
+  st declined | grep -qF "$HOME/.claude/skills/better-ui" || exit 1
+  KAITO_ANSWERS=takeover_skills=y run_setup  # declined: not listed, not asked, so the yes is never used
+  ! grep -q '^duplicates' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q '^skip (not ours): .*better-ui' "$HOME/out" || exit 1
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine still_untouched
+}
+
+test_takeover_yes_flag_alone_decides_nothing() {
+  mk_home; mk_repo; mk_dup; mk_plugin dup@market true
+  run_setup
+  grep -q '^duplicates: 1 skills you already have, 1 plugins' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q 'plugin dup@market (1 of its 2 skills)' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q '^skip (not ours): .*better-ui' "$HOME/out" || exit 1
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine untouched
+  assert_eq "$(st declined)" "" nothing_declined
+  assert_eq "$(st taken_over)" "" nothing_taken
+  assert_eq "$(ep dup@market)" true plugin_on
+}
+
+test_takeover_upgrade_only_reports() {
+  mk_home; mk_repo; run_setup
+  rm "$HOME/.claude/skills/better-ui"; mk_dup; mk_plugin dup@market
+  KAITO_ANSWERS="takeover_skills=y,takeover_plugins=y" "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(grep -c '^duplicates' "$HOME/out")" 1 one_line
+  grep -qx 'duplicates: 2 found, run ./setup to decide' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine untouched
+  assert_eq "$(st declined)" "" nothing_declined
+  assert_eq "$(ep dup@market)" "" plugin_untouched
+}
+
+test_takeover_backup_in_the_way_leaves_skill() {
+  mk_home; mk_repo; mk_dup
+  mkdir -p "$KAITO_HOME/backup/.claude/skills/better-ui"; echo old > "$KAITO_HOME/backup/.claude/skills/better-ui/SKILL.md"
+  KAITO_ANSWERS=takeover_skills=y run_setup
+  grep -q '^warning: .*already exists' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine untouched
+  assert_eq "$(st taken_over)" "" not_recorded
+  run_setup --purge  # a backup that is still there is never deleted
+  grep -q 'not deleting' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$KAITO_HOME/backup/.claude/skills/better-ui/SKILL.md")" old backup_kept
+}
+
+test_plugin_disable_and_restore_true() {
+  mk_home; mk_repo; mk_plugin dup@market true
+  KAITO_ANSWERS=takeover_plugins=y run_setup
+  grep -q '^duplicates: 0 skills you already have, 1 plugins' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q 'Project-level plugin settings inside other repos are not changed' "$HOME/out" || exit 1
+  assert_eq "$(ep dup@market)" false disabled
+  assert_eq "$(st disabled_plugins.dup@market)" true previous
+  run_setup  # already false: not listed again
+  ! grep -q '^duplicates' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  run_setup --uninstall
+  grep -q 'restored 0 skills and 1 plugins' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(ep dup@market)" true restored
+}
+
+# An id with dots, and no enabledPlugins key before: the key is removed again.
+test_plugin_restore_absent_key_and_dotted_id() {
+  mk_home; mk_repo; mk_plugin dup.tools@my.market
+  KAITO_ANSWERS=takeover_plugins=y run_setup
+  assert_eq "$(ep dup.tools@my.market)" false disabled
+  assert_eq "$(node "$J" get "$HOME/.claude/settings.json" enabledPlugins.dup)" "" not_split_at_the_dot
+  run_setup --uninstall
+  assert_eq "$(ep dup.tools@my.market)" "" key_removed
+}
+
+test_plugin_no_is_remembered_and_reenabled_is_left_alone() {
+  mk_home; mk_repo; mk_plugin dup@market
+  KAITO_ANSWERS=takeover_plugins=n run_setup
+  assert_eq "$(ep dup@market)" "" untouched
+  st declined | grep -q '"dup@market"' || exit 1
+  run_setup
+  ! grep -q '^duplicates' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  node "$J" del "$KAITO_HOME/state.json" declined
+  KAITO_ANSWERS=takeover_plugins=y run_setup
+  assert_eq "$(ep dup@market)" false disabled
+  echo '{"enabledPlugins":{"dup@market":true}}' > "$HOME/.claude/settings.json"  # the user turned it back on
+  run_setup --uninstall
+  ! grep -q 'restored' "$HOME/out" || exit 1
+  assert_eq "$(ep dup@market)" true left_alone
+}
+
+test_purge_restores_before_deleting() {
+  mk_home; mk_repo; mk_dup
+  KAITO_ANSWERS=takeover_skills=y run_setup
+  run_setup --purge
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
+  assert_no "$KAITO_HOME"
+}
+
+test_store_setup_restores_without_clone() {
+  mk_home; mk_repo; mk_dup; mk_plugin dup@market true
+  KAITO_ANSWERS="takeover_skills=y,takeover_plugins=y" run_setup
+  rm -rf "$R"
+  cp "$KAITO_HOME/store/setup" "$HOME/setup-copy"
+  KAITO_SETUP_REPO="$KAITO_HOME/store" sh "$HOME/setup-copy" --uninstall > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
+  assert_eq "$(ep dup@market)" true plugin_restored
+}
+
+test_duplicates_flag_asks_again() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude/skills/better-ui"; echo mine > "$HOME/.claude/skills/better-ui/SKILL.md"
+  KAITO_ANSWERS="takeover_skills=n" run_setup
+  KAITO_ANSWERS="takeover_skills=y" run_setup
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine still_declined
+  KAITO_ANSWERS="takeover_skills=y" run_setup --duplicates
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+}
+
+# The user already had an override for their own skill: takeover and uninstall leave it as it was.
+test_takeover_keeps_the_users_override() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude/skills/better-ui"; echo mine > "$HOME/.claude/skills/better-ui/SKILL.md"
+  echo '{"skillOverrides":{"better-ui":"name-only"}}' > "$HOME/.claude/settings.json"
+  KAITO_ANSWERS="takeover_skills=y" run_setup
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+  "$R/setup" --uninstall > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
+  assert_eq "$(ov better-ui)" '"name-only"' override_kept
+}
+
+# Task onboarding is half done: an upgrade does not answer its questions.
+test_upgrade_leaves_task_onboarding_alone() {
+  mk_home; mk_repo; run_setup
+  echo '{"tasks":{"manager":"trello","state":"pending","steps":{"manager":true,"memory":true,"credentials":true}}}' > "$KAITO_HOME/config.json"
+  before=$(cat "$KAITO_HOME/config.json")
+  "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$KAITO_HOME/config.json")" "$before" config_untouched
+}

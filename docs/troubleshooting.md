@@ -4,8 +4,34 @@
 
 - Start a new agent session. Skills are read when a session starts.
 - Check the link: `ls -l ~/.claude/skills/<skill>`. It should point into `~/.kaito/store`.
-- If setup printed `skip (not ours): ...`, a skill with that name was already there. Remove or rename yours, then run `./setup` again.
+- If setup printed `skip (not ours): ...`, a skill with that name was already there and you kept it. Run `./setup --duplicates` to be asked again and say yes to replacing it, or remove or rename yours first.
 - In Codex only `helpmekaito` and the hot list are linked. Ask `helpmekaito` for the skill by name.
+
+## A skill or plugin of mine is gone
+
+You said yes when setup asked to replace a same-name skill or disable a plugin. The skill is in `~/.kaito/backup`. To get everything back, uninstall (`./setup --uninstall`): it moves the skills back and turns the plugins on again. To get one skill back and keep the rest, remove the kaito link at `~/.claude/skills/<skill>` and move your folder there from `~/.kaito/backup`. To get a plugin back, set it to `true` under `enabledPlugins` in `~/.claude/settings.json`.
+
+## Upgrade skipped
+
+`helpmekaito` prints `upgrade skipped: <reason>` and the command to upgrade by hand. The upgrade runs in the background, so the line shows up at the start of a later task. Your tasks go on with the installed version. The usual reasons:
+
+| Reason | Fix |
+|---|---|
+| The clone has changes that are not committed | Commit or stash them, or upgrade by hand. |
+| The clone is not on its default branch | Switch back to it in the clone (`git switch main`). |
+| The clone is ahead of the release tag | You pulled unreleased work. Run `./setup` yourself, or wait for the next release. |
+| The clone is gone or was moved | Clone again and run `./setup` there. |
+| Setup failed | Read `~/.kaito/upgrade.log`, then run `./setup` in the clone. |
+
+By hand: `cd <clone> && git pull && ./setup`. Offline, the check prints nothing and tries again later.
+
+## Turn automatic upgrades off
+
+```bash
+sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh mode off
+```
+
+`mode ask` asks before each upgrade, `mode auto` turns them back on. `snooze` silences the current new release for 7 days. In chat: "kaito, stop upgrading by yourself".
 
 ## `another setup is running`
 

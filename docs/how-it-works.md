@@ -6,7 +6,8 @@
 |---|---|
 | `~/.kaito/store/<skill>` | A copy of each skill. Agents read skills from here, never from the repo. |
 | `~/.kaito/config.json` | Your settings: hot list, gstack on or off, task manager, memory path. |
-| `~/.kaito/state.json` | What setup added, so re-runs and `--uninstall` touch only that. |
+| `~/.kaito/state.json` | What setup added, so re-runs and `--uninstall` touch only that. Also the installed `version` and the `repo` it came from, which upgrades use. |
+| `~/.kaito/backup` | Skills of yours that you let setup replace. Uninstall moves them back. |
 | `~/.kaito/memory` | Notes `helpmekaito` keeps about you and each repo. Change it with `memory.path`. |
 | `~/.kaito/.env` | Task manager credentials, written only by `kaito-tasks.sh login`. |
 | `~/.claude/skills/<skill>` | A link to the store copy, for Claude Code. |
@@ -25,13 +26,20 @@ Because agents read the store and not the repo, you can edit or switch branches 
 | `~/.claude/settings.json` | The `ponytail` SessionStart hook | Only if you say yes |
 | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` | A one-line `helpmekaito` nudge between markers | Only if you say yes |
 | `~/.codex/config.toml` | `~/.kaito` added to `writable_roots` | Only if you say yes |
+| `~/.claude/settings.json` | A plugin set to off in `enabledPlugins` | Only if you say yes, per plugin |
 | Global git ignore | `.codegraph` | Default yes |
 
 Your other settings are kept. Setup stops before changing anything if `settings.json` or `state.json` is not valid JSON.
 
 ## Skills you already have
 
-If a skill with the same name is already in `~/.claude/skills` and is not one of ours, setup leaves it alone and reports `skip (not ours)`. Your copy wins.
+If a skill with the same name is already in `~/.claude/skills` and is not one of ours, setup lists it and asks whether to replace it. The default is no: your copy wins and setup reports `skip (not ours)`. On a yes yours is moved to `~/.kaito/backup`, not deleted, and uninstall moves it back.
+
+A Claude Code plugin can ship a skill with the same name too. Setup asks per plugin whether to disable it, which turns off the whole plugin. It does not edit marketplaces or other projects' plugin settings. A no is remembered, and names must match exactly.
+
+## Upgrades
+
+`helpmekaito` runs `kaito-self.sh auto` at the start of a task. At most once a day it reads the release tags of the clone's remote (`repo` in `state.json`). With a newer release and `update.mode` at `auto` (the default) it moves the clone to that tag and runs `./setup --upgrade` in the background, which asks nothing and keeps every earlier answer; the outcome is printed at the start of a later task. `ask` only reports the release, `off` never checks. The store keeps a copy of `setup`, so uninstall works without the clone.
 
 ## gstack
 

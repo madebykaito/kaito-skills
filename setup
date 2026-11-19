@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install kaito-skills into $KAITO_HOME/store and link them per agent.
-# Usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
+# Usage: ./setup [--yes] [--upgrade] [--duplicates] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
 set -eu
 
 # Windows runs this under Git Bash (MSYS2). Paths stay in /c/Users form here; cygpath converts.
@@ -18,7 +18,8 @@ CODEX_SKILL_DIRS="$HOME/.agents/skills"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $CODEX_DIR/skills"
 
-REPO_L="$(cd "$(dirname "$0")" && pwd)"
+# KAITO_SETUP_REPO: kaito-self.sh runs a copy of this file against the store when the clone is gone (uninstall only).
+REPO_L="${KAITO_SETUP_REPO:-$(cd "$(dirname "$0")" && pwd)}"
 REPO="$(cd "$REPO_L" && pwd -P)"
 KAITO_HOME="${KAITO_HOME:-$HOME/.kaito}"
 STORE="$KAITO_HOME/store"
@@ -29,19 +30,21 @@ NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-qualit
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 SYNC="$REPO/helpmekaito/scripts/kaito-sync.mjs"
 
-GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0 UPGRADE=0 REASK=0
 for a in "$@"; do
   case "$a" in
     --yes) YES=1 ;;
+    --duplicates) REASK=1 ;;  # ask again about duplicates an earlier run said no to
+    --upgrade) UPGRADE=1 YES=1 ;;  # unattended re-install: every question keeps what is there
     --no-gstack) GSTACK=0 ;;
     --no-codegraph) CODEGRAPH=0 ;;
     --uninstall) UNINSTALL=1 ;;
     --purge) UNINSTALL=1 PURGE=1 ;;
-    *) echo "usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
+    *) echo "usage: ./setup [--yes] [--upgrade] [--duplicates] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
   esac
 done
 
-GS="" N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
+GS="" GS_DUP="" N_SKILLS=0 N_LINKED=0 N_UNLINKED=0 N_OVERRIDES=0 N_SKIPPED=0
 has() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 json_list() { tr -cd 'A-Za-z0-9_.,-' | tr , ' '; }  # ["a","b"] -> a b
 to_json() { s=""; for x in $1; do s="$s,\"$x\""; done; echo "[${s#,}]"; }
@@ -83,6 +86,7 @@ lock_and_check() {
 # ask <key> "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS ("key=y,key=n") beats
 # --yes, which beats the tty. An unlisted key, or no tty, means the default.
 ask() {
+  [ "$UPGRADE" = 0 ] || return 1
   d=$3 a=""
   P=",${KAITO_ANSWERS:-},"
   case "$P" in
@@ -102,7 +106,9 @@ answer_for() {
   P=",${KAITO_ANSWERS:-},"
   a=${P#*",$1="}; echo "${a%%,*}"
 }
-has_answer() { case ",${KAITO_ANSWERS:-}," in *",$1="*) return 0 ;; esac; return 1; }
+has_answer() { [ "$UPGRADE" = 0 ] || return 1; case ",${KAITO_ANSWERS:-}," in *",$1="*) return 0 ;; esac; return 1; }
+# answered <key>: someone answered (KAITO_ANSWERS or the tty), so a no is a decision and not just the default.
+answered() { has_answer "$1" || interactive; }
 
 # ask_text <key> "<question>" <default>: echoes the answer. Same precedence as ask.
 ask_text() {
@@ -148,6 +154,7 @@ install_store() {
   done
   [ $# -gt 0 ] && node "$SYNC" into -x .git -x node_modules -x dist "$STORE" "$@"
   cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
+  cp "$REPO/setup" "$REPO/VERSION" "$REPO/CHANGELOG.md" "$STORE/" 2>/dev/null || :  # kaito-self.sh: uninstall without the clone, version, what changed
   # Remove only skills an earlier run put here. Anything else in the store is not ours.
   for n in $(node "$J" get "$STATE" store_skills | json_list); do
     case "$n" in .*) continue ;; esac
@@ -182,8 +189,15 @@ gstack_stage() {
   grep -rl '~/.claude/skills/gstack/' "$STORE/_gstack-claude" | while IFS= read -r f; do
     sed -i.bak "s|~/.claude/skills/gstack/|$G/|g" "$f" && rm "$f.bak"
   done
+  gstack_pick
+}
+
+# Runs again after a takeover moved the user's own gstack out of the way.
+gstack_pick() {
+  GS="" GS_DUP=""
   if foreign "$CLAUDE_SKILLS/gstack"; then
-    echo "warning: $CLAUDE_SKILLS/gstack is not ours, skipping all gstack links"; return 0
+    GS_DUP="$CLAUDE_SKILLS/gstack"
+    echo "warning: $GS_DUP is not ours, skipping all gstack links"; return 0
   fi
   # The router is the render root; sub-skills are its folders with a SKILL.md.
   [ -f "$STORE/_gstack-claude/SKILL.md" ] && GS=gstack
@@ -203,7 +217,7 @@ link_dir() {
     [ "$t" = "$STORE/_gstack-claude/gstack" ] && t="$STORE/_gstack-claude"
     if [ -L "$p" ] && [ "$(rl "$p")" = "$t" ]; then :
     elif [ -L "$p" ] && ours "$(rl "$p")"; then re_link "$t" "$p"; N_LINKED=$((N_LINKED + 1))
-    elif [ -e "$p" ] || [ -L "$p" ]; then skip "$p"; continue
+    elif [ -e "$p" ] || [ -L "$p" ]; then DUPS="$DUPS $p"; continue  # reported, or taken over, after link_all
     else mk_link "$t" "$p"; N_LINKED=$((N_LINKED + 1))
     fi
     LINKS="$LINKS $p"
@@ -221,7 +235,7 @@ unlink_dir() {
 }
 
 link_all() {
-  LINKS="" CLAUDE_LINKED=""
+  LINKS="" CLAUDE_LINKED="" DUPS=""
   HOT=$(node "$J" get "$CONFIG" hot | json_list)
   codex="helpmekaito"
   for n in $HOT; do has "$n" "$SKILLS" && codex="$codex $n"; done
@@ -232,14 +246,130 @@ link_all() {
   done
 }
 
+# jk get|set|del <file> <object> <key> [json]: one key of an object. A plugin id can contain dots,
+# which kaito-json would read as a path, so those ids are written here.
+jk() {
+  case "$4" in *.*) ;; *) node "$J" "$1" "$2" "$3.$4" ${5+"$5"}; return ;; esac
+  node -e '
+const fs = require("fs"), [cmd, file, obj, key, raw] = process.argv.slice(1);
+let d = {};
+try { const t = fs.readFileSync(file, "utf8"); if (t.trim()) d = JSON.parse(t); } catch (e) { if (e.code !== "ENOENT") process.exit(1); }
+const o = d[obj] && typeof d[obj] === "object" ? d[obj] : {};
+if (cmd === "get") { if (o[key] !== undefined) console.log(JSON.stringify(o[key])); process.exit(0); }
+if (cmd === "set") o[key] = JSON.parse(raw); else delete o[key];
+d[obj] = o;
+let t = file, mode;
+try { t = fs.realpathSync(file); mode = fs.statSync(t).mode & 0o777; } catch {}
+fs.writeFileSync(t + ".tmp", JSON.stringify(d, null, 2) + "\n");
+if (mode !== undefined) fs.chmodSync(t + ".tmp", mode);
+fs.renameSync(t + ".tmp", t);' "$@"
+}
+
+# plugin_dups: "<id>:<K>:<M>" for each plugin installed for the user and not switched off in the user
+# settings that ships K skills named like ours, out of its M skills.
+plugin_dups() {
+  # shellcheck disable=SC2086  # skill names have no spaces
+  node -e '
+const fs = require("fs"), [inst, settings, ...ours] = process.argv.slice(1);
+const read = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")) || {}; } catch { return {}; } };
+const on = read(settings).enabledPlugins || {};
+for (const [id, list] of Object.entries(read(inst).plugins || {})) {
+  if (on[id] === false || /[\s:]/.test(id)) continue;
+  for (const e of Array.isArray(list) ? list : []) {
+    if (!e || e.scope !== "user" || !e.installPath) continue;
+    let names = [];
+    try { names = fs.readdirSync(e.installPath + "/skills").filter((n) => fs.existsSync(e.installPath + "/skills/" + n + "/SKILL.md")); } catch {}
+    const k = names.filter((n) => ours.includes(n)).length;
+    if (k) { console.log(id + ":" + k + ":" + names.length); break; }
+  }
+}' "$HOME/.claude/plugins/installed_plugins.json" "$SETTINGS" $SKILLS
+}
+
+backup_of() { echo "$KAITO_HOME/backup/${1#"$HOME"/}"; }
+
+# take_over <path>: move the user's skill to the backup. The link_all that follows makes our link.
+take_over() {
+  b=$(backup_of "$1")
+  if [ -e "$b" ] || [ -L "$b" ]; then echo "warning: $b already exists, leaving $1 alone"; return 1; fi
+  node "$J" add "$STATE" taken_over "$(jstr "$1")"  # state first, as in write_overrides
+  # An override the user already had for their own skill stays theirs, on re-run and uninstall.
+  case "$1" in "$CLAUDE_SKILLS"/*) [ -z "$(node "$J" get "$SETTINGS" "skillOverrides.${1##*/}")" ] || node "$J" add "$STATE" user_overrides "\"${1##*/}\"" ;; esac
+  mkdir -p "${b%/*}"
+  mv "$1" "$b" && return 0
+  node "$J" rm "$STATE" taken_over "$(jstr "$1")"; echo "warning: could not move $1, leaving it alone"; return 1
+}
+
+# Skills and plugins the user already has under one of our names: ask whether ours replace them.
+# A no from a person is remembered; the default (--yes alone, no tty) is not, so a later run asks.
+takeover_stage() {
+  [ "$REASK" = 0 ] || node "$J" del "$STATE" declined
+  declined=$(node "$J" each "$STATE" declined)
+  ds="" dp="" ns=0 np=0
+  for p in $DUPS $GS_DUP; do
+    printf '%s\n' "$declined" | grep -qxF -- "$p" || { ds="$ds $p"; ns=$((ns + 1)); }
+  done
+  for e in $(plugin_dups); do
+    printf '%s\n' "$declined" | grep -qxF -- "${e%%:*}" || { dp="$dp $e"; np=$((np + 1)); }
+  done
+  [ $((ns + np)) -gt 0 ] || return 0
+  if [ "$UPGRADE" = 1 ]; then echo "duplicates: $((ns + np)) found, run ./setup to decide"; return 0; fi
+  echo "duplicates: $ns skills you already have, $np plugins that ship the same skills"
+  for p in $ds; do echo "  $p"; done
+  for e in $dp; do k=${e#*:}; echo "  plugin ${e%%:*} (${k%:*} of its ${k#*:} skills)"; done
+  moved=0
+  if [ "$ns" -gt 0 ]; then
+    if ask takeover_skills "Replace these $ns skills with the kaito-skills copy? Yours are moved to $KAITO_HOME/backup, not deleted." n; then
+      for p in $ds; do if take_over "$p"; then moved=1; fi; done
+    elif answered takeover_skills; then
+      for p in $ds; do node "$J" add "$STATE" declined "$(jstr "$p")"; done
+    fi
+  fi
+  for e in $dp; do
+    id=${e%%:*} k=${e#*:}; m=${k#*:}; k=${k%:*}
+    if ask takeover_plugins "Disable plugin $id? $k of its $m skills duplicate kaito-skills; disabling turns off all $m, and its commands, hooks and MCP servers." n; then
+      prev=$(jk get "$SETTINGS" enabledPlugins "$id")
+      # Keep the first record: after a re-enable by hand and a second yes, uninstall still restores the original.
+      [ -n "$(jk get "$STATE" disabled_plugins "$id")" ] || jk set "$STATE" disabled_plugins "$id" "${prev:-null}"
+      jk set "$SETTINGS" enabledPlugins "$id" false
+      echo "plugins: disabled $id in $SETTINGS. Project-level plugin settings inside other repos are not changed."
+    elif answered takeover_plugins; then node "$J" add "$STATE" declined "$(jstr "$id")"
+    fi
+  done
+  [ "$moved" = 1 ] || return 0
+  if [ -n "$GS_DUP" ] && ! foreign "$GS_DUP"; then gstack_pick; fi
+  link_all
+}
+
+# Uninstall: put taken-over skills back and switch plugins we disabled back on. Our links are gone by now.
+restore_taken() {
+  N_RS=0 N_RP=0
+  for p in $(node "$J" each "$STATE" taken_over); do
+    b=$(backup_of "$p")
+    [ -e "$b" ] || [ -L "$b" ] || continue
+    if [ -e "$p" ] || [ -L "$p" ]; then echo "kaito: $p is in use, your skill stays in $b"; continue; fi
+    mkdir -p "${p%/*}"
+    mv "$b" "$p"; N_RS=$((N_RS + 1))
+  done
+  for id in $(node -e 'try { for (const k of Object.keys(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).disabled_plugins || {})) console.log(k) } catch {}' "$STATE"); do
+    [ "$(jk get "$SETTINGS" enabledPlugins "$id")" = false ] || continue  # re-enabled or removed by hand: theirs
+    case "$(jk get "$STATE" disabled_plugins "$id")" in
+      true) jk set "$SETTINGS" enabledPlugins "$id" true ;;
+      *) jk del "$SETTINGS" enabledPlugins "$id" ;;
+    esac
+    N_RP=$((N_RP + 1))
+  done
+  if [ -d "$KAITO_HOME/backup" ]; then find "$KAITO_HOME/backup" -depth -type d -exec rmdir {} \; 2>/dev/null || :; fi
+}
+
 # Claude lists every linked skill name-only, except the router and the hot list.
 # Any other value is the user's own and is left alone, on re-run and uninstall.
 write_overrides() {
   prev=$(node "$J" get "$STATE" managed_overrides | json_list)
   cur=$(node "$J" get "$SETTINGS" skillOverrides)
   MANAGED="" new=""
+  uo=$(node "$J" get "$STATE" user_overrides | json_list)
   for n in $CLAUDE_LINKED; do
-    [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
+    [ "$n" = helpmekaito ] || has "$n" "$HOT" || has "$n" "$uo" && continue
     case "$cur" in
       *"\"$n\":\"name-only\""*) ;;  # already there: ours to manage even if state.json was lost
       *"\"$n\":"*) continue ;;
@@ -268,6 +398,9 @@ write_state() {
   v=unknown
   [ -e "$REPO/.git" ] && v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
   node "$J" set "$STATE" store_version "\"$v\""
+  node "$J" set "$STATE" version "\"$(tr -cd '0-9A-Za-z.+-' < "$REPO/VERSION" 2>/dev/null)\""
+  node "$J" set "$STATE" repo "$(jstr "$REPO")"
+  node "$J" set "$STATE" gstack "$([ "$GSTACK" = 1 ] && echo true || echo false)"
   node "$J" set "$STATE" managed_overrides "$(to_json "$MANAGED")"
   node "$J" set "$STATE" links "$(to_json "$LINKS")"
 }
@@ -421,13 +554,21 @@ uninstall() {
     if [ -L "$p" ] && ours "$(rl "$p")"; then names="$names ${p##*/}"; fi
   done
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
-  drop_overrides "$names" ""
+  drop_overrides "$names" "$(node "$J" get "$STATE" user_overrides | json_list)"
+  restore_taken
+  clone=$(node "$J" get "$STATE" repo | tr -d '"')
   rm -rf "$STORE" "$STATE"
   # gstack registers its own hooks at run time. With the store gone they are dead: let gstack prune them.
   h="$REPO/gstack/bin/gstack-settings-hook"
+  [ -x "$h" ] || h="$clone/gstack/bin/gstack-settings-hook"  # run from the store copy: the store is gone, the clone may not be
   if [ -x "$h" ] && command -v bun >/dev/null; then GSTACK_SETTINGS_FILE="$SETTINGS" "$h" prune-stale >/dev/null 2>&1 || :; fi
-  [ "$PURGE" = 1 ] && rm -rf "$KAITO_HOME"
-  echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")."
+  r=""
+  if [ $((N_RS + N_RP)) -gt 0 ]; then r=", restored $N_RS skills and $N_RP plugins"; fi
+  if [ "$PURGE" = 1 ] && [ -d "$KAITO_HOME/backup" ]; then
+    PURGE=0; echo "kaito: not deleting $KAITO_HOME: $KAITO_HOME/backup still holds skills of yours that could not be put back."
+  fi
+  if [ "$PURGE" = 1 ]; then rm -rf "$KAITO_HOME"; fi
+  echo "kaito: removed $N_UNLINKED links and the store$([ "$PURGE" = 1 ] && echo " and $KAITO_HOME")$r."
 }
 
 # --- task onboarding. State: config tasks.state (pending|done|skipped), tasks.steps.*, tasks.manager.
@@ -555,21 +696,26 @@ setup_tasks() {
 
 summary() {
   echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
+  um=$(node "$J" get "$CONFIG" update.mode | tr -d '"')
+  echo "updates: ${um:-auto} (auto upgrades to each release, ask asks first, off never checks). Change: sh $STORE/helpmekaito/scripts/kaito-self.sh mode auto|ask|off"
 }
 
 check_paths
 command -v node >/dev/null || die "setup needs node on PATH"
 lock_and_check
 if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
+[ "$REPO" != "$(cd "$STORE" 2>/dev/null && pwd -P)" ] || die "the store copy of setup only uninstalls; run ./setup from the kaito-skills clone"
 check_prereqs
 make_config
 [ "$(node "$J" get "$CONFIG" gstack)" = false ] && GSTACK=0
 install_store
 [ "$GSTACK" = 1 ] && gstack_stage
 link_all
+takeover_stage
+for p in $DUPS; do skip "$p"; done
 write_overrides
 write_state
-setup_tasks
+[ "$UPGRADE" = 1 ] || setup_tasks  # onboarding has questions without a safe "keep" answer
 [ "$CODEGRAPH" = 1 ] && codegraph_stage
 perms_stage
 nudge_stage

@@ -75,14 +75,45 @@ Setup asks before each optional step. With no terminal, or with `--yes`, it take
 | Flag | Effect |
 |---|---|
 | `--yes` | Take the default without asking. |
+| `--upgrade` | Re-install without asking anything. Every earlier answer is kept and nothing new is turned on. |
+| `--duplicates` | Ask again about same-name skills and plugins you said no to. |
 | `--no-gstack` | Skip the gstack build and links. |
 | `--no-codegraph` | Skip the codegraph install. |
-| `--uninstall` | Remove the links, the store, and the settings edits setup made. |
+| `--uninstall` | Remove the links, the store, and the settings edits setup made. Put back the skills and plugins setup replaced. |
 | `--purge` | `--uninstall`, and delete `~/.kaito` too. |
 
 `KAITO_HOME` moves the store and config (default `~/.kaito`). `KAITO_ANSWERS="perms=y,nudge=n"` answers prompts by key, which is handy for scripts.
 
+## Skills and plugins with the same name
+
+Setup lists two kinds of duplicates and asks about each. The default is no.
+
+- Skills you already have under the same name as a kaito skill. On a yes, yours are moved to `~/.kaito/backup` and the kaito ones are linked. Nothing is deleted.
+- Claude Code plugins that ship a skill with the same name. Setup asks per plugin. On a yes it sets the plugin to off in `enabledPlugins` in `~/.claude/settings.json`. That turns off the whole plugin, not just the one skill.
+
+A no is remembered, so setup does not ask again. Names must match exactly. Setup does not edit plugin marketplaces or the plugin settings of other projects. Uninstall moves your skills back and turns the plugins on again.
+
 ## Update
+
+You do not have to do anything. At the start of a task `helpmekaito` checks for a newer release, at most once a day. The check reads the release tags of your clone's remote and sends nothing else anywhere. When there is a newer release it moves the clone to that tag and runs `./setup --upgrade` in the background, so your task does not wait. The next task tells you what changed. New sessions use the new skills.
+
+`./setup --upgrade` asks nothing and changes no earlier answer: nothing new is turned on and no duplicate is replaced. The upgrade needs a clean clone on its default branch, and it only ever installs a release, never unreleased work. If it cannot run it says why and goes on with your task. See [troubleshooting](troubleshooting.md#upgrade-skipped).
+
+You choose how it behaves:
+
+```bash
+sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh mode ask
+```
+
+| Mode | Effect |
+|---|---|
+| `auto` | Upgrade to each release and say what changed. The default. |
+| `ask` | Say that a release is out and ask: now, later (quiet for 7 days) or stop checking. |
+| `off` | Never check. |
+
+The same script has `version`, `check`, `upgrade` (do it now) and `snooze`. In chat, "upgrade kaito" and "what version of kaito" do the same.
+
+By hand it is still:
 
 ```bash
 git pull
@@ -97,7 +128,15 @@ Run setup after every pull. It copies the new versions into the store and adds o
 ./setup --uninstall
 ```
 
-This removes only what setup added: its links, the store, its `skillOverrides` entries, and any optional edits you said yes to. Skills you had before are never touched. `--purge` also deletes `~/.kaito`, which holds your config, memory and task credentials.
+This removes only what setup added: its links, the store, its `skillOverrides` entries, and any optional edits you said yes to. Skills you had before are never touched. The ones setup moved to `~/.kaito/backup` are put back, and plugins it turned off are turned on again. `--purge` also deletes `~/.kaito`, which holds your config, memory and task credentials.
+
+You can also say "uninstall kaito" in chat, or run the script yourself. With no `--yes` it only lists what it would remove and restore:
+
+```bash
+sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh uninstall
+```
+
+Add `--yes` to do it, and `--yes --purge` to delete `~/.kaito` too. This works even after the clone was deleted. Start a new session afterwards; the open one still has the old skills loaded.
 
 ## Check it worked
 
