@@ -73,10 +73,14 @@ case "$cmd" in
 esac
 
 # The project's tracker lines pick the manager; tasks.manager in config is only the default.
-sel=$(node "$TK" "$pf" select "$want") || exit 1
+# KAITO_TASKS_MANAGER is for setup: it onboards one manager for the machine, whatever tracker the folder it runs in has.
+forced=""
+if [ -z "$want" ]; then case "${KAITO_TASKS_MANAGER:-}" in trello|plane|obsidian) forced=$KAITO_TASKS_MANAGER; want=$forced ;; esac; fi
+sel=$(node "$TK" "$pf" select "$want" 2>/dev/null) || { [ -n "$forced" ] || { node "$TK" "$pf" select "$want" >/dev/null; exit 1; }; sel=""; }
 tm=$(printf '%s\n' "$sel" | sed -n 1p); B=$(printf '%s\n' "$sel" | sed -n 2p)
 TRK=$(printf '%s\n' "$sel" | sed -n 3p); scripted=$(printf '%s\n' "$sel" | sed -n 4p)
 [ -z "$tm" ] || mgr=$tm
+if [ -n "$forced" ]; then mgr=$forced; TRK=""; want=""; fi
 case "$mgr" in
   trello|plane|obsidian) ;;
   "") [ "$cmd" = status ] || die "no task manager set: run setup"
@@ -94,6 +98,8 @@ off() {
   echo "tracking is off for this project${tm:+ on $tm}; turn it on with: kaito-tasks.sh tracker set <manager> tracking=always"
 }
 export M S D B MGR="$mgr"
+# Discovery consent is kept per manager, so answering for one never drops the other's boards. Trello keeps the first key.
+DK=tasks.discovery; [ "$mgr" = trello ] || DK="tasks.discovery_$mgr"
 
 # Credentials: env, else ~/.kaito/.env (Trello also ~/.config/trello/.env). All values of one manager from one source, read as data.
 envval() { sed -n "s/^\(export \)\{0,1\}$1=//p" "$2" 2>/dev/null | head -n1 | tr -d '\r' | sed "s/^\"\(.*\)\"\$/\1/; s/^'\(.*\)'\$/\1/"; }
@@ -141,8 +147,8 @@ case "$cmd" in
       if [ -n "$board" ] || [ -z "$tm" ]; then echo "${board:-board: none}"; fi
     else echo "notes: $D"; fi
     grep -q -E '^(tracker|tracking): ' "$pf" 2>/dev/null && node "$TK" "$pf" list
-    c=$(cfg tasks.discovery.consent)
-    if [ -n "$c" ]; then echo "discovery: $c $(cfg tasks.discovery.at) ($(node "$here/kaito-json.mjs" each "$CFG" tasks.discovery.boards | tr '\n' ' ' | sed 's/ $//'))"
+    c=$(cfg "$DK.consent")
+    if [ -n "$c" ]; then echo "discovery: $c $(cfg "$DK.at") ($(node "$here/kaito-json.mjs" each "$CFG" "$DK.boards" | tr '\n' ' ' | sed 's/ $//'))"
     else echo "discovery: not asked"; fi
     s=$(cfg tasks.state); echo "onboarding: ${s:-pending}"
     ;;
@@ -219,6 +225,7 @@ EOF
   structure)
     [ "${2:-}" = put ] && [ "${3:-}" = plane ] || die "usage: kaito-tasks.sh structure put plane  (JSON on stdin)"
     [ "$mgr" = plane ] || die "structure put is for Plane; the manager is $mgr"
+    if off; then exit 0; fi
     J structure-put ;;
   consent)
     case "${2:-}" in yes|no) ;; *) die "usage: kaito-tasks.sh consent yes|no <boardId>..." ;; esac
@@ -228,14 +235,15 @@ EOF
       case "$b" in ""|*[!A-Za-z0-9-]*) die "bad board id $b" ;; esac
       list="$list${list:+,}\"$b\""
     done
-    node "$here/kaito-json.mjs" set "$CFG" tasks.discovery "{\"consent\":\"$a\",\"boards\":[$list],\"at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+    node "$here/kaito-json.mjs" set "$CFG" "$DK" "{\"consent\":\"$a\",\"boards\":[$list],\"at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
     [ "$a" = yes ] || node "$here/kaito-json.mjs" set "$CFG" tasks.steps.discovery true  # yes: done once discover succeeds
     echo "discovery consent: $a${list:+ for $*}"
     ;;
   discover)
     remote || die "discover is for Trello and Plane"
-    [ "$(cfg tasks.discovery.consent)" = yes ] || die "no discovery consent: ask first, then run kaito-tasks.sh consent yes <boardId>..."
-    bs=$(node "$here/kaito-json.mjs" each "$CFG" tasks.discovery.boards)
+    if off; then exit 0; fi
+    [ "$(cfg "$DK.consent")" = yes ] || die "no discovery consent: ask first, then run kaito-tasks.sh consent yes <boardId>..."
+    bs=$(node "$here/kaito-json.mjs" each "$CFG" "$DK.boards")
     [ -n "$bs" ] || die "consent lists no boards"
     need_creds
     # shellcheck disable=SC2086  # ids are checked to [A-Za-z0-9-] by consent
@@ -265,16 +273,16 @@ EOF
     if [ "$mgr" = obsidian ]; then echo "obsidian notes are the source; nothing to pull"; exit 0; fi
     need_board; need_creds
     # Structure memory refreshes itself: a pull re-runs discovery when the map is older than tasks.structure_ttl_hours (default 24).
-    if [ "$(cfg tasks.discovery.consent)" = yes ]; then
-      KAITO_DISCOVER_IDS=$(node "$here/kaito-json.mjs" each "$CFG" tasks.discovery.boards | tr '\n' ' ')
+    if [ "$(cfg "$DK.consent")" = yes ]; then
+      KAITO_DISCOVER_IDS=$(node "$here/kaito-json.mjs" each "$CFG" "$DK.boards" | tr '\n' ' ')
       KAITO_TTL_HOURS=$(cfg tasks.structure_ttl_hours); export KAITO_DISCOVER_IDS KAITO_TTL_HOURS
     fi
     J pull ;;
   list)
-    if off; then exit 0; fi
-    # Several scripted trackers and none named: list each under its own heading.
+    # Several scripted trackers and none named: list each under its own heading. Each one answers for its own tracking setting.
     if [ -z "$want" ] && [ "$(printf '%s\n' $scripted | grep -c .)" -gt 1 ]; then
       for t in $scripted; do echo "## $t"; sh "$0" --tracker "$t" list; done
+    elif off; then exit 0
     else J list; fi ;;
   add|check|uncheck|rename|move|comment|link|done|reopen|item)
     op=$cmd; shift

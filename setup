@@ -517,8 +517,8 @@ setup_tasks() {
     case "$m" in
       trello|plane)
         [ "$m" = plane ] && tn=Plane || tn=Trello
-        if [ -f "$TS" ] && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
-        elif interactive && [ -f "$TS" ] && sh "$TS" login && sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
+        if [ -f "$TS" ] && KAITO_TASKS_MANAGER="$m" sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
+        elif interactive && [ -f "$TS" ] && KAITO_TASKS_MANAGER="$m" sh "$TS" login && KAITO_TASKS_MANAGER="$m" sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
         else echo "tasks: $tn credentials are not set. Run this in your terminal, then re-run ./setup:"; echo "  sh $TS login"
           [ "$m" != plane ] || echo "  Or add the Plane connector (MCP) to your agent; helpmekaito uses it when there is no key."
         fi ;;
@@ -531,19 +531,19 @@ setup_tasks() {
       plane) tn=Plane; tb=projects; tw="states, modules, labels, member ids and names, all IDs, a summary of work item style; no work item contents" ;; esac
     if [ "$m" != trello ] && [ "$m" != plane ]; then tmark discovery
     elif tstep credentials && [ -f "$TS" ]; then
-      bl=$(sh "$TS" boards 2>/dev/null) || bl=""
+      bl=$(KAITO_TASKS_MANAGER="$m" sh "$TS" boards 2>/dev/null) || bl=""
       if [ -z "$bl" ]; then
         echo "tasks: found no open $tn $tb on this account. Create one in $tn, then re-run ./setup."
       else
         echo "Your $tn $tb:"; printf '%s\n' "$bl" | awk '{$1 = ""; printf "  %d)%s\n", NR, $0}'
         a=$(ask_text tasks_boards "Which to use: numbers like 1 3, all, or none" all)
         b=$(pick_ids "$bl" "$a" | tr '\n' ' ' | sed 's/ $//')
-        if [ "$a" = none ]; then sh "$TS" consent no && tmark discovery
+        if [ "$a" = none ]; then KAITO_TASKS_MANAGER="$m" sh "$TS" consent no && tmark discovery
         elif [ -z "$b" ]; then echo "tasks: nothing matches \"$a\". Re-run ./setup to pick again."
         # shellcheck disable=SC2086  # board ids have no spaces
         elif ask tasks_discover "Sync the structure of these $tb ($tw) into local memory?" y
-        then sh "$TS" consent yes $b && sh "$TS" discover && tmark discovery
-        else sh "$TS" consent no $b && tmark discovery
+        then KAITO_TASKS_MANAGER="$m" sh "$TS" consent yes $b && KAITO_TASKS_MANAGER="$m" sh "$TS" discover && tmark discovery
+        else KAITO_TASKS_MANAGER="$m" sh "$TS" consent no $b && tmark discovery
         fi
       fi
     fi

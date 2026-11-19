@@ -182,3 +182,35 @@ test_detect_keeps_the_linked_trello_board() {
   has "$out" "candidate: trello AbCd1234 team-board | strength=strong"
   hasnt "$out" "5f00000000000000000000aa | strength=strong"
 }
+
+test_consent_is_kept_per_manager() {
+  home none; JS="$REPO/helpmekaito/scripts/kaito-json.mjs"
+  KAITO_TASKS_MANAGER=trello sh "$T" consent yes b1 b2 >/dev/null || exit 1
+  KAITO_TASKS_MANAGER=plane sh "$T" consent yes "$P1" >/dev/null || exit 1
+  assert_eq "$(node "$JS" each "$KAITO_HOME/config.json" tasks.discovery.boards | tr '\n' ' ')" "b1 b2 " "Trello's boards survive"
+  assert_eq "$(node "$JS" each "$KAITO_HOME/config.json" tasks.discovery_plane.boards | tr '\n' ' ')" "$P1 " "Plane's are its own"
+}
+
+test_list_shows_the_other_tracker_when_the_first_is_off() {
+  home none
+  sh "$T" tracker add plane "$P1" ALL tracking=never >/dev/null
+  sh "$T" tracker add obsidian - Notes role=personal tracking=always >/dev/null || exit 1
+  sh "$T" --tracker obsidian add "Personal reminder" >/dev/null || exit 1
+  out=$(sh "$T" list); has "$out" "## obsidian"; has "$out" "Personal reminder"; has "$out" "tracking is off"
+}
+
+test_tracking_never_stops_discover() {
+  home none; plane_stub
+  sh "$T" tracker add plane "$P1" ALL tracking=never >/dev/null || exit 1
+  sh "$T" consent yes "$P1" >/dev/null || exit 1
+  has "$(sh "$T" discover)" "tracking is off"
+  assert_no "$MEM/managers/plane.json"
+}
+
+test_setup_manager_override_beats_the_folder_mapping() {
+  home none; plane_stub
+  sh "$T" tracker add trello abc123 Team >/dev/null || exit 1
+  has "$(sh "$T" status)" "manager: trello"
+  out=$(KAITO_TASKS_MANAGER=plane sh "$T" status); has "$out" "manager: plane"; has "$out" "credentials: yes"
+  has "$(KAITO_TASKS_MANAGER=plane sh "$T" boards)" "$P1 ALL ALL"
+}

@@ -17,7 +17,7 @@ mk_home() {
   PATH="$TESTS_DIR/stubs:$PATH"
   export HOME KAITO_HOME PATH
   unset CODEX_HOME XDG_CONFIG_HOME KAITO_ANSWERS  # inherited values would point setup at real config
-  unset TRELLO_KEY TRELLO_TOKEN PLANE_API_KEY PLANE_WORKSPACE PLANE_BASE_URL
+  unset TRELLO_KEY TRELLO_TOKEN PLANE_API_KEY PLANE_WORKSPACE PLANE_BASE_URL KAITO_TASKS_MANAGER KAITO_PLANE_PAGES
   KAITO_TRELLO_API=http://127.0.0.1:1; export KAITO_TRELLO_API  # fail closed: no test may reach real Trello
   KAITO_PLANE_API=http://127.0.0.1:1; export KAITO_PLANE_API    # nor real Plane
 }

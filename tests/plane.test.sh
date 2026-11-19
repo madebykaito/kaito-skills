@@ -288,3 +288,9 @@ test_new_items_and_sub_items_default_to_the_key_owner() {
   sh "$T" item add ALL-7 "Write the docs" >/dev/null || exit 1
   assert_eq "$(last POST "$W/work-items/" body.parent body.assignees | cut -d' ' -f2)" "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" "sub-item assigned to me"
 }
+
+test_rate_limited_read_waits_as_told_and_succeeds() {
+  home; kill $SPID; STUB_FAIL="GET $W/states/ 429 1" stub
+  sh "$T" map "$P1" >/dev/null || exit 1
+  assert_eq "$(sh "$T" pull)" "pulled 3 work items" "retried after the wait Plane asked for"
+}

@@ -121,6 +121,7 @@ createServer((req, res) => {
     appendFileSync(logFile, JSON.stringify({ method: req.method, path, query: Object.fromEntries(u.searchParams), creds: !!key, body }) + '\n');
     const send = (status, obj) => {
       res.statusCode = status;
+      if (status === 429) res.setHeader("retry-after", "1");
       res.setHeader('content-type', 'application/json');
       res.end(obj === undefined ? `{"detail":"error ${status}"}` : JSON.stringify(obj));
     };

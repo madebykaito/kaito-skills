@@ -23,7 +23,7 @@ export async function plane(method, path, body) {
   for (let i = 0; ; i++) {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 10000);
-    let status;
+    let status, wait = 500;
     try {
       const res = await fetch(url, {
         method,
@@ -32,6 +32,10 @@ export async function plane(method, path, body) {
         signal: ac.signal,
       });
       status = res.status;
+      // A 429 says when the window reopens: Retry-After in seconds, or X-RateLimit-Reset as a Unix time. Wait that long, a minute at most.
+      const ra = Number(res.headers.get('retry-after')), reset = Number(res.headers.get('x-ratelimit-reset'));
+      const secs = ra > 0 ? ra : reset > 1e9 ? reset - Date.now() / 1000 : 0;
+      if (status === 429 && secs > 0) wait = Math.min(Math.max(secs * 1000, 500), 60000);
       const text = await res.text();
       if (res.ok) return text ? JSON.parse(text) : {};
     } catch (e) {
@@ -40,7 +44,7 @@ export async function plane(method, path, body) {
       clearTimeout(timer);
     }
     const again = typeof status === 'number' && (status === 429 || status >= 500);
-    if (again && i + 1 < tries) { await sleep(500); continue; }
+    if (again && i + 1 < tries) { await sleep(wait); continue; }
     throw new Error(redact(`plane ${status} ${method} ${path.split('?')[0]}`));
   }
 }
