@@ -21,7 +21,7 @@ by_version() { sort -t. -k1,1n -k2,2n -k3,3n; }
 
 installed() {
   v=$(jget "$S" version)
-  [ -n "$v" ] || v=$(tr -cd '0-9A-Za-z.+-' < "$K/store/VERSION" 2>/dev/null) || v=""
+  if [ -z "$v" ] && [ -f "$K/store/VERSION" ]; then v=$(tr -cd '0-9A-Za-z.+-' < "$K/store/VERSION"); fi
   echo "${v:-unknown}"
 }
 mode() {
