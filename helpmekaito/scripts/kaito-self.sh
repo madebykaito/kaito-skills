@@ -56,7 +56,7 @@ latest() {
   L=$(lookup)
   [ -d "$K" ] || return 0
   node "$J" check "$C" 2>/dev/null || rm -f "$C"
-  node "$J" set "$C" at "$(now)" && node "$J" set "$C" latest "\"$L\"" && node "$J" del "$C" failed || :
+  node "$J" set "$C" at "$(now)" && node "$J" set "$C" latest "\"$L\"" && node "$J" del "$C" failed && node "$J" del "$C" trying || :
 }
 
 changes() {  # up to 8 bullets of the "## [<version>]" section
@@ -77,14 +77,30 @@ do_upgrade() {
   tgit 120000 -C "$repo" fetch --tags origin >> "$log" 2>&1 || { why="could not fetch"; return 1; }
   # The release tag, never the tip of main: main may hold unreleased work.
   git -C "$repo" merge --ff-only "v$b" >> "$log" 2>&1 || { why="cannot fast-forward to v$b"; return 1; }
+  # A clone already past the tag would install unreleased work under the release's name.
+  [ "$(git -C "$repo" rev-parse HEAD)" = "$(git -C "$repo" rev-parse "v$b^{commit}")" ] || { why="clone is ahead of v$b"; return 1; }
   set --
-  [ "$(jget "$K/config.json" gstack)" != false ] || set -- --no-gstack
+  # The same gstack choice as the install: the config switch, or a --no-gstack run recorded in state.
+  [ "$(jget "$K/config.json" gstack)" != false ] && [ "$(jget "$S" gstack)" != false ] || set -- --no-gstack
   # shellcheck disable=SC2086  # KAITO_SELF_SETUP_ARGS is a list of flags
   sh "$repo/setup" --upgrade "$@" ${KAITO_SELF_SETUP_ARGS:-} >> "$log" 2>&1 ||
     { why="setup failed, see $log (the clone is already at v$b)"; return 1; }
   echo "upgraded: $a -> $b"
   changes "$b"
   echo "new sessions use the new skills"
+}
+
+# run_upgrade <installed> <latest>: the unattended upgrade; its outcome lands in upgrade.result for auto to print.
+run_upgrade() {
+  {
+    if ! do_upgrade "$1" "$2"; then
+      echo "upgrade skipped: $why"
+      echo "to upgrade by hand: cd $repo && git pull && ./setup"
+      node "$J" set "$C" failed "\"$2\"" 2>/dev/null || :
+    fi
+  } > "$K/upgrade.result.tmp" 2>&1
+  node "$J" del "$C" trying 2>/dev/null || :
+  mv "$K/upgrade.result.tmp" "$K/upgrade.result"
 }
 
 uninstall() {
@@ -111,19 +127,21 @@ uninstall() {
   fi
   set -- --uninstall
   [ "$purge" = 0 ] || set -- --uninstall --purge
-  if [ -n "$repo" ] && [ -f "$repo/setup" ]; then
-    out=$(sh "$repo/setup" "$@" 2>&1) || { printf '%s\n' "$out" >&2; exit 1; }
-  elif [ -f "$K/store/setup" ]; then
-    # The store is deleted during the run, so setup must not run from inside it.
+  if [ -f "$K/store/setup" ]; then
+    # The store's copy is the installed release's own setup: the clone may be on another version that
+    # does not know what this one moved aside. The store is deleted during the run, so it runs from a copy.
     tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
     cp "$K/store/setup" "$tmp"
     out=$(KAITO_SETUP_REPO="$K/store" sh "$tmp" "$@" 2>&1) || { printf '%s\n' "$out" >&2; exit 1; }
+  elif [ -n "$repo" ] && [ -f "$repo/setup" ]; then
+    out=$(sh "$repo/setup" "$@" 2>&1) || { printf '%s\n' "$out" >&2; exit 1; }
   else
-    echo "kaito-self: no setup found in the clone or in $K/store" >&2; exit 1
+    echo "kaito-self: no setup found in $K/store or in the clone" >&2; exit 1
   fi
-  rm -f "$C" "$K/upgrade.log"
+  rm -f "$C" "$K/upgrade.log" "$K/upgrade.result"
   echo "uninstalled kaito-skills"
-  [ "$purge" = 1 ] || echo "kept: $K"
+  printf '%s\n' "$out" | grep '^kaito: .* \(is in use\|not deleting\)' || :  # what setup could not put back or delete
+  [ ! -d "$K" ] || echo "kept: $K"
   echo "start a new session; this one still has the old skills loaded"
 }
 
@@ -150,6 +168,8 @@ main() {
       echo "snoozed: $L for 7 days" ;;
     auto)
       # Runs at the start of every task: nothing here may fail the task or ask a question.
+      # A background upgrade an earlier task started has finished: say so now.
+      if [ -f "$K/upgrade.result" ]; then cat "$K/upgrade.result"; rm -f "$K/upgrade.result"; fi
       m=$(mode)
       [ "$m" != off ] || return 0
       latest 2>/dev/null || return 0
@@ -158,12 +178,19 @@ main() {
       if [ "$(jget "$C" snooze.version)" = "$L" ] && num "$until" && [ "$(now)" -lt "$until" ]; then return 0; fi
       if [ "$m" = ask ]; then echo "update: $A -> $L"; return 0; fi
       [ "$(jget "$C" failed)" != "$L" ] || return 0
-      echo "upgrading kaito-skills $A -> $L"
-      if ! do_upgrade "$A" "$L"; then
-        echo "upgrade skipped: $why"
-        echo "to upgrade by hand: cd $repo && git pull && ./setup"
-        node "$J" set "$C" failed "\"$L\"" 2>/dev/null || :
+      # One upgrade at a time across sessions; a run that died is retried after an hour.
+      t=$(jget "$C" trying)
+      if num "$t" && [ $(($(now) - t)) -lt 3600000 ]; then return 0; fi
+      node "$J" set "$C" trying "$(now)" 2>/dev/null || return 0
+      # Setup can take minutes (gstack build), so it never holds up the task: the next task reports it.
+      if [ "${KAITO_SELF_FOREGROUND:-0}" = 1 ]; then
+        echo "upgrading kaito-skills $A -> $L"
+        run_upgrade "$A" "$L"; cat "$K/upgrade.result"; rm -f "$K/upgrade.result"
+      else
+        nohup sh "$here/kaito-self.sh" _run "$A" "$L" >/dev/null 2>&1 &
+        echo "upgrading kaito-skills $A -> $L in the background"
       fi ;;
+    _run) run_upgrade "$2" "$3" ;;
     upgrade)
       has_clone || { echo "upgrade skipped: no clone recorded"; exit 1; }
       latest force

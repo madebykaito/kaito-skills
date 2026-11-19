@@ -39,7 +39,7 @@ A Claude Code plugin can ship a skill with the same name too. Setup asks per plu
 
 ## Upgrades
 
-`helpmekaito` runs `kaito-self.sh auto` at the start of a task. At most once a day it reads the release tags of the clone's remote (`repo` in `state.json`). With a newer release and `update.mode` at `auto` (the default) it moves the clone to that tag and runs `./setup --upgrade`, which asks nothing and keeps every earlier answer. `ask` only reports the release, `off` never checks. The store keeps a copy of `setup`, so uninstall works without the clone.
+`helpmekaito` runs `kaito-self.sh auto` at the start of a task. At most once a day it reads the release tags of the clone's remote (`repo` in `state.json`). With a newer release and `update.mode` at `auto` (the default) it moves the clone to that tag and runs `./setup --upgrade` in the background, which asks nothing and keeps every earlier answer; the outcome is printed at the start of a later task. `ask` only reports the release, `off` never checks. The store keeps a copy of `setup`, so uninstall works without the clone.
 
 ## gstack
 

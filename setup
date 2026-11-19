@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install kaito-skills into $KAITO_HOME/store and link them per agent.
-# Usage: ./setup [--yes] [--upgrade] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
+# Usage: ./setup [--yes] [--upgrade] [--duplicates] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
 set -eu
 
 # Windows runs this under Git Bash (MSYS2). Paths stay in /c/Users form here; cygpath converts.
@@ -30,16 +30,17 @@ NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-qualit
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 SYNC="$REPO/helpmekaito/scripts/kaito-sync.mjs"
 
-GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0 UPGRADE=0
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0 UPGRADE=0 REASK=0
 for a in "$@"; do
   case "$a" in
     --yes) YES=1 ;;
+    --duplicates) REASK=1 ;;  # ask again about duplicates an earlier run said no to
     --upgrade) UPGRADE=1 YES=1 ;;  # unattended re-install: every question keeps what is there
     --no-gstack) GSTACK=0 ;;
     --no-codegraph) CODEGRAPH=0 ;;
     --uninstall) UNINSTALL=1 ;;
     --purge) UNINSTALL=1 PURGE=1 ;;
-    *) echo "usage: ./setup [--yes] [--upgrade] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
+    *) echo "usage: ./setup [--yes] [--upgrade] [--duplicates] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
   esac
 done
 
@@ -291,6 +292,8 @@ take_over() {
   b=$(backup_of "$1")
   if [ -e "$b" ] || [ -L "$b" ]; then echo "warning: $b already exists, leaving $1 alone"; return 1; fi
   node "$J" add "$STATE" taken_over "$(jstr "$1")"  # state first, as in write_overrides
+  # An override the user already had for their own skill stays theirs, on re-run and uninstall.
+  case "$1" in "$CLAUDE_SKILLS"/*) [ -z "$(node "$J" get "$SETTINGS" "skillOverrides.${1##*/}")" ] || node "$J" add "$STATE" user_overrides "\"${1##*/}\"" ;; esac
   mkdir -p "${b%/*}"
   mv "$1" "$b" && return 0
   node "$J" rm "$STATE" taken_over "$(jstr "$1")"; echo "warning: could not move $1, leaving it alone"; return 1
@@ -299,6 +302,7 @@ take_over() {
 # Skills and plugins the user already has under one of our names: ask whether ours replace them.
 # A no from a person is remembered; the default (--yes alone, no tty) is not, so a later run asks.
 takeover_stage() {
+  [ "$REASK" = 0 ] || node "$J" del "$STATE" declined
   declined=$(node "$J" each "$STATE" declined)
   ds="" dp="" ns=0 np=0
   for p in $DUPS $GS_DUP; do
@@ -363,8 +367,9 @@ write_overrides() {
   prev=$(node "$J" get "$STATE" managed_overrides | json_list)
   cur=$(node "$J" get "$SETTINGS" skillOverrides)
   MANAGED="" new=""
+  uo=$(node "$J" get "$STATE" user_overrides | json_list)
   for n in $CLAUDE_LINKED; do
-    [ "$n" = helpmekaito ] || has "$n" "$HOT" && continue
+    [ "$n" = helpmekaito ] || has "$n" "$HOT" || has "$n" "$uo" && continue
     case "$cur" in
       *"\"$n\":\"name-only\""*) ;;  # already there: ours to manage even if state.json was lost
       *"\"$n\":"*) continue ;;
@@ -395,6 +400,7 @@ write_state() {
   node "$J" set "$STATE" store_version "\"$v\""
   node "$J" set "$STATE" version "\"$(tr -cd '0-9A-Za-z.+-' < "$REPO/VERSION" 2>/dev/null)\""
   node "$J" set "$STATE" repo "$(jstr "$REPO")"
+  node "$J" set "$STATE" gstack "$([ "$GSTACK" = 1 ] && echo true || echo false)"
   node "$J" set "$STATE" managed_overrides "$(to_json "$MANAGED")"
   node "$J" set "$STATE" links "$(to_json "$LINKS")"
 }
@@ -548,11 +554,13 @@ uninstall() {
     if [ -L "$p" ] && ours "$(rl "$p")"; then names="$names ${p##*/}"; fi
   done
   for d in $LINK_DIRS; do unlink_dir "$d" ""; done
-  drop_overrides "$names" ""
+  drop_overrides "$names" "$(node "$J" get "$STATE" user_overrides | json_list)"
   restore_taken
+  clone=$(node "$J" get "$STATE" repo | tr -d '"')
   rm -rf "$STORE" "$STATE"
   # gstack registers its own hooks at run time. With the store gone they are dead: let gstack prune them.
   h="$REPO/gstack/bin/gstack-settings-hook"
+  [ -x "$h" ] || h="$clone/gstack/bin/gstack-settings-hook"  # run from the store copy: the store is gone, the clone may not be
   if [ -x "$h" ] && command -v bun >/dev/null; then GSTACK_SETTINGS_FILE="$SETTINGS" "$h" prune-stale >/dev/null 2>&1 || :; fi
   r=""
   if [ $((N_RS + N_RP)) -gt 0 ]; then r=", restored $N_RS skills and $N_RP plugins"; fi
@@ -707,7 +715,7 @@ takeover_stage
 for p in $DUPS; do skip "$p"; done
 write_overrides
 write_state
-setup_tasks
+[ "$UPGRADE" = 1 ] || setup_tasks  # onboarding has questions without a safe "keep" answer
 [ "$CODEGRAPH" = 1 ] && codegraph_stage
 perms_stage
 nudge_stage

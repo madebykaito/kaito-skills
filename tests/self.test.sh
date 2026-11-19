@@ -15,6 +15,7 @@ mk_install() {
   g init -q; g add -A; g commit -qm "$V"; g tag "v$V"
   g remote add origin "$O"; g push -q -u origin main "v$V"
   KAITO_SELF_SETUP_ARGS="--no-gstack --no-codegraph"; export KAITO_SELF_SETUP_ARGS
+  KAITO_SELF_FOREGROUND=1; export KAITO_SELF_FOREGROUND  # the upgrade runs inline, so a test can read its result
   "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
   [ -z "$(g status --porcelain)" ] || { echo "  setup left the clone dirty"; g status --porcelain; exit 1; }
   SELF="$KAITO_HOME/store/helpmekaito/scripts/kaito-self.sh"
@@ -216,4 +217,50 @@ test_uninstall_purge() {
   assert_eq "$(sed -n 1p "$HOME/o")" "uninstalled kaito-skills" done
   assert_eq "$(sed -n 2p "$HOME/o")" "start a new session; this one still has the old skills loaded" session
   assert_no "$KAITO_HOME"
+}
+
+# By default the upgrade runs in the background and the next task start reports it.
+test_auto_upgrades_in_the_background() {
+  mk_install; release 1.5.0
+  unset KAITO_SELF_FOREGROUND
+  assert_eq "$(self auto)" "upgrading kaito-skills 1.4.0 -> 1.5.0 in the background" started
+  i=0; while [ ! -f "$KAITO_HOME/upgrade.result" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i + 1)); done
+  assert_eq "$(state_version)" '"1.5.0"' upgraded
+  assert_eq "$(self auto | sed -n 1p)" "upgraded: 1.4.0 -> 1.5.0" reported_next_time
+  assert_eq "$(self auto)" "" reported_once
+}
+
+# A second session starting while the first upgrade runs does not start another.
+test_auto_does_not_start_two_upgrades() {
+  mk_install; release 1.5.0
+  KAITO_UPDATE_TTL_HOURS=24 self check > /dev/null
+  node "$J" set "$KAITO_HOME/update-check.json" trying "$(($(date +%s) * 1000))"
+  assert_eq "$(self auto)" "" quiet_while_trying
+  assert_eq "$(state_version)" '"1.4.0"' untouched
+}
+
+# A clone pulled past the tag holds unreleased work: it is not installed under the release's name.
+test_upgrade_refuses_clone_ahead_of_tag() {
+  mk_install; release 1.5.0
+  g fetch -q --tags origin; g merge -q --ff-only v1.5.0
+  echo extra > "$R/unreleased.txt"; g add -A; g commit -qm unreleased
+  rc=0; out=$(self upgrade) || rc=$?
+  assert_eq "$out" "upgrade skipped: clone is ahead of v1.5.0" ahead
+  assert_eq "$(state_version)" '"1.4.0"' not_installed
+}
+
+# Installed with --no-gstack: the upgrade passes it on without being told.
+test_upgrade_keeps_no_gstack_choice() {
+  mk_install; release 1.5.0
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" gstack)" false recorded
+  KAITO_SELF_SETUP_ARGS="--no-codegraph" self upgrade > "$HOME/o" 2>&1 || { cat "$HOME/o" "$KAITO_HOME/upgrade.log"; exit 1; }
+  assert_no "$KAITO_HOME/store/gstack"
+}
+
+# The clone sits on an older release without the restore logic: uninstall still uses the installed setup.
+test_uninstall_uses_the_installed_setup() {
+  mk_install
+  printf '#!/bin/sh\necho old setup ran; exit 1\n' > "$R/setup"
+  self uninstall --yes > "$HOME/o" 2>&1 || { cat "$HOME/o"; exit 1; }
+  assert_no "$KAITO_HOME/store"
 }

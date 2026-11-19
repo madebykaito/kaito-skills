@@ -492,3 +492,34 @@ test_store_setup_restores_without_clone() {
   assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
   assert_eq "$(ep dup@market)" true plugin_restored
 }
+
+test_duplicates_flag_asks_again() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude/skills/better-ui"; echo mine > "$HOME/.claude/skills/better-ui/SKILL.md"
+  KAITO_ANSWERS="takeover_skills=n" run_setup
+  KAITO_ANSWERS="takeover_skills=y" run_setup
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine still_declined
+  KAITO_ANSWERS="takeover_skills=y" run_setup --duplicates
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+}
+
+# The user already had an override for their own skill: takeover and uninstall leave it as it was.
+test_takeover_keeps_the_users_override() {
+  mk_home; mk_repo
+  mkdir -p "$HOME/.claude/skills/better-ui"; echo mine > "$HOME/.claude/skills/better-ui/SKILL.md"
+  echo '{"skillOverrides":{"better-ui":"name-only"}}' > "$HOME/.claude/settings.json"
+  KAITO_ANSWERS="takeover_skills=y" run_setup
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+  "$R/setup" --uninstall > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$HOME/.claude/skills/better-ui/SKILL.md")" mine restored
+  assert_eq "$(ov better-ui)" '"name-only"' override_kept
+}
+
+# Task onboarding is half done: an upgrade does not answer its questions.
+test_upgrade_leaves_task_onboarding_alone() {
+  mk_home; mk_repo; run_setup
+  echo '{"tasks":{"manager":"trello","state":"pending","steps":{"manager":true,"memory":true,"credentials":true}}}' > "$KAITO_HOME/config.json"
+  before=$(cat "$KAITO_HOME/config.json")
+  "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_eq "$(cat "$KAITO_HOME/config.json")" "$before" config_untouched
+}

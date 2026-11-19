@@ -76,6 +76,7 @@ Setup asks before each optional step. With no terminal, or with `--yes`, it take
 |---|---|
 | `--yes` | Take the default without asking. |
 | `--upgrade` | Re-install without asking anything. Every earlier answer is kept and nothing new is turned on. |
+| `--duplicates` | Ask again about same-name skills and plugins you said no to. |
 | `--no-gstack` | Skip the gstack build and links. |
 | `--no-codegraph` | Skip the codegraph install. |
 | `--uninstall` | Remove the links, the store, and the settings edits setup made. Put back the skills and plugins setup replaced. |
@@ -94,7 +95,7 @@ A no is remembered, so setup does not ask again. Names must match exactly. Setup
 
 ## Update
 
-You do not have to do anything. At the start of a task `helpmekaito` checks for a newer release, at most once a day. The check reads the release tags of your clone's remote and sends nothing else anywhere. When there is a newer release it moves the clone to that tag, runs `./setup --upgrade` and tells you what changed. New sessions use the new skills.
+You do not have to do anything. At the start of a task `helpmekaito` checks for a newer release, at most once a day. The check reads the release tags of your clone's remote and sends nothing else anywhere. When there is a newer release it moves the clone to that tag and runs `./setup --upgrade` in the background, so your task does not wait. The next task tells you what changed. New sessions use the new skills.
 
 `./setup --upgrade` asks nothing and changes no earlier answer: nothing new is turned on and no duplicate is replaced. The upgrade needs a clean clone on its default branch, and it only ever installs a release, never unreleased work. If it cannot run it says why and goes on with your task. See [troubleshooting](troubleshooting.md#upgrade-skipped).
 

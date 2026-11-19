@@ -74,6 +74,7 @@ Flags:
 |---|---|
 | `--yes` | Take the default without asking. |
 | `--upgrade` | Re-install without asking anything. Every earlier answer is kept and nothing new is turned on. |
+| `--duplicates` | Ask again about same-name skills and plugins you said no to. |
 | `--no-gstack` | Skip the gstack build and links. |
 | `--no-codegraph` | Skip the codegraph install. |
 | `--uninstall` | Remove our links, the store, and the settings and config edits setup made. Put back the skills and plugins setup replaced. |
@@ -81,7 +82,7 @@ Flags:
 
 `KAITO_ANSWERS="perms=y,nudge=n"` answers prompts by key (`codegraph`, `gitignore`, `perms`, `nudge`, `ponytail`, `codexwrite`, `tasks_manager`, `tasks_memory`, `tasks_vault`, `tasks_boards`, `tasks_discover`, `tasks_change`). It beats `--yes`. Secrets are never taken from it.
 
-Upgrades are automatic. At the start of a task `helpmekaito` looks for a newer release, at most once a day, moves your clone to that release tag and runs `./setup --upgrade`. It says what changed and never asks. To be asked first or to turn it off: `sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh mode ask` or `mode off`. Or say "upgrade kaito" in chat. If you `git pull` by hand, run `./setup` again.
+Upgrades are automatic. At the start of a task `helpmekaito` looks for a newer release, at most once a day, moves your clone to that release tag and runs `./setup --upgrade` in the background, so your task does not wait. A later task says what changed. It never asks. To be asked first or to turn it off: `sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh mode ask` or `mode off`. Or say "upgrade kaito" in chat. If you `git pull` by hand, run `./setup` again.
 
 To uninstall, run `./setup --uninstall`, or say "uninstall kaito" in chat: it shows what would be removed and asks first.
 
