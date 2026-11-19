@@ -402,3 +402,18 @@ test_consent_yes_marks_step_only_after_discover() {
   sh "$T" discover >/dev/null || { echo "  discover failed"; exit 1; }
   assert_eq "$(node "$JS" get "$KAITO_HOME/config.json" tasks.steps.discovery)" true "done after discover"
 }
+
+test_board_line_picks_the_manager_per_project() {
+  home obsidian; stub
+  printf 'TRELLO_KEY=%s\nTRELLO_TOKEN=%s\n' "$FK" "$FT" > "$KAITO_HOME/.env"
+  sl=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/proj")
+  mkdir -p "$MEM/projects"; echo "board: trello b1 Work" > "$MEM/projects/$sl.md"
+  out=$(sh "$T" status)
+  printf "%s\n" "$out" | grep -qx "manager: trello" || { echo "$out"; exit 1; }
+  sh "$T" pull >/dev/null || { echo "  pull failed"; exit 1; }
+  assert_file "$MEM/tasks/trello/$sl/index.md"
+  # another project on the same machine has no board line, so it stays on the config default
+  mkdir -p "$HOME/other"; cd "$HOME/other" || exit 1
+  out=$(sh "$T" status)
+  printf "%s\n" "$out" | grep -qx "manager: obsidian" || { echo "$out"; exit 1; }
+}
