@@ -294,3 +294,14 @@ test_rate_limited_read_waits_as_told_and_succeeds() {
   sh "$T" map "$P1" >/dev/null || exit 1
   assert_eq "$(sh "$T" pull)" "pulled 3 work items" "retried after the wait Plane asked for"
 }
+
+test_link_twice_says_already_linked() {
+  home; sh "$T" map "$P1" >/dev/null; sh "$T" pull >/dev/null || exit 1
+  sh "$T" link ALL-4 https://example.test/pr/1 "PR 1" >/dev/null || exit 1
+  out=$(sh "$T" link ALL-4 https://example.test/pr/1 2>"$HOME/err") || { echo "  a duplicate link failed: $(cat "$HOME/err")"; exit 1; }
+  assert_eq "$out" "ok ALL-4" msg
+  has "$(cat "$HOME/err")" "ALL-4 already links https://example.test/pr/1"
+  # any other 400 is still an error
+  sh "$T" link ALL-4 "" >/dev/null 2>&1 && { echo "  empty url accepted"; exit 1; }
+  :
+}

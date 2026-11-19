@@ -104,7 +104,8 @@ function route(method, path, q, body) {
       return patch(w, body);
     }
     if (p[4] === 'comments' && method === 'POST') { const c = { id: uuid(), issue: w.id, comment_html: body.comment_html }; comments.push(c); return [201, c]; }
-    if (p[4] === 'links' && method === 'POST') { if (!body.url) return 400; const l = { id: uuid(), issue: w.id, url: body.url, title: body.title ?? '' }; links.push(l); return [201, l]; }
+    if (p[4] === 'links' && method === 'GET') return page(links.filter((x) => x.issue === w.id), q);
+    if (p[4] === 'links' && method === 'POST') { if (!body.url || links.some((x) => x.issue === w.id && x.url === body.url)) return 400; const l = { id: uuid(), issue: w.id, url: body.url, title: body.title ?? '' }; links.push(l); return [201, l]; }
   }
   return 404;
 }

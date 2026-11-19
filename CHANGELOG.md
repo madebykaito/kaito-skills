@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- `kaito-tasks.sh link` on Plane says the task already links the URL instead of failing with `plane 400`.
+
 ## [1.3.0] - 2026-11-19
 
 ### Added
