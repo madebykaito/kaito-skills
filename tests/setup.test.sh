@@ -312,3 +312,41 @@ test_tasks_plane_no_credentials_names_login_and_mcp() {
   grep -q "Plane connector (MCP)" "$HOME/out" || { cat "$HOME/out"; exit 1; }
   ! grep -qx 'login' "$HOME/calls" || exit 1
 }
+
+test_state_records_version_and_repo() {
+  mk_home; mk_repo; run_setup
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" version)" "\"$(cat "$REPO/VERSION")\"" version
+  assert_eq "$(node "$J" get "$KAITO_HOME/state.json" repo)" "\"$(cd "$R" && pwd -P)\"" repo
+  assert_file "$KAITO_HOME/store/setup"; assert_file "$KAITO_HOME/store/VERSION"; assert_file "$KAITO_HOME/store/CHANGELOG.md"
+  grep -q '^updates: auto ' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}
+
+# --upgrade answers nothing: a yes in KAITO_ANSWERS turns nothing on, and what an earlier run turned on stays.
+test_upgrade_flag_changes_no_consent() {
+  mk_home; mk_repo
+  KAITO_ANSWERS="nudge=y" run_setup
+  grep -q 'kaito:begin' "$HOME/.claude/CLAUDE.md" || exit 1
+  KAITO_ANSWERS="perms=y,ponytail=y,nudge=y" "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  grep -q 'kaito:begin' "$HOME/.claude/CLAUDE.md" || exit 1
+  assert_eq "$(node "$J" get "$HOME/.claude/settings.json" permissions.allow)" "" perms_not_added
+  assert_eq "$(node "$J" get "$HOME/.claude/settings.json" hooks.SessionStart)" "" hook_not_added
+  assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
+}
+
+# The clone is gone: a copy of the store's setup, pointed at the store, still uninstalls.
+test_store_setup_uninstalls_without_clone() {
+  mk_home; mk_repo; run_setup
+  rm -rf "$R"
+  cp "$KAITO_HOME/store/setup" "$HOME/setup-copy"
+  KAITO_SETUP_REPO="$KAITO_HOME/store" sh "$HOME/setup-copy" --uninstall > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
+  assert_no "$HOME/.claude/skills/better-ui"; assert_no "$KAITO_HOME/store"
+  assert_eq "$(ov better-ui)" "" override_dropped
+  assert_file "$KAITO_HOME/config.json"
+}
+
+test_store_setup_refuses_to_install() {
+  mk_home; mk_repo; run_setup
+  cp "$KAITO_HOME/store/setup" "$HOME/setup-copy"
+  if KAITO_SETUP_REPO="$KAITO_HOME/store" sh "$HOME/setup-copy" --yes > "$HOME/out" 2>&1; then exit 1; fi
+  grep -q 'only uninstalls' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+}

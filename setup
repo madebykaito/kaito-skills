@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install kaito-skills into $KAITO_HOME/store and link them per agent.
-# Usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
+# Usage: ./setup [--yes] [--upgrade] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]
 set -eu
 
 # Windows runs this under Git Bash (MSYS2). Paths stay in /c/Users form here; cygpath converts.
@@ -18,7 +18,8 @@ CODEX_SKILL_DIRS="$HOME/.agents/skills"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 LINK_DIRS="$CLAUDE_SKILLS $HOME/.agents/skills $CODEX_DIR/skills"
 
-REPO_L="$(cd "$(dirname "$0")" && pwd)"
+# KAITO_SETUP_REPO: kaito-self.sh runs a copy of this file against the store when the clone is gone (uninstall only).
+REPO_L="${KAITO_SETUP_REPO:-$(cd "$(dirname "$0")" && pwd)}"
 REPO="$(cd "$REPO_L" && pwd -P)"
 KAITO_HOME="${KAITO_HOME:-$HOME/.kaito}"
 STORE="$KAITO_HOME/store"
@@ -29,15 +30,16 @@ NUDGE_LINE='For design, motion, copy, SEO, video, media, research or code-qualit
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 SYNC="$REPO/helpmekaito/scripts/kaito-sync.mjs"
 
-GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0
+GSTACK=1 CODEGRAPH=1 UNINSTALL=0 PURGE=0 YES=0 UPGRADE=0
 for a in "$@"; do
   case "$a" in
     --yes) YES=1 ;;
+    --upgrade) UPGRADE=1 YES=1 ;;  # unattended re-install: every question keeps what is there
     --no-gstack) GSTACK=0 ;;
     --no-codegraph) CODEGRAPH=0 ;;
     --uninstall) UNINSTALL=1 ;;
     --purge) UNINSTALL=1 PURGE=1 ;;
-    *) echo "usage: ./setup [--yes] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
+    *) echo "usage: ./setup [--yes] [--upgrade] [--no-gstack] [--no-codegraph] [--uninstall] [--purge]" >&2; exit 2 ;;
   esac
 done
 
@@ -83,6 +85,7 @@ lock_and_check() {
 # ask <key> "<question>" <y|n>: returns 0 for yes. KAITO_ANSWERS ("key=y,key=n") beats
 # --yes, which beats the tty. An unlisted key, or no tty, means the default.
 ask() {
+  [ "$UPGRADE" = 0 ] || return 1
   d=$3 a=""
   P=",${KAITO_ANSWERS:-},"
   case "$P" in
@@ -102,7 +105,7 @@ answer_for() {
   P=",${KAITO_ANSWERS:-},"
   a=${P#*",$1="}; echo "${a%%,*}"
 }
-has_answer() { case ",${KAITO_ANSWERS:-}," in *",$1="*) return 0 ;; esac; return 1; }
+has_answer() { [ "$UPGRADE" = 0 ] || return 1; case ",${KAITO_ANSWERS:-}," in *",$1="*) return 0 ;; esac; return 1; }
 
 # ask_text <key> "<question>" <default>: echoes the answer. Same precedence as ask.
 ask_text() {
@@ -148,6 +151,7 @@ install_store() {
   done
   [ $# -gt 0 ] && node "$SYNC" into -x .git -x node_modules -x dist "$STORE" "$@"
   cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
+  cp "$REPO/setup" "$REPO/VERSION" "$REPO/CHANGELOG.md" "$STORE/" 2>/dev/null || :  # kaito-self.sh: uninstall without the clone, version, what changed
   # Remove only skills an earlier run put here. Anything else in the store is not ours.
   for n in $(node "$J" get "$STATE" store_skills | json_list); do
     case "$n" in .*) continue ;; esac
@@ -268,6 +272,8 @@ write_state() {
   v=unknown
   [ -e "$REPO/.git" ] && v=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
   node "$J" set "$STATE" store_version "\"$v\""
+  node "$J" set "$STATE" version "\"$(tr -cd '0-9A-Za-z.+-' < "$REPO/VERSION" 2>/dev/null)\""
+  node "$J" set "$STATE" repo "$(jstr "$REPO")"
   node "$J" set "$STATE" managed_overrides "$(to_json "$MANAGED")"
   node "$J" set "$STATE" links "$(to_json "$LINKS")"
 }
@@ -555,12 +561,15 @@ setup_tasks() {
 
 summary() {
   echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
+  um=$(node "$J" get "$CONFIG" update.mode | tr -d '"')
+  echo "updates: ${um:-auto} (auto upgrades to each release, ask asks first, off never checks). Change: sh $STORE/helpmekaito/scripts/kaito-self.sh mode auto|ask|off"
 }
 
 check_paths
 command -v node >/dev/null || die "setup needs node on PATH"
 lock_and_check
 if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
+[ "$REPO" != "$(cd "$STORE" 2>/dev/null && pwd -P)" ] || die "the store copy of setup only uninstalls; run ./setup from the kaito-skills clone"
 check_prereqs
 make_config
 [ "$(node "$J" get "$CONFIG" gstack)" = false ] && GSTACK=0
