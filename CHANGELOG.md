@@ -4,6 +4,16 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- helpmekaito: Plane as a task manager. `kaito-tasks.sh` reads and writes Plane projects and modules with an API key (`login`), or helpmekaito uses the Plane MCP when there is no key.
+- Each repo picks its own task manager from its `board:` line, so one machine can have repos on Trello, Plane and Obsidian.
+- Board structure memory refreshes itself on `pull` when it is older than `tasks.structure_ttl_hours` (default 24).
+
+### Changed
+
+- `kaito-tasks.sh` is now a thin CLI over `kaito-tasks.mjs` and one module per manager in `scripts/providers/`.
+
 ### Fixed
 
 - Setup lists your Trello boards by name and lets you pick by number, `all` or `none`, instead of asking for board ids.

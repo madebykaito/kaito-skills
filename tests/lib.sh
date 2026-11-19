@@ -17,8 +17,9 @@ mk_home() {
   PATH="$TESTS_DIR/stubs:$PATH"
   export HOME KAITO_HOME PATH
   unset CODEX_HOME XDG_CONFIG_HOME KAITO_ANSWERS  # inherited values would point setup at real config
-  unset TRELLO_KEY TRELLO_TOKEN
+  unset TRELLO_KEY TRELLO_TOKEN PLANE_API_KEY PLANE_WORKSPACE PLANE_BASE_URL
   KAITO_TRELLO_API=http://127.0.0.1:1; export KAITO_TRELLO_API  # fail closed: no test may reach real Trello
+  KAITO_PLANE_API=http://127.0.0.1:1; export KAITO_PLANE_API    # nor real Plane
 }
 
 assert_eq() { [ "$1" = "$2" ] || { echo "  not equal: '$1' vs '$2' ($3)"; exit 1; }; }

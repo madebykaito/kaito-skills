@@ -1,6 +1,6 @@
 # Memory
 
-Notes live in the memory folder: `sh ~/.kaito/store/helpmekaito/scripts/kaito-mem.sh dir` prints it (`memory.path` in `~/.kaito/config.json`, default `~/.kaito/memory`). It holds `MEMORY.md` (index), `global.md`, `projects/<slug>.md`, `managers/` (board maps) and `tasks/` (see [tasks.md](tasks.md)). Read notes with `kaito-mem.sh where`.
+Notes live in the memory folder: `sh ~/.kaito/store/helpmekaito/scripts/kaito-mem.sh dir` prints it (`memory.path` in `~/.kaito/config.json`, default `~/.kaito/memory`). It holds `MEMORY.md` (index), `global.md`, `projects/<slug>.md`, `managers/` (board maps: `trello.json`, `plane.json` and a readable `.md` of each) and `tasks/` (see [tasks.md](tasks.md)). Read notes with `kaito-mem.sh where`.
 
 ## Store
 

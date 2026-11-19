@@ -70,4 +70,4 @@ Codex gets `helpmekaito` plus your hot list. Ask for a skill by name and `helpme
 
 ## Tasks and memory
 
-`helpmekaito` can also keep a task list in sync with Trello or Obsidian, and remembers facts about each repo. Setup asks which task manager you use. Say "what are my tasks" or "add a task" to use it. Credentials stay in `~/.kaito/.env` and are never asked for in chat.
+`helpmekaito` can also keep a task list in sync with Trello, Plane or Obsidian, and remembers facts about each repo. Setup asks which task manager you use. Say "what are my tasks" or "add a task" to use it. Credentials stay in `~/.kaito/.env` and are never asked for in chat.

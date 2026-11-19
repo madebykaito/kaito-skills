@@ -6,26 +6,29 @@ helpmekaito keeps the user's tasks with their task manager and helps do them. `S
 
 `./setup` runs this when it has a terminal. If `sh $S/kaito-tasks.sh status` shows `onboarding: pending`, finish the first step not yet done, in chat. Ask one question at a time. "skip" at any step sets `tasks.state` to `skipped`; stop asking.
 
-1. **Manager.** "Where do you keep tasks: Trello, Obsidian, Asana, Jira, something else, or nowhere?" Then `node $S/kaito-json.mjs set ~/.kaito/config.json tasks.manager '"<trello|obsidian|asana|jira|other|none>"'` and `tasks.steps.manager true`.
+1. **Manager.** "Where do you keep tasks: Trello, Plane, Obsidian, Asana, Jira, something else, or nowhere?" Then `node $S/kaito-json.mjs set ~/.kaito/config.json tasks.manager '"<trello|plane|obsidian|asana|jira|other|none>"'` and `tasks.steps.manager true`.
 2. **Memory folder.** Never ask for a vault path; read the vaults Obsidian knows from its `obsidian.json` (macOS `~/Library/Application Support/obsidian/`, Linux `~/.config/obsidian/`, Windows `%APPDATA%\obsidian\`).
    - Obsidian manager: no vault found means "Install Obsidian and create or open a vault first"; stop here. Otherwise list the vaults by number, let the user pick one, and offer `<vault>/kaito` as the memory folder.
    - Other managers: "Memory lives in `~/.kaito/memory`. Use another folder?"
    - On a path: set `memory.path`. If it is inside a known vault, set `obsidian.vault_root` to that vault. Set `tasks.steps.memory true`.
 3. **Credentials.**
    - Trello: if `status` shows `credentials: no`, tell the user to run `sh ~/.kaito/store/helpmekaito/scripts/kaito-tasks.sh login` in their terminal. It explains how to get the key and token and stores them safely. Never ask for a key or token in chat, and never read `~/.kaito/.env`. Suggest the Trello connector too (Claude settings, Connectors, Trello) for reads the script does not cover.
+   - Plane: same `login` command; it asks for the workspace slug and a personal API key (and the URL of a self-hosted Plane). The same rule holds: never ask for the key in chat. If the user will not make a key and the Plane MCP tools are in the session, use the MCP path below and set `tasks.steps.credentials true`.
    - Asana, Jira, others: check their MCP tools are in the session. If not, tell the user to add the connector and come back.
    - Obsidian, none: nothing to do.
-4. **Discovery consent.** For Trello, run `kaito-tasks.sh boards` and show the board names as a numbered list, never the ids. Ask which to use: numbers, "all" or "none". Then ask:
+4. **Discovery consent.** For Trello and Plane, run `kaito-tasks.sh boards` and show the board (Plane: project) names as a numbered list, never the ids. Ask which to use: numbers, "all" or "none". Then ask:
    > Sync these boards' structure into local memory? That is lists, labels, custom fields and their options, members (id and username), every ID, and a short summary of how cards are written. No card contents are stored.
+
+   For Plane the structure is states, modules, labels, members (id and name), every ID and a summary of how work items are written; no work item contents.
 
    Run `kaito-tasks.sh consent yes|no <boardId>...`, then `kaito-tasks.sh discover` on yes. Asana/Jira: same question; on yes, read the structure through the MCP and write `<memory>/managers/<name>.md` in the same shape as `trello.md`.
 5. Set `tasks.state` to `done`.
 
 ## Per project
 
-On a routed task in a repo where Trello is the manager:
+The project's `board:` line names its manager, so two repos on one machine can use different trackers; `tasks.manager` in config is only the default. On a routed task in a repo where Trello or Plane is the manager:
 
-- No `board:` line in `kaito-mem.sh where`: ask "Which board is this project on?" with names from `managers/<manager>.md`, then `kaito-tasks.sh map <boardId>`. "none" maps nothing; do not ask again in this repo (`kaito-mem.sh set board none`).
+- No `board:` line in `kaito-mem.sh where`: ask "Which board is this project on?" with names from `managers/<manager>.md`, then `kaito-tasks.sh map <boardId>`. Plane: ask for the project, then whether the work sits in one module of it (`kaito-tasks.sh modules <projectId>` lists them), and map `<projectId>` or `<projectId>/<moduleId>`. "none" maps nothing; do not ask again in this repo (`kaito-mem.sh set board none`).
 - A new board that is not in the consented list needs the consent question again.
 
 Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others: ask which project or board once, and save it with `kaito-mem.sh set board "<manager> <id> <name>"`.
@@ -33,8 +36,14 @@ Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others
 ## Sync
 
 - **Trello**: the board is the truth. Run `kaito-tasks.sh pull` at the start of a task route, then read from `<memory>/tasks/trello/<slug>/`. Those files are a cache: change tasks only through the script, which writes to Trello first. A `.conflict.md` copy means someone edited the cache; tell the user and apply what they want through the script.
+- **Plane**: the project (or the mapped module) is the truth, cached in `<memory>/tasks/plane/<slug>/`. A list is a state, a task id is the work item key (`ALL-27`), and a checklist item is a sub work item: `item add` creates one under the task, `check` moves it to the completed state. `add` on a mapped module puts the new item in that module.
+- **Structure memory** (`managers/trello.json`, `managers/plane.json` and their `.md`): `pull` refreshes it by itself when it is older than `tasks.structure_ttl_hours` (default 24), and a write that meets an unknown Plane state reads the states again. Run `discover` by hand only after adding a board to the consent list.
 - **Obsidian**: the notes in `<memory>/tasks/<slug>/` are the tasks. The script keeps ids and `index.md`.
 - **Asana, Jira, others**: use their MCP for every read and write. Keep only the board map and the project's `board:` line locally.
+
+## Plane through the MCP
+
+`kaito-tasks.sh status` showing `credentials: no` with the Plane MCP tools in the session means the MCP path. Use the MCP for every read and write, with the same rules as the script: to-do is the first `unstarted` state, done is the first `completed` state, a checklist item is a sub work item, new items go into the mapped module. After reading a project's structure, store it with `kaito-tasks.sh structure put plane` (JSON on stdin: `{"workspace","me":{"id","display_name"},"boards":{"<projectId>":{"name","identifier","states":[{"id","name","group"}],"modules":[{"id","name"}],"labels":[{"id","name"}],"members":[{"id","display_name"}]}}}`), and save the project's line with `kaito-mem.sh set board "plane <projectId>[/<moduleId>] <name>"`. Use the MCP also when there is a key but the script has no command for the job: pages, cycles, epics, relations.
 
 ## Commands
 
@@ -52,4 +61,4 @@ Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others
 
 - Store secrets, card contents in notes, or anything from a board the user did not consent to.
 - Set a due date or priority the user did not give.
-- Delete cards. `done` moves or archives.
+- Delete cards or work items. `done` moves or archives.
