@@ -5,7 +5,7 @@ motion design. Start with `SKILL.md`; follow its links for the task at hand.
 
 ## Preview
 
-Requires Node 20.19 or later. From this folder:
+Requires Node 20.19+ (20.x) or 22.12+ (21 and early 22.x are unsupported by Vite 8). From this folder:
 
 ```sh
 npm install

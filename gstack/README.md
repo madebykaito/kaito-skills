@@ -79,7 +79,7 @@ installs and passes the conformance tests but has no certification run yet;
 | Agent | Tier | Install | First invocation | Safety skills | Outside review needs | Repair |
 |-------|------|---------|------------------|---------------|----------------------|--------|
 | Claude Code | full | `--host claude` (default) | `/office-hours` | enforced (hooks block) | Codex CLI, signed in | `./setup --host claude` |
-| OpenAI Codex CLI | experimental | `--host codex` → `${CODEX_HOME:-~/.codex}/skills/gstack-*/` | ask for `gstack-office-hours` | advisory, not blocked | Claude Code CLI, signed in | `./setup --host codex` |
+| OpenAI Codex CLI | experimental | `--host codex` → `${CODEX_HOME:-~/.codex}/skills/gstack-*/` | `$office-hours` | destructive commands blocked once you trust gstack's hooks ([Codex hooks](docs/skill-routing-and-contracts.md#codex)); the rest advisory | Claude Code CLI, signed in | `./setup --host codex` |
 | OpenCode | experimental | `--host opencode` → `~/.config/opencode/skills/gstack-*/` + `/gstack-*` commands | `/gstack-office-hours` | advisory, not blocked | Codex CLI, signed in | `./setup --host opencode` |
 | Cursor | experimental | `--host cursor` → `~/.cursor/skills/gstack-*/` | ask for `gstack-office-hours` | advisory, not blocked | Codex CLI, signed in | `./setup --host cursor` |
 | Factory Droid | experimental | `--host factory` → `~/.factory/skills/gstack-*/` | ask for `gstack-office-hours` | advisory, not blocked | Codex CLI, signed in | `./setup --host factory` |
@@ -92,7 +92,7 @@ installs and passes the conformance tests but has no certification run yet;
 | Hermes | experimental | `--host hermes` (every skill in `$HERMES_HOME/skills/gstack`; automatic when setup runs inside Hermes) | ask for the task, or `/gstack-review` | advisory, not blocked | — | `./setup --host hermes` |
 | GBrain (mod) | instruction-only | `--host gbrain` (brain-aware variants ship from the GBrain repo) | — | advisory, not blocked | — | — |
 
-Per-host notes (agent harnesses, Copilot, Antigravity, Gemini CLI, OpenClaw and ClawHub, the Codex behavioral profile and model tiers, outside-review providers, the design binary's models) are in [docs/hosts.md](docs/hosts.md). Any rules-reading agent (Zed, Amp, Jules) can use the 2KB [agents digest](agents-digest/gstack-AGENTS.md) with no install. Adding a host: [docs/ADDING_A_HOST.md](docs/ADDING_A_HOST.md).
+Per-host notes (agent harnesses, Copilot, Antigravity, Gemini CLI, OpenClaw native skills, the Codex behavioral profile and model tiers, outside-review providers, the design binary's models) are in [docs/hosts.md](docs/hosts.md). Any rules-reading agent (Zed, Amp, Jules) can use the 2KB [agents digest](agents-digest/gstack-AGENTS.md) with no install. Adding a host: [docs/ADDING_A_HOST.md](docs/ADDING_A_HOST.md).
 
 ## See it work
 
@@ -204,7 +204,7 @@ The same `/qa` and `/qa-only` commands test CLIs, APIs, jobs, workers and webhoo
 |-------|-------------|
 | `/codex` | **Second Opinion** — independent code review from OpenAI Codex CLI. Review, challenge, and consult modes. Available on every harness except Codex. |
 | `/claude-code` | **Second Opinion** — independent code review from Claude Code. Review, challenge, and consult modes, with session continuity for consultation. Available on every harness except Claude Code. |
-| `/careful` | **Safety Guardrails** — warns before destructive commands (rm -rf, DROP TABLE, force-push). Say "be careful" to activate. Override any MEDIUM warning; root/home recursive deletes and default-branch force-pushes are hard-denied. |
+| `/careful` | **Safety Guardrails** — warns before destructive commands (rm -rf, DROP TABLE, force-push). The check runs in every Claude Code session by default; `gstack-config set destructive_guard off` turns it off. Override any MEDIUM warning; root/home recursive deletes and default-branch force-pushes are hard-denied. |
 | `/freeze` | **Edit Lock** — restrict file edits to one directory. Prevents accidental changes outside scope while debugging. |
 | `/guard` | **Full Safety** — `/careful` + `/freeze` in one command. Maximum safety for prod work. |
 | `/unfreeze` | **Unlock** — remove the `/freeze` boundary. |
@@ -262,7 +262,7 @@ On Windows without Developer Mode (MSYS2 / Git Bash), `setup` falls back to file
 | [gstack + Capy: the software factory](capy/README.md) | What we built with Capy Captains and gstack, how the pieces fit, the measured before/after, tips, and how Garry uses it |
 | [Why gstack](docs/why-gstack.md) | The story, the productivity numbers and their caveats, Karpathy's failure modes, parallel sprints |
 | [Install details](docs/install.md) | Setup timing, requirements in detail, team mode, the hooks setup registers, agent harness registration |
-| [Other agents](docs/hosts.md) | Agent harnesses (OpenClaw, Hermes, dots, QM, Muse Code, Grok, any other), OpenClaw and ClawHub, per-host notes, the Codex profile and model tiers, outside-review providers, the design binary's models |
+| [Other agents](docs/hosts.md) | Agent harnesses (OpenClaw, Hermes, dots, QM, Muse Code, Grok, any other), OpenClaw native skills, per-host notes, the Codex profile and model tiers, outside-review providers, the design binary's models |
 | [QA without a webpage](docs/qa-without-a-webpage.md) | `/qa` and `/qa-only` on CLIs, APIs, jobs, workers and webhooks |
 | [Standalone binaries](docs/standalone-binaries.md) | The standalone `gstack-*` CLIs (egress auditor, context bill, model benchmark, the review and evidence ledgers, the iOS QA daemon), and the CSO evaluation producer contract |
 | [Privacy & Telemetry](docs/privacy.md) | What is sent, what never is, the update check, outside reviews, egress receipts |
@@ -272,6 +272,7 @@ On Windows without Developer Mode (MSYS2 / Git Bash), `setup` falls back to file
 | [First Production Deploy](docs/howto-bring-up-a-first-deploy.md) | What to do when `/setup-deploy` says nothing is deployed yet: hosting, env and secrets, DNS, checking it works, then back to `/setup-deploy` |
 | [Land a fix in someone else's repo](docs/howto-land-a-fix-in-someone-elses-repo.md) | Read their rules, search for the same fix, run every guard their CI runs before opening, keep it small, answer each review point in a new commit |
 | [Run a human playtest](docs/howto-run-human-playtests.md) | Ask about moments and where people would stop, and why a back-to-back pick between two builds measures the order, not the build |
+| [Check a build before its owner tries it](docs/first-use-check.md) | `gstack-first-use`: an agent from another model family plays the exact build cold, does the first five day-one actions with evidence, checks every link, and only then prints the "try this build" message |
 | [Builder Ethos](ETHOS.md) | Builder philosophy: Boil the Ocean, Search Before Building, three layers of knowledge |
 | [GBrain quick tour](docs/gbrain-quick-tour.md) | The four setup paths, MCP registration, the per-repo trust policy, memory sync, Conductor env vars |
 | [Using GBrain with GStack](USING_GBRAIN_WITH_GSTACK.md) | Every path, flag, bin helper, and troubleshooting step for `/setup-gbrain` |

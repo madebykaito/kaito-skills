@@ -43,7 +43,9 @@ function main() {
     return
   }
   if (!command.named) console.log('Stageshow: starting Vite directly. Open the local URL Vite prints below.')
-  const child = spawn(command.command, command.args, { cwd: command.cwd, stdio: 'inherit', shell: false })
+  // Portless 0.18+ defaults to an HTTPS proxy on port 443 (needs sudo); keep the plain-HTTP :1355 URL the docs describe.
+  const env = command.named ? { PORTLESS_HTTPS: '0', PORTLESS_PORT: '1355', ...process.env } : process.env
+  const child = spawn(command.command, command.args, { cwd: command.cwd, stdio: 'inherit', shell: false, env })
   const handlers = new Map(['SIGINT', 'SIGTERM'].map((signal) => [signal, () => {
     if (child.exitCode === null && child.signalCode === null) child.kill(signal)
   }]))

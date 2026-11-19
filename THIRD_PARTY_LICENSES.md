@@ -7,26 +7,27 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | Skills / assets | Source | License |
 |---|---|---|
 | `animate`, `animate-expo`, `animation-performance`, `animation-vocabulary`, `apple-design`, `ask-sonner`, `break-ui`, `choreograph`, `emil-design-eng`, `find-animation-opportunities`, `gestures`, `improve-animations`, `learn-taste`, `mobile-native`, `pick-ui-library`, `prototype`, `remove-animations`, `review-animations` | [emilkowalski/skills](https://github.com/emilkowalski/skills), Emil Kowalski | MIT |
-| `better-accessibility`, `better-colors`, `better-interface`, `better-layout`, `better-typography`, `better-ui`, `better-writing`, `interface-review` | [jakubkrehel/skills](https://github.com/jakubkrehel/skills), Jakub Krehel | MIT |
+| `better-accessibility`, `better-colors`, `better-interface`, `better-layout`, `better-motion`, `better-typography`, `better-ui`, `better-writing`, `interface-review` | [jakubkrehel/skills](https://github.com/jakubkrehel/skills), Jakub Krehel | MIT |
 | `beam-glow-states`, `beautiful-shadows`, `container-lines`, `corner-diagonals`, `css-border-gradient`, `documentary-brutalist-agency`, `editorial-portfolio-chapters`, `framed-grid-layout`, `glass-dark-ui`, `landing-page`, `liquid-metal-border`, `mesh-gradient-dark-blue-clean`, `operational-enterprise-ai`, `pricing-page`, `product-proof-saas`, `progressive-blur`, `reveal-hover-effect`, `service-booking-flow`, `shaders-cursor-ripples`, `skeuomorphic-ui`, `staggered-word-reveal`, `thinking-orbs`, `webgl-laser` | [MengTo/Skills](https://github.com/MengTo/Skills), Meng To | MIT |
 | `minimal-zine-poster` | [LiamGvchi/gc-minimal-zine-poster](https://github.com/LiamGvchi/gc-minimal-zine-poster), LiamGvchi | MIT |
 | `stageshow` | [benjitaylor/skills](https://github.com/benjitaylor/skills), Benji Taylor | MIT |
 | `stageshow/kit/brands` artwork | [SVGL](https://github.com/pheralb/svgl) (MIT), [payment-icons](https://github.com/aaronfagan/svg-credit-card-payment-icons) (Apache-2.0), [Cryptocurrency Icons](https://github.com/spothq/cryptocurrency-icons) (CC0 1.0), [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0 1.0); per-file sources in `stageshow/kit/brands/SOURCES.md` | as listed |
 | `impeccable` | [pbakaus/impeccable](https://github.com/pbakaus/impeccable), Paul Bakaus | Apache-2.0 |
-| `gstack` | [garrytan/gstack](https://github.com/garrytan/gstack) v1.100.0.0, Garry Tan; its own `gstack/LICENSE` and `gstack/NOTICE.md` ship with it | MIT |
+| `gstack` | [garrytan/gstack](https://github.com/garrytan/gstack) v1.102.0.0, Garry Tan; its own `gstack/LICENSE` and `gstack/NOTICE.md` ship with it | MIT |
 | `hyperframes`, `hyperframes-cli`, `hyperframes-media`, `hyperframes-registry`, `website-to-hyperframes`, `remotion-to-hyperframes`, `contribute-catalog`, `gsap`, `animejs`, `waapi`, `css-animations`, `lottie`, `three`, `typegpu`, `tailwind` | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes), HeyGen, Inc. | Apache-2.0 |
 | `frontend-design` | Anthropic | Apache-2.0 |
 | `vercel-react-best-practices`, `web-design-guidelines` | Vercel | MIT |
 | `stop-slop` | Hardik Pandya | MIT |
 | `conductor-rewrite-performance`, `linear-local-first-architecture` | brotzky/performance-skills (the repository is no longer public) | not confirmed: no license text was vendored |
 | `higgsfield-brandkit`, `higgsfield-faceless-video`, `higgsfield-generate`, `higgsfield-marketplace-cards`, `higgsfield-product-photoshoot`, `higgsfield-soul-id`, `higgsfield-video-explainer`, `higgsfield-websites`, `higgsfield-youtube-thumbnail` | [higgsfield-ai/skills](https://github.com/higgsfield-ai/skills), Higgsfield AI | MIT |
-| `design-taste-frontend`, `stitch-design-taste`, `image-to-code`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `brandkit` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill), Leonxlnx | MIT |
+| `design-taste-frontend` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill) v2.5.1 (`skills/taste-skill`), Leonxlnx | MIT |
+| `stitch-design-taste`, `image-to-code`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `brandkit` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill), Leonxlnx, the last versions before upstream moved them to [Leonxlnx/taste-skill-classics](https://github.com/Leonxlnx/taste-skill-classics) and [Leonxlnx/imagegen-skills](https://github.com/Leonxlnx/imagegen-skills) on 2026-10-19 | MIT |
 | `systematic-debugging`, `test-driven-development`, `using-git-worktrees` | [obra/superpowers](https://github.com/obra/superpowers), Jesse Vincent | MIT |
 | `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
 | `banner-design` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), Next Level Builder | MIT |
 | `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `scaffold-research-project`, `semantic-wiki-review`, `wiki-graph`, `wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.47.0, Patrick Leiverkus | MIT |
-| `analytics-tracking`, `competitor-alternatives`, `content-strategy`, `copy-editing`, `copywriting`, `page-cro`, `programmatic-seo`, `schema-markup`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills), Corey Haines, by way of [boraoztunc/skills](https://github.com/boraoztunc/skills) | MIT |
-| `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav, by way of [boraoztunc/skills](https://github.com/boraoztunc/skills) | MIT |
+| `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) v2.14.13, Corey Haines | MIT |
+| `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav | MIT |
 | `adversarial-review`, `ogilvy`, `tailwind-v4`, `visual-style-presets` | [boraoztunc/skills](https://github.com/boraoztunc/skills), Bora Öztunç | MIT, stated in its README; the repository ships no license file of its own |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
 
@@ -44,9 +45,31 @@ are in `stageshow/examples/wikipedia/PHOTOS.md`.
 
 **research-superpowers:** the project template in
 `scaffold-research-project/assets/` and `drift-report/assets/` bundles
-`cytoscape.min.js` 3.30.4 (MIT, The Cytoscape Consortium; license in the file
+`cytoscape.min.js` 3.35.0 (MIT, The Cytoscape Consortium; license in the file
 header) and two Chicago author-date CSL styles (CC BY-SA 3.0; license in each
 file).
+
+**design-taste-frontend (taste-skill 2.5.1):** the kit bundles third-party media
+under their own licenses, each recorded beside the files. Photographs come from
+Unsplash (Unsplash License) and Wikimedia Commons (CC0, CC BY, CC BY-SA, Public
+Domain Mark), some served through Lorem Picsum; photographer, license and source
+page are in `design-taste-frontend/assets/photos/photos.json`,
+`assets/layout/img/credits.json`, `assets/moments/_demo/credits.json` and
+`assets/scenes/_demo/credits.json`. Icons come from gilbarbara/logos (CC0 1.0),
+Simple Icons 16.30.0 (CC0 1.0), vscode-icons 1.2.30 (MIT, Copyright (c) 2016
+Roberto Huertas) and Lucide 1.2.100 (ISC, Copyright (c) Lucide Contributors),
+listed in `assets/ui/icons/icons-credits.json` and
+`assets/icons/demo/icons-credits.json`. The MIT text is reproduced below; the ISC
+license reads: "Permission to use, copy, modify, and/or distribute this software
+for any purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies. THE SOFTWARE IS
+PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR
+CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
+Brand logos remain their owners' marks; no endorsement is implied.
 
 CC0 1.0 works need no notice; the full dedication is at
 <https://creativecommons.org/publicdomain/zero/1.0/legalcode>.

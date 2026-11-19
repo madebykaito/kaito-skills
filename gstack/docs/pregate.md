@@ -268,7 +268,8 @@ Two stages with separate clocks, both printed:
   above. A `$2` in a shell stub, a comment, or `export default 2` in a fixture
   elsewhere in the file is not a consumer. A call-site name such as `attempts`
   or `limit` is an ordinary word, so for it the file must also name the changed
-  module.
+  module, whatever the old value's length: a test that only uses the word is not
+  a consumer, and a test that imports the module still is.
   A test that keeps the old value on purpose, such as the refused input after a
   minimum version goes up, marks that one line with a comment on it or on the
   comment line directly above it:
@@ -353,6 +354,15 @@ Two stages with separate clocks, both printed:
   modified file whose only test the branch deleted still has no lane, and a
   remaining test that reads a deleted file or directory is selected. /review
   lists a deleted test as a gate edit (RH-1) either way.
+  A JS/TS file's `paths` aliases and `baseUrl` come from the nearest
+  tsconfig.json (else jsconfig.json) above it that declares `paths` or
+  `baseUrl`, itself or through a relative `extends` chain inside the
+  repository (up to four hops), joined relative to the config that declares
+  them. A nested config that declares neither defers to the next one up, and
+  the repository root's config governs the rest, so `@/x` in
+  `apps/mobile/src/a.test.ts` resolves through `apps/mobile/tsconfig.json`.
+  A package-name `extends` or one that leaves the repository is not followed
+  and is named in the no-lane explanation.
   An extensionless JS/TS import (relative, a tsconfig/jsconfig `paths` alias or
   `baseUrl`) tries the exact path, then `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`,
   `.cjs`, `.mts`, `.cts`, then `index.ts`, `index.tsx`, `index.js`, `index.jsx`
@@ -530,14 +540,18 @@ test-tier command:
   a one-file run (each serial file) reports its file from the launch for any
   runner. Other runners (node --test, vitest, jest, pytest, playwright test, flutter test, dart test, cargo test) get heartbeats
   only. A heartbeat follows each 60 s with no progress line;
-- is killed as **stalled** when its log does not grow and its process group
+- is killed as **stalled** when its log does not grow and its process tree
   stays under a tenth of one CPU for the stall timeout (`--stall-timeout <s>`, else
   `stall_timeout_s`, else 300; `0` disables): the check is `incomplete` with
   `PREGATE_STALLED` and names the last file started; the next serial file
-  still runs. The group counts as busy when its CPU time, sampled each second,
+  still runs. The process tree is the command's process group plus every
+  descendant reached by parent links, whatever session it moved to, so a
+  worker a launcher starts in its own session (pnpm 11's `pnpm exec` running
+  Vitest) counts. The tree counts as busy when its CPU time, sampled each second,
   grew by at least a tenth of the wall time, so a quiet suite that is working
   (FOUN-63: a parallel `check.sh` silent for 9 minutes) is not killed, while
-  a hang that waits on nothing is. A hang that keeps burning CPU is left to
+  a hang that waits on nothing is. A descendant reparented away from the tree
+  (a double-forked daemon) no longer counts. A hang that keeps burning CPU is left to
   the timeout. Linux reads `/proc` (exited children's time included once
   reaped); macOS and other BSDs read `ps -S`; a failed read skips that
   sample. Windows reads no CPU time here and uses log growth alone. The `--remote` gate is exempt: a
@@ -548,9 +562,11 @@ test-tier command:
   serial files that each fit still pass): the check is `incomplete`, its detail
   names which of the three set the timeout, and the next serial file still runs.
 
-A kill is SIGTERM to the group, then SIGKILL after 5 s (a group that ignores
-SIGTERM still dies). SIGINT or SIGTERM to `gstack-pregate` itself SIGKILLs every
-running group, writes no `pregate.json` and exits 130 or 143. Windows has no
+A stall or timeout kill is SIGTERM to the process group of every tree member,
+then SIGKILL to the same groups after 5 s (a group that ignores SIGTERM still
+dies, and a worker in its own session is not left running). After a normal exit
+only the command's own group is killed. SIGINT or SIGTERM to `gstack-pregate`
+itself SIGKILLs every running tree, writes no `pregate.json` and exits 130 or 143. Windows has no
 process groups here: the kill is `taskkill /T /F` on the shell's tree, which
 misses a descendant that was reparented or started detached.
 
@@ -653,7 +669,7 @@ receipt for H when the two trees differ only as a stamp does:
   `version-manifest`, `manifest-version`, `lockfile-root-version`,
   `changelog-heading`, `changelog-fragments` for the CHANGELOG under the fold,
   `changelog_fragments` for a folded fragment's deletion, `stamp_files`,
-  `stamp_paths`, `release_outputs`). `clear` prints the same
+  `stamp_paths`, `release_outputs`, `release_tool`). `clear` prints the same
   as `PREGATE_RECEIPT_SUBSTITUTED: …`, `verify` repeats it on its ok line, and
   the ship receipt carries the receipt string. The receipt's own tests and
   failed checks apply as before (its exit status is checked only when
@@ -677,7 +693,14 @@ receipt for H when the two trees differ only as a stamp does:
   `*_KEY_VERSION` written as the next minor, #3512) (so two trees
   at the same version refuse such a hunk as `other`), while the built-in
   version-file, manifest, lockfile and CHANGELOG rules compare content and do
-  not check the direction of the version move. The obligation stays uncleared; rerun
+  not check the direction of the version move. A `release_outputs` file that is
+  more than those rewrites, such as a generated file a merged release commit
+  added rows to, is a stamp, rule `release_tool`, when the policy's
+  `release_tool`, rerun on pregate.json's head, writes it byte for byte (the
+  tree receipt's rule, GST-1176, GST-3067). The tool is repo code, so `clear`
+  reruns it only with `--allow-repo-commands`; without the flag the file is
+  refused and the refusal says to pass it. A `release_outputs` path is judged
+  by this rule even when `stamp_files` does not list it. The obligation stays uncleared; rerun
   the gate on the head, or make the extra change a stamp under the repo's
   rule.
 
@@ -1075,6 +1098,17 @@ it accepts a run only when all of these hold:
   running run on HEAD, within `max_age_hours`, and a `tree.json` naming HEAD's
   tree. A `pull_request` run counts only when the pull request already
   contained its base.
+- <a id="same-tree-commits"></a>HEAD's runs include those of its newest
+  ancestors (up to 20 back) whose tree `git rev-parse <sha>^{tree}` reads as
+  HEAD's own, so a base merge that changed no file keeps the green run of the
+  commit before it (GST-3019). Git decides which commits those are; a run's
+  own `tree.json` never does. Every rule above still applies to that run, and
+  a newer red or running run on HEAD or on any of those commits vetoes it.
+  `gstack-ci-carry find` then prints `CI_CARRY_FROM: run <id>/<attempt> at
+  commit <sha>, not HEAD <sha>; git rev-parse reads the same tree <tree> for
+  both`, a Step 5 lane reads `LANE: <label> carried run=… from=<sha> (same
+  tree as HEAD)`, and the receipt's `heads=` names that commit.
+  `gstack-ci-carry wait` watches those commits' runs too.
 - Every run executed tests, and with an inventory command, the runs'
   `tree.json` files cover every file it prints, none of them a file whose every
   test skipped there (`skipped_files`). A lane mapped by `jobs`
@@ -1295,7 +1329,10 @@ with every character outside `A-Za-z0-9._-` turned into `_` (`pnpm lint` is
 `pnpm_lint`, `db:test` is `db_test`), and `run`, `record-ci` and `check` all
 use that one spelling, so `check --label 'pnpm lint'` finds the row; `ci_carried`
 and `CI_CARRIED:` name the stored spelling. A mapped lane that cannot
-carry prints `CI_CARRY: none label=<label> (<reason>)` and runs here. Every
+carry prints `CI_CARRY: none label=<label> (<reason>)` and runs here, except
+under `gstack-ship-preflight --tests-only`, which stops before any lane runs
+with [`SHIP_LANE_NOT_CARRIED`](troubleshooting.md#ship-lane-not-carried) unless
+it is given `--run-uncarried-here`. Every
 other lane runs through `gstack-evidence run --reuse`: the newest row for its
 label, command and working tree is reused when it passed with a counted run
 under the same runtime (bun and node versions, OS, architecture, runner image)
@@ -1316,7 +1353,10 @@ each mapped lane from the green run at that exact tree, reuses or runs the rest,
 checks every lane FRESH and reruns the pregate there, whose tests stage carries
 the same run. `gstack-ship-receipt write` records the carried runs as
 `ci_carried: [{ lane, run, attempt, tree }]`, and the `SHIP_RECEIPT:` line names
-them (`ci_carried=<lane>:<run>/<attempt>`). Each `record-ci` gets the base
+them (`ci_carried=<lane>:<run>/<attempt>`). A run whose `tree.json` lists
+`rerun_files` adds `rerun` and `attempts` to its entries and
+`rerun=<files> attempts=<list>` after `ci_carried=`, as its `CI_CARRY:` line does
+([ship-policy.md](ship-policy.md#ci-carry-rerun)). Each `record-ci` gets the base
 policy's [`ci_record_timeout_s`](ship-policy.md#ci-record-timeout) (600 s by
 default, 3600 s at most), and accept prints it as `CI_RECORD_TIMEOUT:`.
 
@@ -1841,6 +1881,29 @@ those, each with its scope and its reason:
   Any other call's literal (`make_password("orange_monkey_pass")`), a later
   argument or fallback (`os.getenv("SECRET_KEY", "orange_monkey_pass")`) and a
   kebab passphrase still report.
+- Three more code shapes are names, not credentials (GST-3004): a TypeScript
+  type with spaced generic arguments
+  (`session: Awaited<ReturnType<typeof launch>>;`), a Python keyword
+  argument that reads a CONSTANT_CASE setting
+  (`aws_secret_access_key=settings.S3_SECRET_KEY,`, #4289), and a quoted
+  camelCase dotted field path of three word segments
+  (`"form.section.fieldName"`; an all-lowercase one still reports). Each is
+  read from the value, never from the key's name or the file's path, and a
+  secret in the same position, a literal after it on the line, or the same text
+  in a config file still reports.
+- Known limits, still reported, allowlist them by value: a JS/TS template key
+  built from `${…}` slots (#4287), an array of names in source code
+  (`"get_token": [load_auth, "authOperations"]`), and a generic type with
+  string-literal arguments (`Pick<Session, "id" | "forkedFrom">`). Exempting
+  them needed an entropy test on their text alone, which let random hex and
+  encoded literals through.
+- Two misses are closed (#4289): the string pieces of a `+` chain are joined
+  and checked (`KEY = "form.x" + "<secret>"`), and a secret-named assignment
+  right after `#`, `//`, `/*` or `<!--` reports in a trailing or
+  whole-line comment unless its value is prose or key-naming text
+  (letters-only words joined by `_ . - | : / #`). An array whose first
+  element is a quoted secret (`"get_token": ["<secret>"]`) still reports
+  only through a provider rule such as `stripe.secret`.
 
 The `secrets` row says `N allowlisted (<ids>)` and lists each allowlisted
 finding with the entry (`allowlisted env.kv (evals/receipts/t1.json, added line
@@ -2278,6 +2341,9 @@ cross-repo `owner/repo#N` are `Refs`. A parenthesised named reference,
 token that is not a closure, reference, filler or version word, is a
 cross-repo `Refs name#N`, never a same-repo Refs line or a promotion
 candidate; `(see #12)`, `(closing #12)` and `(#301)` stay bare refs.
+Several in one parenthesis, `(founderstar #837, harness-evals #393)`, are each
+their own name's reference. `owner/repo#N` naming this repository is its own
+issue, so a `Fixes garrytan/gstack#N` trailer closes it.
 Same-repo references are printed as
 promotion candidates (`reference #N ← <commit line> (promote: fix #N)` on
 stderr, `candidates` in `--json`): the owner's `fix #N` reply reruns with
