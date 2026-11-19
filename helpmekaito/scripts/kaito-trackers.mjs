@@ -13,7 +13,7 @@ const SCRIPTED = ['trello', 'plane', 'obsidian'];  // managers kaito-tasks.sh dr
 const KEYS = { role: ['official', 'personal'], tracking: ['always', 'never', 'ask'] };
 const clean = (s) => String(s ?? '').replace(/[\r\n|]+/g, ' ').trim();
 
-const lines = (() => { try { return readFileSync(file, 'utf8').split('\n'); } catch { return []; } })();
+const lines = (() => { try { return readFileSync(file, 'utf8').split(/\r?\n/); } catch { return []; } })();
 function parse() {
   const out = [];
   let project = '';
@@ -68,7 +68,8 @@ if (cmd === 'list') {
   const old = st.trackers.find((x) => x.manager === m);
   const t = { manager: m, id, name: clean(name) || m, role: old?.role ?? 'official', tracking: old?.tracking ?? 'ask', note: old?.note ?? '' };
   apply(t, pairs);
-  st.trackers = [...st.trackers.filter((x) => x.manager !== m), t];
+  const at = st.trackers.indexOf(old);  // a remap keeps its place: the first scripted tracker is the default one
+  if (at < 0) st.trackers.push(t); else st.trackers[at] = t;
   if (st.project === 'never') st.project = '';  // adding a tracker turns project tracking back on
   write(st);
   console.log(show(t));

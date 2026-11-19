@@ -28,7 +28,7 @@ Read with [task-writing.md](../task-writing.md). This file holds what is particu
 ## Fields
 
 - State: new items go to the first `unstarted` state, finished ones to the first `completed` state.
-- Priority (`none`, `urgent`, `high`, `medium`, `low`), estimate, cycle, start and due dates, assignee: set only what the user gave. The script assigns new items to the user when they are a project member.
+- Priority (`none`, `urgent`, `high`, `medium`, `low`), estimate, cycle, start and due dates, assignee: set only what the user gave. The default assignee is the person whose key is in use: the script assigns every new item and sub-item to them when they are a project member. Name someone else only when the user says so.
 - Labels: use existing ones. Do not make a label for what a state, priority, assignee or type already says.
 - Links: `kaito-tasks.sh link <task> <url>` for the PR, branch or doc.
 

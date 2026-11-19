@@ -8,6 +8,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 - helpmekaito: Plane as a task manager. `kaito-tasks.sh` reads and writes Plane projects and modules with an API key (`login`), or helpmekaito uses the Plane MCP when there is no key.
 - Each repo picks its own task manager from its `board:` line, so one machine can have repos on Trello, Plane and Obsidian.
+- New Plane work items, sub-items and Trello cards are assigned to the person whose key is in use, also before the first `discover`.
 - A project can have several trackers, each with a role (official or personal) and its own tracking setting: `kaito-tasks.sh tracker add|set|rm|list`, `--tracker <manager>`.
 - Tracking is asked once per project and remembered (`always`, `never`, `ask`). With `always`, planned work becomes a parent ticket with sub-tickets and is kept current while you work.
 - First use in a repo: `kaito-tasks.sh detect` reports which tracker the repo seems to live in, from ticket keys in the branch and commits, tracker links in the docs and name matches. helpmekaito proposes and asks; it never maps a tracker by itself.

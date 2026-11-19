@@ -231,3 +231,60 @@ test_link_attaches_a_url() {
   done
   assert_eq "$(count POST "$W/work-items/")" 1 "bad urls never sent"
 }
+
+test_check_refuses_an_item_that_is_not_a_child() {
+  home; sh "$T" map "$P1" >/dev/null; sh "$T" pull >/dev/null || exit 1
+  out=$(sh "$T" check ALL-1 ALL-5 2>&1) && { echo "  ticked another task's item"; exit 1; }
+  has "$out" "ALL-5 is not a sub-item of ALL-1"
+  assert_eq "$(count PATCH "$W/work-items/")" 0 "nothing changed"
+}
+
+test_module_mapping_refuses_items_outside_the_module() {
+  home; sh "$T" map "$P1/$MOD" >/dev/null; sh "$T" pull >/dev/null || exit 1
+  out=$(sh "$T" done ALL-5 2>&1) && { echo "  closed an item outside the module"; exit 1; }
+  has "$out" "ALL-5 is not in the module"
+  assert_eq "$(count PATCH "$W/work-items/")" 0 "nothing changed"
+  # a sub-item of a module item is in scope, and so is the item itself
+  sh "$T" done ALL-2 >/dev/null || { echo "  refused a sub-item of a module item"; exit 1; }
+  sh "$T" comment ALL-4 "Merged" >/dev/null || { echo "  refused a module item"; exit 1; }
+  out=$(sh "$T" done PER-1 2>&1) && { echo "  wrote to another project"; exit 1; }
+  has "$out" "PER-1 is in another project"
+}
+
+test_add_survives_a_failed_module_step() {
+  home; kill $SPID; STUB_FAIL="POST $W/modules/ 429 1" stub
+  sh "$T" map "$P1/$MOD" >/dev/null || exit 1
+  out=$(sh "$T" add "Ship the provider" 2>"$HOME/err") || { echo "  add reported failure after creating the item"; exit 1; }
+  assert_eq "$out" "added ALL-7 Ship the provider" "the id is printed"
+  has "$(cat "$HOME/err")" "ALL-7 was created but not added to the module"
+  assert_eq "$(count POST "$W/work-items/")" 1 "created once"
+}
+
+test_too_big_project_never_caches_a_partial_list() {
+  home; kill $SPID; STUB_PAGE=3 stub
+  sh "$T" map "$P1/$MOD" >/dev/null; sh "$T" add "One more" >/dev/null || exit 1
+  # 7 project items at 3 a page need 3 pages; allow 2
+  out=$(KAITO_PLANE_PAGES=2 sh "$T" pull 2>"$HOME/err") || { echo "  module pull failed: $(cat "$HOME/err")"; exit 1; }
+  assert_eq "$out" "pulled 3 work items" "falls back to the module's own list"
+  has "$(cat "$HOME/err")" "showing the module only"
+  sh "$T" map "$P1" >/dev/null || exit 1
+  KAITO_PLANE_PAGES=2 sh "$T" pull >/dev/null 2>"$HOME/err" && { echo "  partial project pull passed"; exit 1; }
+  has "$(cat "$HOME/err")" "map one of its modules"
+  assert_file "$CACHE/ALL-1-add-plane-support.md"
+}
+
+test_open_sub_item_of_a_closed_parent_is_listed() {
+  home; sh "$T" map "$P1" >/dev/null || exit 1
+  sh "$T" item add ALL-6 "Follow up" >/dev/null || { echo "  item add failed"; exit 1; }
+  sh "$T" pull >/dev/null || exit 1
+  has "$(sh "$T" list)" "ALL-7 To Do Follow up"
+}
+
+test_new_items_and_sub_items_default_to_the_key_owner() {
+  # no discover has run, so the owner is asked from Plane
+  home; sh "$T" map "$P1" >/dev/null || exit 1
+  sh "$T" add "Ship the provider" >/dev/null || exit 1
+  assert_eq "$(last POST "$W/work-items/" body.assignees)" "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" "item assigned to me"
+  sh "$T" item add ALL-7 "Write the docs" >/dev/null || exit 1
+  assert_eq "$(last POST "$W/work-items/" body.parent body.assignees | cut -d' ' -f2)" "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" "sub-item assigned to me"
+}

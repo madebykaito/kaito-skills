@@ -44,7 +44,8 @@ for (const d of docs) {
   let text = '';
   try { text = readFileSync(join(repo, d), 'utf8').slice(0, 200000); } catch { continue; }
   for (const m of text.matchAll(/https:\/\/trello\.com\/b\/([A-Za-z0-9]{8})(?:\/([A-Za-z0-9-]+))?/g)) {
-    const known = Object.entries(maps.trello?.boards || {}).find(([, b]) => norm(b.name) === norm(m[2]));
+    // The link names one board. A stored board is the same one only if its own link says so, never because the name matches.
+    const known = Object.entries(maps.trello?.boards || {}).find(([id, b]) => id === m[1] || b.shortLink === m[1] || String(b.url || '').includes(`/b/${m[1]}`));
     hit('trello', known ? known[0] : m[1], known ? known[1].name : m[2] || m[1], true, `${d} links the board`);
   }
   for (const m of text.matchAll(/https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9_-]+\/projects\/([0-9a-f]{8}-[0-9a-f-]{27})(?:\/modules\/([0-9a-f]{8}-[0-9a-f-]{27}))?/g)) {

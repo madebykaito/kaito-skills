@@ -46,18 +46,18 @@ export async function plane(method, path, body) {
 }
 
 // Every page of a list. Plane answers with { results, next_cursor, next_page_results } or, on a few endpoints, a bare array.
-// ponytail: stops after 30 pages (3000 rows) and says so; a bigger project needs a module mapping.
+// ponytail: gives up after 30 pages (3000 rows) with code TOO_MANY, never a partial list; a bigger project needs a module mapping.
 export async function all(path) {
   const out = [];
   let cursor = '';
-  for (let page = 0; page < 30; page++) {
+  const max = Number(process.env.KAITO_PLANE_PAGES) || 30;
+  for (let page = 0; page < max; page++) {
     const r = await plane('GET', `${path}${path.includes('?') ? '&' : '?'}per_page=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
     if (Array.isArray(r)) return r.flat(Infinity);
     out.push(...(r.results || []));
     if (!r.next_page_results || !r.next_cursor) return out;
     cursor = r.next_cursor;
   }
-  console.error('warning: stopped after 3000 rows; map a module to narrow this project');
-  return out;
+  throw Object.assign(new Error(`plane: more than ${max * 100} rows at ${path.split('?')[0]}`), { code: 'TOO_MANY' });
 }
 export { redact };

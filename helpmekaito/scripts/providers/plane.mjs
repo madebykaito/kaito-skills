@@ -42,7 +42,10 @@ const text = (html) => String(html || '').replace(/<\/(p|div|li|h[1-6])>|<br\s*\
   .replace(/\n{3,}/g, '\n\n').trim();
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const html = (s) => String(s).split(/\n+/).map((l) => l.trim()).filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('');
-const sid = (w) => (typeof w.state === 'object' && w.state ? w.state.id : w.state);
+const ref = (v) => (typeof v === 'object' && v ? v.id : v) || '';
+const sid = (w) => ref(w.state);
+const pid = (w) => ref(w.parent);
+const modId = (x) => ref(x.issue) || x.id;
 const itemFile = (key, w) => `${key}-${slug(w.name)}.md`;
 // kids: [{ id: "ALL-31", name, done }]
 function itemText(w, key, st, kids, labels, at) {
@@ -65,18 +68,28 @@ const kidsOf = (body) => [...String(body).matchAll(/^- \[([ x])\] (.*) <!-- id:(
 
 async function pull() {
   const st = await liveStates(), key = await ident();
-  const items = await all(proj('/work-items/'));
   // Scope: the mapped module's items, or the whole project. The docs give no parent filter, so children are grouped here.
-  const scope = MID ? new Set((await all(proj(`/modules/${MID}/module-issues/`))).map((x) => x.issue?.id || x.issue || x.id)) : null;
+  const mod = MID ? await all(proj(`/modules/${MID}/module-issues/`)) : null;
+  const scope = mod ? new Set(mod.map(modId)) : null;
+  let items;
+  try { items = await all(proj('/work-items/')); } catch (e) {
+    // Too big to read whole: never cache a partial list. A module that lists full work items can still be shown on its own.
+    if (e.code !== 'TOO_MANY') throw e;
+    if (!mod || !mod.every((x) => x.sequence_id && x.name)) die('this project has too many work items to read whole: map one of its modules (kaito-tasks.sh modules <projectId>)');
+    console.error('warning: the project is too big to read whole; showing the module only, so sub-items outside the module are missing');
+    items = mod;
+  }
   const group = (w) => st.find((s) => s.id === sid(w))?.group || '';
   const byId = new Map(items.map((w) => [w.id, w]));
-  const top = items.filter((w) => !w.archived_at && !w.is_draft && !CLOSED.includes(group(w)) && (!scope || scope.has(w.id)) && !(w.parent && byId.has(w.parent) && (!scope || scope.has(w.parent))));
+  const shown = (w) => !w.archived_at && !w.is_draft && !CLOSED.includes(group(w)) && (!scope || scope.has(w.id));
+  // A sub-item sits under its parent only when the parent is itself listed; under a closed or out-of-scope parent it stands alone.
+  const top = items.filter((w) => shown(w) && !(pid(w) && byId.has(pid(w)) && shown(byId.get(pid(w)))));
   const at = new Date().toISOString(), labels = labelNames();
   const tmp = join(dirname(D), `.${S}.new.${process.pid}`);
   try {
     mkdirSync(tmp, { recursive: true });
     for (const w of top) {
-      const kids = items.filter((k) => k.parent === w.id && !k.archived_at).sort((a, b) => a.sequence_id - b.sequence_id)
+      const kids = items.filter((k) => pid(k) === w.id && !k.archived_at).sort((a, b) => a.sequence_id - b.sequence_id)
         .map((k) => ({ id: `${key}-${k.sequence_id}`, name: k.name, done: CLOSED.includes(group(k)) }));
       writeItem(tmp, w, `${key}-${w.sequence_id}`, st, kids, labels, at);
     }
@@ -118,13 +131,36 @@ async function resolve(arg) {
   if (!arg || !/^[A-Za-z0-9-]+$/.test(arg)) die(`bad task id ${arg ?? ''}`);
   const ts = taskFiles(D), up = arg.toUpperCase();
   const exact = ts.find((t) => String(t.meta.id).toUpperCase() === up || t.meta.item_id === arg);
-  if (exact) return { id: exact.meta.item_id, short: exact.meta.id };
+  if (exact) return { id: exact.meta.item_id, short: exact.meta.id, cached: true };
   if (UUID.test(arg)) return { id: arg, short: arg };
   if (/^[A-Za-z0-9]+-\d+$/.test(arg)) {
     const w = await plane('GET', `/work-items/${up}/`);
-    return { id: w.id, short: up };
+    if (ref(w.project) && ref(w.project) !== PID) die(`${up} is in another project, not the one this repo is mapped to`);
+    return { id: w.id, short: up, item: w };
   }
   die(`no task ${arg}: use its key (like ALL-27) or run pull`);
+}
+
+// A repo mapped to one module only writes to that module's items and their sub-items. Cached items came from a scoped pull.
+async function inModule(r) {
+  if (!MID || r.cached) return;
+  const w = r.item || await plane('GET', proj(`/work-items/${r.id}/`));
+  const ids = new Set((await all(proj(`/modules/${MID}/module-issues/`))).map(modId));
+  if (!ids.has(w.id) && !ids.has(pid(w))) die(`${r.short} is not in the module this repo is mapped to: add it to the module in Plane, or map the whole project`);
+}
+// The item exists by now, so a failed module step must not read as a failed create: a retry would make a second item.
+async function toModule(id, short) {
+  if (!MID) return;
+  try { await plane('POST', proj(`/modules/${MID}/module-issues/`), { issues: [id] }); }
+  catch (e) { console.error(`warning: ${short} was created but not added to the module (${redact(e.message)}). Add it to the module in Plane; do not create it again.`); }
+}
+
+// New items go to the person whose key this is. Known from the structure memory, else asked once; a non-member or a failed lookup leaves the item unassigned.
+async function mine() {
+  const map = readMap(), members = map.boards?.[PID]?.members;
+  let id = map.me?.id;
+  if (!id) try { id = (await plane('GET', '/users/me/')).id; } catch { return []; }
+  return id && (!members?.length || members.some((m) => m.id === id)) ? [id] : [];
 }
 
 async function op(op, a) {
@@ -136,22 +172,25 @@ async function op(op, a) {
     const body = { name: title, state: (o.list ? await findState(o.list) : todoState(await st())).id };
     if (o.due) body.target_date = new Date(o.due).toISOString().slice(0, 10);
     if (o.desc) body.description_html = html(o.desc);
-    const map = readMap();
-    if (map.me?.id && map.boards?.[PID]?.members?.some((m) => m.id === map.me.id)) body.assignees = [map.me.id];
+    const me = await mine(); if (me.length) body.assignees = me;
     const w = await plane('POST', proj('/work-items/'), body);
     r = { id: w.id, short: `${await ident()}-${w.sequence_id}` };
-    if (MID) await plane('POST', proj(`/modules/${MID}/module-issues/`), { issues: [w.id] });
+    await toModule(w.id, r.short);
   } else {
     r = await resolve(a[0]);
+    await inModule(r);
     const path = proj(`/work-items/${r.id}/`);
     if (op === 'item-add') {
       const t = one(a[1]); if (!t) die('item add needs text');
-      const k = await plane('POST', proj('/work-items/'), { name: t, parent: r.id, state: todoState(await st()).id });
-      if (MID) await plane('POST', proj(`/modules/${MID}/module-issues/`), { issues: [k.id] });
+      const me = await mine();
+      const k = await plane('POST', proj('/work-items/'), { name: t, parent: r.id, state: todoState(await st()).id, ...(me.length ? { assignees: me } : {}) });
       const kid = { id: `${await ident()}-${k.sequence_id}`, name: t, done: false };
+      await toModule(k.id, kid.id);
       change = (kids) => [...kids, kid];
     } else if (op === 'check' || op === 'uncheck') {
       const kid = await resolve(itemId(a[1])), all = await st();
+      const kw = kid.item || await plane('GET', proj(`/work-items/${kid.id}/`));
+      if (pid(kw) !== r.id) die(`${kid.short} is not a sub-item of ${r.short}`);
       const to = op === 'check' ? doneState(all) || die('the project has no completed state') : todoState(all);
       await plane('PATCH', proj(`/work-items/${kid.id}/`), { state: to.id });
       change = (kids) => kids.map((k) => (k.id.toUpperCase() === kid.short.toUpperCase() ? { ...k, done: op === 'check' } : k));

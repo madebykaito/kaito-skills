@@ -158,3 +158,27 @@ test_detect_does_not_guess() {
   rm -r "$MEM/managers"; git checkout -q -b ALL-9-x
   out=$(sh "$T" detect); has "$out" "candidate: none"; has "$out" "known: none"
 }
+
+test_crlf_tracker_lines_are_read_and_kept() {
+  home none; mkdir -p "$MEM/projects"
+  printf 'tracker: plane %s ALL | role=official | tracking=never\r\nnotes line\r\n' "$P1" > "$PF"
+  has "$(sh "$T" tracker list)" "tracker: plane $P1 ALL | role=official | tracking=never"
+  sh "$T" tracker add obsidian - Notes role=personal >/dev/null || exit 1
+  out=$(sh "$T" tracker list); has "$out" "tracker: plane $P1 ALL"; has "$out" "tracker: obsidian"
+}
+
+test_remap_keeps_the_default_tracker_first() {
+  home none; plane_stub
+  sh "$T" tracker add plane "$P1" ALL >/dev/null; sh "$T" tracker add obsidian - Notes role=personal >/dev/null || exit 1
+  sh "$T" --tracker plane map "$P1/$MOD" >/dev/null || { echo "  map failed"; exit 1; }
+  has "$(sh "$T" tracker list | head -1)" "tracker: plane $P1/$MOD"
+}
+
+test_detect_keeps_the_linked_trello_board() {
+  home none; repo; mkdir -p "$MEM/managers"
+  printf '{"boards":{"5f00000000000000000000aa":{"name":"Team Board"}}}\n' > "$MEM/managers/trello.json"
+  printf 'Board: https://trello.com/b/AbCd1234/team-board\n' > README.md
+  out=$(sh "$T" detect)
+  has "$out" "candidate: trello AbCd1234 team-board | strength=strong"
+  hasnt "$out" "5f00000000000000000000aa | strength=strong"
+}

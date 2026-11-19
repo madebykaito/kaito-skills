@@ -92,8 +92,11 @@ async function op(op, a) {
     const body = { idList: (o.list ? findList(lists, o.list) : todoList(lists)).id, name: title };
     if (o.due) body.due = o.due;
     if (o.desc) body.desc = o.desc;
-    const map = readMap();
-    if (map.me?.id && map.boards?.[B]?.members?.some((m) => m.id === map.me.id)) body.idMembers = [map.me.id];
+    // New cards go to the person whose token this is: known from the structure memory, else asked once.
+    const map = readMap(), members = map.boards?.[B]?.members;
+    let me = map.me?.id;
+    if (!me) try { me = (await trello('GET', '/members/me?fields=id')).id; } catch {}
+    if (me && (!members?.length || members.some((m) => m.id === me))) body.idMembers = [me];
     const c = await trello('POST', '/cards', body);
     r = { id: c.id, short: c.shortLink };
   } else {
