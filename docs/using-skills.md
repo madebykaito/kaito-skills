@@ -44,10 +44,10 @@ Some goals need several skills in order. `helpmekaito` knows these chains, calle
 
 | Goal | Chain |
 |---|---|
-| Landing page from a brief | `landing-page`, `copywriting`, `frontend-design`, `better-interface`, `schema-markup`, gstack `/qa` |
+| Landing page from a brief | `landing-page`, `copywriting`, `frontend-design`, `better-interface`, `schema`, gstack `/qa` |
 | Polish an existing interface | `better-interface`, `impeccable`, `break-ui` |
 | Motion pass | `remove-animations`, `find-animation-opportunities`, `improve-animations`, `animate` |
-| Page that does not convert | `page-cro`, `copy-editing`, `analytics-tracking` |
+| Page that does not convert | `cro`, `copy-editing`, `analytics` |
 | Product video | `stageshow`, `hyperframes`, `hyperframes-media`, `hyperframes-cli` |
 | Research project | `brainstorming-research`, `writing-research-plan`, `literature-review`, `ingest-source`, `drafting-manuscript`, `requesting-peer-review` |
 | Ship a change safely | `adversarial-review`, gstack `/qa`, then `/ship` |

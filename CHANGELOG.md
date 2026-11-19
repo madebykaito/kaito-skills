@@ -15,12 +15,22 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Setup lists skills you already have under the same name as a kaito skill, and Claude Code plugins that ship one, and asks whether to replace the skills or disable the plugins. The default is no. Replaced skills are moved to `~/.kaito/backup`, and uninstall restores skills and plugins.
 - `./setup --upgrade`: an unattended re-install that keeps every earlier answer and turns nothing new on.
 - `./setup --duplicates`: ask again about same-name skills and plugins you said no to.
+- `better-motion` skill (jakubkrehel/skills): what should animate, with exact duration, easing, scale and distance.
 - `VERSION` file. Setup records the installed version and the clone's path in `state.json` and keeps a copy of itself in the store.
 
 ### Changed
 
 - Setup's summary prints the update mode and the command to change it.
 - A same-name skill of yours is no longer only skipped: setup asks about it. Saying no keeps the old behavior.
+- Four marketing skills follow their upstream names: `analytics-tracking` is now `analytics`, `competitor-alternatives` is `competitors`, `page-cro` is `cro` (it also covers forms) and `schema-markup` is `schema`. The next `./setup` or upgrade removes the old links. Call them by the new names, and rename them in your `hot` list in `~/.kaito/config.json` if they are there.
+- gstack 1.100.0.0 → 1.102.0.0: first-use check, owner answers, a ship-phase driver, founder resources as a command. kaito still registers none of gstack's always-on hooks; the destructive-command guard applies while `/careful` or `/guard` is loaded.
+- `design-taste-frontend` is taste-skill 2.5.1: a company-website builder with its own kit of sections, photographs and icons (39 MB) and a checker that runs the page in a real browser. It needs Node 22+ and Chrome. In Claude Code its Stop hook holds the task until the checks pass. Its scripts fetch icons from jsDelivr and photographs from Wikimedia Commons and Picsum when the agent runs them.
+- `better-*` and `interface-review` (jakubkrehel/skills): motion rules moved out of `better-ui` into the new `better-motion`; each single-discipline skill's report format is in its own `reporting.md`.
+- `impeccable` 4.9.2 → 4.10.0 (engine 0.1.27): a defined mode for delegated and read-only critiques, saved audit scores. `init` now suggests `npx impeccable login` once; it is optional.
+- `app-store-screenshots`: Google Play, macOS and Android, and a Next.js editor template the agent copies into your project.
+- `frontend-design` (Anthropic), `vercel-react-best-practices` (29 new rules), `web-design-guidelines`, `copywriting` 2.3.6 and `brandkit` updated from upstream.
+- stageshow kit: React 19, Vite 8, TypeScript 7, lucide-react 1.76, playwright-core 1.65. Node 20.19+ or 22.12+.
+- cytoscape 3.30.4 → 3.35.0 in the research project template.
 
 ### Fixed
 

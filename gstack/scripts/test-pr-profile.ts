@@ -268,6 +268,7 @@ export const FREE_ONLY_PR_FILES = [
   '.github/workflows/actionlint.yml',
   '.github/workflows/arm-setup-smoke.yml',
   '.github/workflows/ci-image.yml',
+  '.github/workflows/codex-hooks.yml', // Installs the pinned Codex CLI and runs the free test/codex-hooks-real-codex.test.ts; no paid case reads it.
   '.github/workflows/cso-runtime-images.yml',
   '.github/workflows/cso-runtime-promote.yml',
   '.github/workflows/cso-runtime-qualification.yml',
@@ -292,6 +293,7 @@ export const FREE_ONLY_PR_FILES = [
   '.github/workflows/release-gate.yml', // The 8-hour release gate on main: it dispatches evals.yml on main's head; no PR-gate case reads it, and it never gates a PR.
   '.github/workflows/weekly-release.yml', // The Monday release cut (tag, stable, GitHub Release): reads check runs on main; no paid case reads it, and it never gates a PR.
   'crew/scripts/release-cut.ts', // The release cut's logic, run only by weekly-release.yml; covered by the free crew/test/release-cut.test.ts.
+  'crew/scripts/release-notes.ts', // The release cut's notes, run only by weekly-release.yml; covered by the free crew/test/release-cut.test.ts.
   '.github/actionlint.yaml', // Runner labels for actionlint only.
   'scripts/ship-measure-sweep.ts', // The weekly sweep CLI; it launches paid cases, never runs inside one.
   '.github/workflows/version-gate.yml',

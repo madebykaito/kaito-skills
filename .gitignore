@@ -3,3 +3,5 @@ impeccable/scripts/bin/
 /.gstack/
 /.superpowers/
 helpmekaito/evals/results/
+# a global ignore of macOS "Icon?" files also matches these folders
+!icons/

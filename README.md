@@ -109,13 +109,13 @@ Only one setup runs at a time. It stops before changing anything if `settings.js
 
 | Skill | What it does |
 |---|---|
-| [`frontend-design`](frontend-design/) | Distinctive, production-grade frontend interfaces. |
+| [`frontend-design`](frontend-design/) | Distinctive, intentional visual design for new or reshaped UI. |
 | [`web-design-guidelines`](web-design-guidelines/) | Review UI code against web interface guidelines. |
 | [`vercel-react-best-practices`](vercel-react-best-practices/) | React and Next.js performance rules. |
 | [`app-store-screenshots`](app-store-screenshots/) | App Store screenshots built as ads with Next.js. |
 | [`impeccable`](impeccable/) | Design suite: shape, critique, audit, polish, animate, harden. Hooks are opt-in: `/impeccable hooks on`. |
 | [`stageshow`](stageshow/) | Faux product UI. Stills and cursor-driven demos with a React kit. |
-| [`design-taste-frontend`](design-taste-frontend/) | Anti-slop frontend for landing pages and redesigns. Reads the brief, picks a direction. |
+| [`design-taste-frontend`](design-taste-frontend/) | Anti-slop company and product sites from a bundled kit, checked in a real browser. Needs Node 22+ and Chrome. |
 | [`stitch-design-taste`](stitch-design-taste/) | DESIGN.md files for Google Stitch with strict type, color, and layout rules. |
 | [`image-to-code`](image-to-code/) | Generate the design images first, then build the site to match. |
 | [`brandkit`](brandkit/) | Brand-guidelines boards and logo systems as generated images. |
@@ -150,7 +150,8 @@ Exact values, clear boundaries. Each domain owns its rules and hands off the res
 
 | Skill | What it does |
 |---|---|
-| [`better-ui`](better-ui/) | Concentric radius, shadow-as-border, icon cross-fades, press scale. |
+| [`better-ui`](better-ui/) | Concentric radius, shadow-as-border, optical alignment, icon states. |
+| [`better-motion`](better-motion/) | What should animate, with exact duration, easing, scale and distance. |
 | [`better-typography`](better-typography/) | Type scale, measure, `text-wrap`, iOS input-zoom fixes. |
 | [`better-colors`](better-colors/) | APCA thresholds, ramps, token grammar. Reports, does not repaint. |
 | [`better-accessibility`](better-accessibility/) | WCAG 2.2 targets, focus order, reduced motion, live regions. |
@@ -223,12 +224,12 @@ Image, video, audio, and sites through the Higgsfield CLI. Needs a Higgsfield ac
 | Skill | What it does |
 |---|---|
 | [`seo-audit`](seo-audit/) | Find SEO issues, with fixes. |
-| [`schema-markup`](schema-markup/) | schema.org markup for rich results. |
+| [`schema`](schema/) | schema.org markup for rich results. |
 | [`programmatic-seo`](programmatic-seo/) | SEO pages at scale from templates and data. |
 | [`content-strategy`](content-strategy/) | Content that earns traffic and leads. |
-| [`competitor-alternatives`](competitor-alternatives/) | Competitor comparison pages. |
-| [`page-cro`](page-cro/) | Raise conversion on marketing pages. |
-| [`analytics-tracking`](analytics-tracking/) | Tracking you can act on. |
+| [`competitors`](competitors/) | Competitor comparison pages. |
+| [`cro`](cro/) | Raise conversion on marketing pages and forms. |
+| [`analytics`](analytics/) | Tracking you can act on. |
 
 ### Video (HyperFrames)
 

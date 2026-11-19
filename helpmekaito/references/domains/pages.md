@@ -15,6 +15,6 @@ Each skill is the structure and art direction for one kind of page. Pick by what
 Overlap rules:
 - `landing-page` gives structure and conversion logic. The other five give a full visual identity as well. For an AI product, prefer `product-proof-saas`. For an enterprise buyer, prefer `operational-enterprise-ai`.
 - The two agency skills differ in tone: `documentary-brutalist-agency` is loud and monochrome, `editorial-portfolio-chapters` is dark, quiet and case-study led. If the user gave no tone, ask which.
-- A page that exists and does not convert is `page-cro` in [seo-marketing.md](seo-marketing.md), not a rebuild.
+- A page that exists and does not convert is `cro` in [seo-marketing.md](seo-marketing.md), not a rebuild.
 
 These skills rarely run alone. See [recipes.md](../recipes.md) for the chains.

@@ -10,17 +10,17 @@ Each step lists a tier for delegation. "Main" means keep it in the main session.
 2. `copywriting`: the copy for each section. Main.
 3. `frontend-design`: build it. Main.
 4. `better-interface`: one ranked verdict, then fix the top findings. Hard tier if delegated.
-5. `schema-markup`: metadata and structured data. Standard tier.
+5. `schema`: metadata and structured data. Standard tier.
 6. `gstack` `/qa`: test it in a browser.
 
-The Route line names these six in this order, `landing-page` first. Add one add-on at most, only when the brief calls for it, and drop step 5 to stay at six: `ogilvy` if the headline is the hard part, `visual-style-presets` if no visual direction was given, `seo-audit` in place of `schema-markup` if the page already exists and ranks badly.
+The Route line names these six in this order, `landing-page` first. Add one add-on at most, only when the brief calls for it, and drop step 5 to stay at six: `ogilvy` if the headline is the hard part, `visual-style-presets` if no visual direction was given, `seo-audit` in place of `schema` if the page already exists and ranks badly.
 
 ## Pricing page
 
 1. `pricing-page`: plans, value metric, FAQ.
 2. `copywriting`: plan names, feature lines, FAQ answers.
 3. `frontend-design`: build it.
-4. `better-interface`, then `schema-markup` for FAQ and product schema.
+4. `better-interface`, then `schema` for FAQ and product schema.
 
 ## Polish an existing interface
 
@@ -39,16 +39,16 @@ The Route line names these six in this order, `landing-page` first. Add one add-
 
 ## Page that does not convert
 
-1. `page-cro`: diagnose.
+1. `cro`: diagnose.
 2. `copy-editing`: tighten the copy the diagnosis flagged.
-3. `analytics-tracking`: make the change measurable.
+3. `analytics`: make the change measurable.
 
 ## SEO page set
 
 1. `content-strategy`: which pages and why. Main.
-2. `programmatic-seo` or `competitor-alternatives`: the template. Main.
+2. `programmatic-seo` or `competitors`: the template. Main.
 3. Page fill from data. Light tier, in parallel.
-4. `schema-markup`, then `stop-slop` on a sample. Standard tier.
+4. `schema`, then `stop-slop` on a sample. Standard tier.
 
 ## Product video
 
