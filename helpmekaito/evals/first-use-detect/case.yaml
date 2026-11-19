@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: first-use-detect
+expected_outcome: |
+  First use in a repo with one strong candidate from kaito-tasks.sh detect. helpmekaito proposes that tracker with its evidence and asks, and maps nothing before a yes.

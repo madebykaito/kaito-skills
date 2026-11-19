@@ -58,7 +58,7 @@ case "${1:-}" in
     elif [ -e "$p/.codegraph" ]; then i=yes; else i=no; fi  # a dangling link is not an index
     # board: and local_skill: lines come right after indexed=, so the cut never hides them
     out=$(printf "%s\n" "slug=$s" "project_file=$pf" "indexed=$i"
-      { grep -E '^(board|local_skill):' "$pf" || :; grep -vE '^(board|local_skill):' "$pf" || :
+      { grep -E '^(tracker|tracking|board|local_skill):' "$pf" || :; grep -vE '^(tracker|tracking|board|local_skill):' "$pf" || :
         cat "$M/global.md" "$M/MEMORY.md" || :; } 2>/dev/null)  # project facts first: they survive the cut
     if [ "$(printf "%s\n" "$out" | wc -l)" -gt 40 ]; then printf "%s\n" "$out" | head -39; echo ...; else printf "%s\n" "$out"; fi
     ;;

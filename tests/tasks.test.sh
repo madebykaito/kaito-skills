@@ -402,3 +402,30 @@ test_consent_yes_marks_step_only_after_discover() {
   sh "$T" discover >/dev/null || { echo "  discover failed"; exit 1; }
   assert_eq "$(node "$JS" get "$KAITO_HOME/config.json" tasks.steps.discovery)" true "done after discover"
 }
+
+test_board_line_picks_the_manager_per_project() {
+  home obsidian; stub
+  printf 'TRELLO_KEY=%s\nTRELLO_TOKEN=%s\n' "$FK" "$FT" > "$KAITO_HOME/.env"
+  sl=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/proj")
+  mkdir -p "$MEM/projects"; echo "board: trello b1 Work" > "$MEM/projects/$sl.md"
+  out=$(sh "$T" status)
+  printf "%s\n" "$out" | grep -qx "manager: trello" || { echo "$out"; exit 1; }
+  sh "$T" pull >/dev/null || { echo "  pull failed"; exit 1; }
+  assert_file "$MEM/tasks/trello/$sl/index.md"
+  # another project on the same machine has no board line, so it stays on the config default
+  mkdir -p "$HOME/other"; cd "$HOME/other" || exit 1
+  out=$(sh "$T" status)
+  printf "%s\n" "$out" | grep -qx "manager: obsidian" || { echo "$out"; exit 1; }
+}
+
+test_link_attaches_a_url_trello_and_obsidian() {
+  home trello; mapped; sh "$T" pull >/dev/null || exit 1
+  id=$(c1 shortLink)
+  assert_eq "$(sh "$T" link "$id" https://github.com/acme/app/pull/12 "PR 12")" "ok $id" link
+  assert_eq "$(last POST "/cards/$(c1 id)/attachments" body.url body.name)" "https://github.com/acme/app/pull/12 PR 12" body
+  sh "$T" link "$id" "ftp://example.test/x" >/dev/null 2>&1 && { echo "  bad url accepted"; exit 1; }
+  home obsidian
+  t=$(sh "$T" add "Note task" | awk '{print $2}')
+  sh "$T" link "$t" https://example.test/doc "Design [v2]" >/dev/null || { echo "  obsidian link failed"; exit 1; }
+  grep -rqx 'Link: \[Design v2\](https://example.test/doc)' "$(cache)" || { cat "$(cache)"/*.md; exit 1; }
+}

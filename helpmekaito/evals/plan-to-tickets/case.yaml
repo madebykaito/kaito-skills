@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: plan-to-tickets
+expected_outcome: |
+  Planned multi-part work under tracking=always becomes one parent ticket with sub-tickets, written to references/task-writing.md: imperative titles, a goal, checkable done-when criteria, no steps duplicated between description and checklist.

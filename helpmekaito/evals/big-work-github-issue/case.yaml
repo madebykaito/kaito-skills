@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: big-work-github-issue
+expected_outcome: |
+  Big multi-PR work in a repo with a GitHub remote. helpmekaito offers to open one linked GitHub issue
+  and waits for a yes; it never creates the issue unasked, even with tracking=always.

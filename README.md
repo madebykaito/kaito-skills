@@ -55,7 +55,7 @@ The name-only listing is a `skillOverrides` entry per skill in `~/.claude/settin
 
 Skills you already have under the same name are left alone and reported as skipped.
 
-It also sets up tasks: which task manager you use (Trello, Obsidian, Asana, Jira, other, none), where memory lives (`memory.path`, default `~/.kaito/memory`, can be inside an Obsidian vault), Trello credentials through `kaito-tasks.sh login`, and, if you agree, a sync of your boards' structure and IDs into local memory. With no terminal this stays pending and helpmekaito finishes it in chat on first use. It never asks for a key in chat.
+It also sets up tasks: which task manager you use (Trello, Plane, Obsidian, Asana, Jira, other, none), where memory lives (`memory.path`, default `~/.kaito/memory`, can be inside an Obsidian vault), Trello or Plane credentials through `kaito-tasks.sh login`, and, if you agree, a sync of your boards' structure and IDs into local memory. With no terminal this stays pending and helpmekaito finishes it in chat on first use. It never asks for a key in chat.
 
 It asks before each optional step. With no terminal, the default is used.
 
@@ -88,7 +88,7 @@ After `git pull`, run `./setup` again. Only one setup runs at a time. It stops b
 
 | Skill | What it does |
 |---|---|
-| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model tier for delegated work. Keeps your tasks in sync with Trello or Obsidian and helps do them. Learns each repo and its local skills. Tag it: `/helpmekaito build me a pricing page`. |
+| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model tier for delegated work. Keeps your tasks in sync with Trello, Plane or Obsidian and helps do them. Learns each repo and its local skills. Tag it: `/helpmekaito build me a pricing page`. |
 
 ### Writing and copy
 
@@ -305,6 +305,10 @@ For long, source-heavy research projects. From research-superpowers.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
 - `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
 - Trello needs an API key and token (`kaito-tasks.sh login`). They live in `~/.kaito/.env`. An agent running as you can still read that file; setup only stops auto-allowing it.
+- Plane needs a personal API key and your workspace slug (`kaito-tasks.sh login`), stored the same way; set a URL there for a self-hosted Plane. Without a key it works through the Plane MCP connector. A project with more than 3000 work items needs a module mapping.
+- Plane has no checklists, so a checklist item is a sub work item.
+- A repo's trackers and whether to track work there are remembered per repo and per machine, in the memory folder. A second machine asks again.
+- First-use detection only reads local evidence (branch, commits, docs, stored board names). It finds nothing for a tracker whose structure was never synced, and then helpmekaito asks.
 - Asana, Jira and other task managers work only through their MCP connector.
 - Moving `memory.path` later is manual: move the folder, then change the key.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.

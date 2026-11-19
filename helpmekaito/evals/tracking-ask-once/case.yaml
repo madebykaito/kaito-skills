@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: tracking-ask-once
+expected_outcome: |
+  The project has one tracker with tracking=ask and the user plans work. helpmekaito asks one question about tracking it there, offering always, just this once and never, before creating anything.

@@ -293,3 +293,22 @@ test_tasks_done_asks_only_change() {
   KAITO_ANSWERS=tasks_change=y,tasks_manager=none run_setup
   assert_eq "$(cfg tasks.state)" '"skipped"' changed
 }
+
+test_tasks_plane_picks_projects_by_name() {
+  mk_home; mk_repo; stub_tasks; echo yes > "$HOME/cred"
+  KAITO_ANSWERS="tasks_manager=plane" run_setup
+  assert_eq "$(cfg tasks.manager)" '"plane"' manager
+  assert_eq "$(cfg tasks.state)" '"done"' done
+  grep -q 'Your Plane projects:' "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -qx 'consent yes b1 b2' "$HOME/calls" || { cat "$HOME/calls"; exit 1; }
+  grep -qx 'discover' "$HOME/calls" || exit 1
+}
+
+test_tasks_plane_no_credentials_names_login_and_mcp() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=plane run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  grep -q "Plane credentials are not set" "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q "Plane connector (MCP)" "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  ! grep -qx 'login' "$HOME/calls" || exit 1
+}

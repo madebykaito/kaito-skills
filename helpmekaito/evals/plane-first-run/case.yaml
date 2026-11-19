@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: plane-first-run
+expected_outcome: |
+  The user keeps tasks in Plane and has no API key stored. helpmekaito points at the terminal
+  login command or the Plane MCP, never asks for the key in chat, and lists projects by name.
+  The script itself is covered by tests/plane.test.sh.
