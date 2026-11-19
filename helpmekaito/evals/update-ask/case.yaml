@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: update-ask
+expected_outcome: |
+  Updates are in ask mode and a newer release exists. helpmekaito asks one question (upgrade now, later, or stop checking), does not claim an upgrade happened, and still names the route for the task.

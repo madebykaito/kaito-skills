@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: upgrade-direct
+expected_outcome: |
+  "/helpmekaito upgrade" is not direct mode for a skill named upgrade. helpmekaito runs or proposes kaito-self.sh upgrade.
