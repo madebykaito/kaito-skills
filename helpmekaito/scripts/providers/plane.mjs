@@ -206,7 +206,11 @@ async function op(op, a) {
     } else if (op === 'link') {
       const body = { url: httpUrl(a[1]) };
       if (one(a[2])) body.title = one(a[2]);
-      await plane('POST', `${path}links/`, body);
+      // Plane answers 400 to a URL the item already links. That is the wanted end state, not a failure.
+      try { await plane('POST', `${path}links/`, body); } catch (e) {
+        if (!/^plane 400 /.test(e.message) || !(await all(`${path}links/`)).some((l) => l.url === body.url)) throw e;
+        console.error(`${r.short} already links ${body.url}`);
+      }
     } else if (op === 'done') {
       await plane('PATCH', path, { state: (doneState(await st()) || die('the project has no completed state')).id });
     } else if (op === 'reopen') {
