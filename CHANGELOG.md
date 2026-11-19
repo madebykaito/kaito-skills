@@ -4,6 +4,23 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-20
+
+### Added
+
+- helpmekaito upgrades kaito-skills by itself. At the start of a task it looks for a newer release, at most once a day, moves your clone to the release tag, runs `./setup --upgrade` and says what changed. It never installs unreleased work and never asks.
+- `kaito-self.sh mode auto|ask|off` chooses how upgrades behave (`update.mode`, default `auto`). `ask` asks first, `off` never checks. `snooze` silences a release for 7 days.
+- `kaito-self.sh version`, `check` and `upgrade`, also as "what version of kaito" and "upgrade kaito" in chat or `/helpmekaito upgrade`.
+- Uninstall from chat ("uninstall kaito") or with `kaito-self.sh uninstall`. It shows what would be removed and restored and does nothing without `--yes`. It works after the clone was deleted.
+- Setup lists skills you already have under the same name as a kaito skill, and Claude Code plugins that ship one, and asks whether to replace the skills or disable the plugins. The default is no. Replaced skills are moved to `~/.kaito/backup`, and uninstall restores skills and plugins.
+- `./setup --upgrade`: an unattended re-install that keeps every earlier answer and turns nothing new on.
+- `VERSION` file. Setup records the installed version and the clone's path in `state.json` and keeps a copy of itself in the store.
+
+### Changed
+
+- Setup's summary prints the update mode and the command to change it.
+- A same-name skill of yours is no longer only skipped: setup asks about it. Saying no keeps the old behavior.
+
 ### Fixed
 
 - `kaito-tasks.sh link` on Plane says the task already links the URL instead of failing with `plane 400`.
@@ -91,7 +108,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/madebykaito/kaito-skills/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/madebykaito/kaito-skills/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/madebykaito/kaito-skills/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/madebykaito/kaito-skills/compare/v1.1.0...v1.1.1

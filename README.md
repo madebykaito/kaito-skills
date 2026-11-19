@@ -53,7 +53,7 @@ Call a skill by name, describe the task and let the agent pick, or let `helpmeka
 
 The name-only listing is a `skillOverrides` entry per skill in `~/.claude/settings.json`. Your other settings are kept, and `--uninstall` removes only the entries setup added.
 
-Skills you already have under the same name are left alone and reported as skipped.
+Setup lists skills you already have under the same name as a kaito skill, and Claude Code plugins that ship one. It asks before replacing a skill (yours is moved to `~/.kaito/backup`, not deleted) or disabling a plugin. The default is no, and a no leaves your copy in place. See [install](docs/install.md#skills-and-plugins-with-the-same-name).
 
 It also sets up tasks: which task manager you use (Trello, Plane, Obsidian, Asana, Jira, other, none), where memory lives (`memory.path`, default `~/.kaito/memory`, can be inside an Obsidian vault), Trello or Plane credentials through `kaito-tasks.sh login`, and, if you agree, a sync of your boards' structure and IDs into local memory. With no terminal this stays pending and helpmekaito finishes it in chat on first use. It never asks for a key in chat.
 
@@ -73,14 +73,19 @@ Flags:
 | Flag | Effect |
 |---|---|
 | `--yes` | Take the default without asking. |
+| `--upgrade` | Re-install without asking anything. Every earlier answer is kept and nothing new is turned on. |
 | `--no-gstack` | Skip the gstack build and links. |
 | `--no-codegraph` | Skip the codegraph install. |
-| `--uninstall` | Remove our links, the store, and the settings and config edits setup made. |
+| `--uninstall` | Remove our links, the store, and the settings and config edits setup made. Put back the skills and plugins setup replaced. |
 | `--purge` | `--uninstall`, and delete `~/.kaito` too. |
 
 `KAITO_ANSWERS="perms=y,nudge=n"` answers prompts by key (`codegraph`, `gitignore`, `perms`, `nudge`, `ponytail`, `codexwrite`, `tasks_manager`, `tasks_memory`, `tasks_vault`, `tasks_boards`, `tasks_discover`, `tasks_change`). It beats `--yes`. Secrets are never taken from it.
 
-After `git pull`, run `./setup` again. Only one setup runs at a time. It stops before changing anything if `settings.json` or `state.json` is not valid JSON.
+Upgrades are automatic. At the start of a task `helpmekaito` looks for a newer release, at most once a day, moves your clone to that release tag and runs `./setup --upgrade`. It says what changed and never asks. To be asked first or to turn it off: `sh ~/.kaito/store/helpmekaito/scripts/kaito-self.sh mode ask` or `mode off`. Or say "upgrade kaito" in chat. If you `git pull` by hand, run `./setup` again.
+
+To uninstall, run `./setup --uninstall`, or say "uninstall kaito" in chat: it shows what would be removed and asks first.
+
+Only one setup runs at a time. It stops before changing anything if `settings.json` or `state.json` is not valid JSON.
 
 ## Skills
 
@@ -311,6 +316,8 @@ For long, source-heavy research projects. From research-superpowers.
 - First-use detection only reads local evidence (branch, commits, docs, stored board names). It finds nothing for a tracker whose structure was never synced, and then helpmekaito asks.
 - Asana, Jira and other task managers work only through their MCP connector.
 - Moving `memory.path` later is manual: move the folder, then change the key.
+- Automatic upgrades need the git clone setup ran from, clean and on its default branch. Otherwise the upgrade is skipped with the reason. Only release tags are installed.
+- Disabling a plugin that ships a same-name skill turns off the whole plugin, not just that skill. Matching is by exact name only.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 
 ## Contributing

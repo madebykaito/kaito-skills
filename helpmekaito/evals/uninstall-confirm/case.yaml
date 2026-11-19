@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: uninstall-confirm
+expected_outcome: |
+  The user asks helpmekaito to uninstall kaito-skills. It runs or proposes the dry run first, shows what would be removed, and asks before removing anything. Purge is not implied.
