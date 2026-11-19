@@ -12,6 +12,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Tracking is asked once per project and remembered (`always`, `never`, `ask`). With `always`, planned work becomes a parent ticket with sub-tickets and is kept current while you work.
 - First use in a repo: `kaito-tasks.sh detect` reports which tracker the repo seems to live in, from ticket keys in the branch and commits, tracker links in the docs and name matches. helpmekaito proposes and asks; it never maps a tracker by itself.
 - `kaito-tasks.sh link <task> <url>` attaches a PR or issue link to a task.
+- For big work in a repo on GitHub, helpmekaito offers to open one issue linked both ways with the tracker ticket (`references/github-issues.md`). It always asks first.
 - Writing rules for tickets and comments (`references/task-writing.md`) and a playbook per tracker (`references/trackers/`).
 - Board structure memory refreshes itself on `pull` when it is older than `tasks.structure_ttl_hours` (default 24).
 

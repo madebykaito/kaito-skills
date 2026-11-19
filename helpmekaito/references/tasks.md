@@ -65,6 +65,7 @@ With two trackers each has its own setting. Write to every tracker set to `alway
 2. One parent ticket for the piece of work, with a sub-ticket per independently shippable part and checklist lines for the steps inside a part. Small work is one ticket.
 3. Put them under what already exists (the mapped module, the right list or epic). Check the cache first so nothing is created twice.
 4. Show the whole draft once, then create with `add`, `item add` and, where the script has no command, the tool's MCP.
+5. Big work in a repo on GitHub may also get one linked issue: follow [github-issues.md](github-issues.md), which always asks first.
 
 ## Sync
 
