@@ -53,7 +53,7 @@ When the user plans work in a project ("let's implement X and Y"), look at the t
 
 - `ask`: ask once. "Track this in <name>? Always for this project, just this once, or never." Save the answer with `tracker set <manager> tracking=always|never`; "just this once" saves nothing.
 - `always`: draft the tickets (see below), show them once, create them on yes. From then on keep them current without asking: tick items as they finish, move the state when work starts, comment the result with its link.
-- `never`: do the work and leave the tracker alone. The script refuses reads and writes; do not work around it with the MCP.
+- `never`: do the work and leave the tracker alone. The script refuses reads and writes; do not work around it with the MCP. Do not bring tracking up at all: no question, no offer, no reminder of how to turn it on. The user changes it by asking.
 - The user can change it at any time ("always track this project", "stop tracking here"): `tracker set`.
 - Even under `always`, ask before: moving a parent to done while sub-items are open, tracking work outside what was planned, creating a label, module, state or list, and opening a GitHub issue.
 

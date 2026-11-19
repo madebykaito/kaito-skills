@@ -16,7 +16,7 @@ A ticket should read as if a careful teammate wrote it: the reader can act on it
 Write only the parts that apply, in this order:
 
 1. **Goal.** One to three sentences: what will be true when this is done, and why it is wanted now.
-2. **Scope.** What is in, and what is out if a reader could assume otherwise.
+2. **Scope.** What is in, and what is out if a reader could assume otherwise. Scope draws the boundary; it is not the work list. If it reads like the steps, cut it and keep the steps.
 3. **Done when.** Acceptance criteria as a short list. Each one can be checked by running something or looking at something: a command that passes, a screen that shows X, a file that exists.
 4. **Links.** PR, branch, design doc, parent ticket, related tickets. Links only, no pasted content.
 
@@ -24,8 +24,9 @@ Leave out: the conversation that led to the ticket, restated context the linked 
 
 ## Steps
 
-- Steps go in the checklist or as sub-tickets, never in the description as well.
+- Steps go in the checklist or as sub-tickets, never in the description as well. A parent ticket does not list its sub-tickets again in its own text.
 - A checklist line is one concrete action, small enough to tick in one sitting.
+- Steps are optional. Leave them out when they would only restate the done-when criteria ("Tests cover X" above, "Add tests" below); the criteria already say what to build.
 - Make a sub-ticket only when the step can be assigned, scheduled or shipped on its own (a rule of thumb: it gets its own pull request). Otherwise it is a checklist line.
 - Big work is one parent ticket with sub-tickets, not a flat pile of siblings.
 
