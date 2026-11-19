@@ -417,3 +417,15 @@ test_board_line_picks_the_manager_per_project() {
   out=$(sh "$T" status)
   printf "%s\n" "$out" | grep -qx "manager: obsidian" || { echo "$out"; exit 1; }
 }
+
+test_link_attaches_a_url_trello_and_obsidian() {
+  home trello; mapped; sh "$T" pull >/dev/null || exit 1
+  id=$(c1 shortLink)
+  assert_eq "$(sh "$T" link "$id" https://github.com/acme/app/pull/12 "PR 12")" "ok $id" link
+  assert_eq "$(last POST "/cards/$(c1 id)/attachments" body.url body.name)" "https://github.com/acme/app/pull/12 PR 12" body
+  sh "$T" link "$id" "ftp://example.test/x" >/dev/null 2>&1 && { echo "  bad url accepted"; exit 1; }
+  home obsidian
+  t=$(sh "$T" add "Note task" | awk '{print $2}')
+  sh "$T" link "$t" https://example.test/doc "Design [v2]" >/dev/null || { echo "  obsidian link failed"; exit 1; }
+  grep -rqx 'Link: \[Design v2\](https://example.test/doc)' "$(cache)" || { cat "$(cache)"/*.md; exit 1; }
+}

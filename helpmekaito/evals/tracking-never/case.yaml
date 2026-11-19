@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: tracking-never
+expected_outcome: |
+  The project's tracker is set to tracking=never. helpmekaito plans and does the work and leaves the tracker alone, with no tracking question.

@@ -26,12 +26,45 @@ helpmekaito keeps the user's tasks with their task manager and helps do them. `S
 
 ## Per project
 
-The project's `board:` line names its manager, so two repos on one machine can use different trackers; `tasks.manager` in config is only the default. On a routed task in a repo where Trello or Plane is the manager:
+A project is tracked in the tool its owner chose for it, and one project can have more than one tracker (an official team board and a personal one, each a different tool). They are lines in the project's memory file, shown first by `kaito-mem.sh where`:
 
-- No `board:` line in `kaito-mem.sh where`: ask "Which board is this project on?" with names from `managers/<manager>.md`, then `kaito-tasks.sh map <boardId>`. Plane: ask for the project, then whether the work sits in one module of it (`kaito-tasks.sh modules <projectId>` lists them), and map `<projectId>` or `<projectId>/<moduleId>`. "none" maps nothing; do not ask again in this repo (`kaito-mem.sh set board none`).
-- A new board that is not in the consented list needs the consent question again.
+`tracker: <manager> <id> <name> | role=<official|personal> | tracking=<always|never|ask> | note=<what goes here>`
 
-Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others: ask which project or board once, and save it with `kaito-mem.sh set board "<manager> <id> <name>"`.
+- `kaito-tasks.sh tracker list | add <manager> <id> [name] [role=] [tracking=] [note=] | set <manager> key=value | rm <manager>`. `map <boardId>` is the short form for one Trello or Plane tracker; it looks the name up.
+- An older `board:` line is one official tracker with `tracking=ask`. `tracking: never` (or the old `board: none`) means the project is not tracked anywhere: do not read, write or ask.
+- A command acts on one tracker: `--tracker <manager>` names it, otherwise the first scripted one (Trello, Plane, Obsidian). `list` shows every scripted tracker under its own heading. Asana, Jira and others keep the same line and go through their MCP.
+- Role and note come from what the user says ("Jira is the team board, the Obsidian notes are just mine"). Never infer a role. If it matters for a write and was not said, ask.
+
+### First use in a project
+
+No `tracker:`, `board:` or `tracking:` line means this project has not been set up. Do it then, in the same conversation, before the first task read or write:
+
+1. Run `kaito-tasks.sh detect`. It reads local evidence only and prints `candidate: <manager> <id> <name> | strength=<strong|weak> | evidence=<what was seen>`, then `known: <managers with a stored structure>`.
+2. One strong candidate: propose it with its evidence in one line and ask. "This repo's branch carries the key ALL, so it looks like Plane project ALL. Track it there?"
+3. Several candidates, or only weak ones: list them by name and ask which, allowing more than one and "none".
+4. `candidate: none`: ask which tool tracks this project, or none. Offer the names in `managers/<manager>.md` if there are any.
+5. On a yes: `tracker add` (or `map`), then ask the tracking question below. On "none": `kaito-tasks.sh tracking never`.
+
+Do not guess. Never add a tracker without a yes, never pick between two candidates yourself, and never treat weak evidence as an answer. A board outside the consented list needs the discovery consent question first.
+
+### Tracking: asked once, then remembered
+
+When the user plans work in a project ("let's implement X and Y"), look at the tracker's `tracking`:
+
+- `ask`: ask once. "Track this in <name>? Always for this project, just this once, or never." Save the answer with `tracker set <manager> tracking=always|never`; "just this once" saves nothing.
+- `always`: draft the tickets (see below), show them once, create them on yes. From then on keep them current without asking: tick items as they finish, move the state when work starts, comment the result with its link.
+- `never`: do the work and leave the tracker alone. The script refuses reads and writes; do not work around it with the MCP.
+- The user can change it at any time ("always track this project", "stop tracking here"): `tracker set`.
+- Even under `always`, ask before: moving a parent to done while sub-items are open, tracking work outside what was planned, creating a label, module, state or list, and opening a GitHub issue.
+
+With two trackers each has its own setting. Write to every tracker set to `always`, shaped by its role and note: the full tickets on the official one, what the user said they keep on the personal one. Put a link to the official ticket in the personal entry. Do not copy tickets between tools beyond that.
+
+### Planned work becomes tickets
+
+1. Read [task-writing.md](task-writing.md) and `trackers/<manager>.md`.
+2. One parent ticket for the piece of work, with a sub-ticket per independently shippable part and checklist lines for the steps inside a part. Small work is one ticket.
+3. Put them under what already exists (the mapped module, the right list or epic). Check the cache first so nothing is created twice.
+4. Show the whole draft once, then create with `add`, `item add` and, where the script has no command, the tool's MCP.
 
 ## Sync
 
@@ -39,26 +72,29 @@ Obsidian needs no mapping: each repo gets its own folder. Asana, Jira and others
 - **Plane**: the project (or the mapped module) is the truth, cached in `<memory>/tasks/plane/<slug>/`. A list is a state, a task id is the work item key (`ALL-27`), and a checklist item is a sub work item: `item add` creates one under the task, `check` moves it to the completed state. `add` on a mapped module puts the new item in that module.
 - **Structure memory** (`managers/trello.json`, `managers/plane.json` and their `.md`): `pull` refreshes it by itself when it is older than `tasks.structure_ttl_hours` (default 24), and a write that meets an unknown Plane state reads the states again. Run `discover` by hand only after adding a board to the consent list.
 - **Obsidian**: the notes in `<memory>/tasks/<slug>/` are the tasks. The script keeps ids and `index.md`.
-- **Asana, Jira, others**: use their MCP for every read and write. Keep only the board map and the project's `board:` line locally.
+- **Asana, Jira, others**: use their MCP for every read and write. Keep only the board map and the project's `tracker:` line locally (`kaito-tasks.sh tracker add <manager> <id> "<name>"`).
 
 ## Plane through the MCP
 
-`kaito-tasks.sh status` showing `credentials: no` with the Plane MCP tools in the session means the MCP path. Use the MCP for every read and write, with the same rules as the script: to-do is the first `unstarted` state, done is the first `completed` state, a checklist item is a sub work item, new items go into the mapped module. After reading a project's structure, store it with `kaito-tasks.sh structure put plane` (JSON on stdin: `{"workspace","me":{"id","display_name"},"boards":{"<projectId>":{"name","identifier","states":[{"id","name","group"}],"modules":[{"id","name"}],"labels":[{"id","name"}],"members":[{"id","display_name"}]}}}`), and save the project's line with `kaito-mem.sh set board "plane <projectId>[/<moduleId>] <name>"`. Use the MCP also when there is a key but the script has no command for the job: pages, cycles, epics, relations.
+`kaito-tasks.sh status` showing `credentials: no` with the Plane MCP tools in the session means the MCP path. Use the MCP for every read and write, with the same rules as the script: to-do is the first `unstarted` state, done is the first `completed` state, a checklist item is a sub work item, new items go into the mapped module. After reading a project's structure, store it with `kaito-tasks.sh structure put plane` (JSON on stdin: `{"workspace","me":{"id","display_name"},"boards":{"<projectId>":{"name","identifier","states":[{"id","name","group"}],"modules":[{"id","name"}],"labels":[{"id","name"}],"members":[{"id","display_name"}]}}}`), and save the project's line with `kaito-tasks.sh tracker add plane <projectId>[/<moduleId>] "<name>"`. Use the MCP also when there is a key but the script has no command for the job: pages, cycles, epics, relations.
 
 ## Commands
 
-`kaito-tasks.sh list | add "<title>" [--list X] [--due ISO] | item add <task> "<text>" | check|uncheck <task> <item> | rename <task> "<title>" | move <task> <list> | comment <task> "<text>" | done <task> | reopen <task>`. Tasks and items are addressed by id, never by title. If a write prints `remote ok (<id>), local refresh failed`, do not repeat it; run `pull`.
+`kaito-tasks.sh list | add "<title>" [--list X] [--due ISO] | item add <task> "<text>" | check|uncheck <task> <item> | rename <task> "<title>" | move <task> <list> | comment <task> "<text>" | link <task> <url> ["<title>"] | done <task> | reopen <task>`. Tasks and items are addressed by id, never by title. If a write prints `remote ok (<id>), local refresh failed`, do not repeat it; run `pull`.
 
 ## Helping do a task
 
-1. `pull`, then read the task note: description, checklist, due date.
+1. `pull`, then read the task note: description, checklist, due date. If something in it would trip up the next reader, offer one fix as a question ([task-writing.md](task-writing.md), last section).
 2. Route the work as usual (SKILL.md steps 1 to 5), with the task note as the brief.
 3. Tick each checklist item with `check` as it finishes, not all at the end.
 4. When the work is verified, `comment` with a one-line result (PR link, what changed). Move it to done only if the user says so or the checklist is complete.
 5. New work found on the way becomes `item add` or `add`. Ask first if it is outside the task.
+6. Everything written follows [task-writing.md](task-writing.md) and the tool's file in `trackers/`.
 
 ## Never
 
 - Store secrets, card contents in notes, or anything from a board the user did not consent to.
 - Set a due date or priority the user did not give.
+- Map a tracker, or write to one, that the user has not confirmed for this project.
+- Write to a tracker whose `tracking` is `never`, by any route.
 - Delete cards or work items. `done` moves or archives.

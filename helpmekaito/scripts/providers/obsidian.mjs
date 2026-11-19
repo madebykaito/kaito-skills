@@ -1,7 +1,7 @@
 // Obsidian: one note per task under tasks/<slug>/, no remote. The notes are the source.
 import { mkdirSync, readdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { D, die, one, fm, slug, inside, atomic, rnd, openItems, taskFiles, writeIndex, locked, itemId, opts } from './lib.mjs';
+import { D, die, one, fm, slug, inside, atomic, rnd, openItems, taskFiles, writeIndex, locked, itemId, opts, httpUrl } from './lib.mjs';
 
 const STATUS = ['todo', 'doing', 'done'];
 function op(op, a) {
@@ -21,6 +21,7 @@ function op(op, a) {
     atomic(f, fm(meta) + body.replace(/^\n+/, '').replace(/\s*$/, '\n'));
     if (t && t.path !== f) unlinkSync(t.path);
   };
+  const url = op === 'link' ? httpUrl(a[1]) : '';  // checked before the lock is taken
   if (op === 'move' && !STATUS.includes(a[1])) die(`move needs a status: ${STATUS.join('|')}`);
   locked(() => {
     if (op === 'add') {
@@ -48,6 +49,9 @@ function op(op, a) {
       } else if (op === 'comment') {
         const text = one(a[1]); if (!text) die('comment needs text');
         body = `${body.trimEnd()}\n\n> ${new Date().toISOString().slice(0, 10)} ${text}\n`;
+      } else if (op === 'link') {
+        const title = one(a[2]).replace(/[\[\]]/g, '');
+        body = `${body.trimEnd()}\n\nLink: ${title ? `[${title}](${url})` : url}\n`;
       } else if (op === 'done' || (op === 'move' && a[1] === 'done')) {
         meta.status = 'done'; dir = arch;
       } else if (op === 'reopen' || op === 'move') {

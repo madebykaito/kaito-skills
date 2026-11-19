@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, readdirSync, existsSync, utimesSync, copyFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { trello, redact } from '../kaito-trello.mjs';
-import { M, D, B, S, die, one, fm, slug, inside, taskFiles, writeIndex, locked, keepEdit, itemId, opts } from './lib.mjs';
+import { M, D, B, S, die, one, fm, slug, inside, taskFiles, writeIndex, locked, keepEdit, itemId, opts, httpUrl } from './lib.mjs';
 
 const mapFile = join(M, 'managers', 'trello.json');
 const readMap = () => { try { return JSON.parse(readFileSync(mapFile, 'utf8')); } catch { return {}; } };
@@ -115,6 +115,10 @@ async function op(op, a) {
     } else if (op === 'comment') {
       if (!a[1]) die('comment needs text');
       await trello('POST', `${path}/actions/comments`, { text: a[1] });
+    } else if (op === 'link') {
+      const body = { url: httpUrl(a[1]) };
+      if (one(a[2])) body.name = one(a[2]);
+      await trello('POST', `${path}/attachments`, body);
     } else if (op === 'done') {
       const d = doneList(await boardLists());
       await trello('PUT', path, d ? { idList: d.id } : { closed: true });

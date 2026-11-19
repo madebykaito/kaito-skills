@@ -2,20 +2,28 @@
 # Tasks for the current project. Trello and Plane: the board (Plane: project or module) is the truth,
 # tasks/<manager>/<slug>/ is a read cache. Obsidian: one note per task under tasks/<slug>/, no remote.
 # Other managers go through their MCP.
-# Usage: kaito-tasks.sh status | login | boards | modules <projectId> | consent yes|no <boardId>... | discover
+# A project can have several trackers (lines in its memory file); --tracker <manager> picks one, else the first scripted one.
+# Usage: kaito-tasks.sh [--tracker <manager>] <command>
+#   detect | tracker list|add <manager> <id> [name] [key=value...]|set <manager> key=value...|rm <manager> | tracking never|ask
+#   status | login | boards | modules <projectId> | consent yes|no <boardId>... | discover
 #   map <boardId> (Plane: <projectId>[/<moduleId>]) | pull | list | structure put plane (JSON on stdin)
 #   add "<title>" [--list <name|id>] [--due <iso>] [--desc <text>] | item add <task> "<text>"
 #   check|uncheck <task> <item> | rename <task> "<title>" | move <task> <list|status>
-#   comment <task> "<text>" | done <task> | reopen <task>
+#   comment <task> "<text>" | link <task> <url> ["<title>"] | done <task> | reopen <task>
 set +x  # never trace: credentials are read below
 set -eu
 here=$(cd "$(dirname "$0")" && pwd -P)
 K="${KAITO_HOME:-$HOME/.kaito}"
 CFG="$K/config.json"
-USAGE="usage: kaito-tasks.sh status|login|boards|modules|consent|discover|map|pull|list|structure put|add|item add|check|uncheck|rename|move|comment|done|reopen"
+USAGE="usage: kaito-tasks.sh [--tracker <manager>] detect|tracker|tracking|status|login|boards|modules|consent|discover|map|pull|list|structure put|add|item add|check|uncheck|rename|move|comment|link|done|reopen"
 cfg() { node "$here/kaito-json.mjs" get "$CFG" "$1" 2>/dev/null | sed 's/^"\(.*\)"$/\1/'; }
 die() { echo "kaito-tasks: $*" >&2; exit 1; }
 
+want=""
+if [ "${1:-}" = --tracker ]; then
+  want=${2:-}; case "$want" in ""|*[!a-z0-9-]*) die "usage: kaito-tasks.sh --tracker <manager> <command>" ;; esac
+  shift 2
+fi
 mgr=$(cfg tasks.manager)
 cmd=${1:-}
 M=$(sh "$here/kaito-mem.sh" dir)
@@ -23,20 +31,68 @@ p=$(git rev-parse --show-toplevel 2>/dev/null) || p=$(pwd)
 p=$(cd "$p" && pwd -P)
 S=$(sh "$here/kaito-codegraph.sh" slug "$p")
 pf="$M/projects/$S.md"
-# The project's own board line picks the manager; tasks.manager in config is the default.
-bm=$(sed -n 's/^board: \([a-z]*\) .*/\1/p' "$pf" 2>/dev/null | head -n1)
-case "$bm" in trello|plane|obsidian) mgr=$bm ;; esac
+TK="$here/kaito-trackers.mjs"
+
+# One memory writer at a time, same lock as kaito-mem.sh. ponytail: a lock left by a killed run is taken over after 2s.
+mlock() {
+  [ -w "$M" ] || return 1
+  i=0; until mkdir "$M/.lock" 2>/dev/null; do
+    i=$((i + 1))
+    if [ "$i" -eq 20 ]; then rmdir "$M/.lock" 2>/dev/null || :; fi
+    [ "$i" -le 21 ] || return 1
+    sleep 0.1
+  done
+  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT
+}
+# tk_write <kaito-trackers args>: change the project's tracker lines under the lock, then mirror the file.
+tk_write() {
+  out=$(
+    mkdir -p "$M/projects"; mlock || { echo "kaito-tasks: memory is read-only here" >&2; exit 1; }
+    [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
+    node "$TK" "$pf" "$@"
+  ) || exit 1
+  if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$S.md" >/dev/null 2>&1 || :; fi
+  printf "%s\n" "$out"
+}
+
+# These work before any manager is chosen: they are how a project gets its trackers.
+case "$cmd" in
+  detect) node "$here/kaito-detect.mjs" "$p" "$M"; exit 0 ;;
+  tracker)
+    case "${2:-}" in
+      list) node "$TK" "$pf" list ;;
+      add) [ $# -ge 4 ] || die "usage: kaito-tasks.sh tracker add <manager> <id> [name] [role=official|personal] [tracking=always|never|ask] [note=<text>]"
+           shift 2; m=$1; id=$2; shift 2
+           case "${1:-}" in ""|role=*|tracking=*|note=*) name="" ;; *) name=$1; shift ;; esac
+           tk_write add "$m" "$id" "$name" "$@" ;;
+      set|rm) [ $# -ge 3 ] || die "usage: kaito-tasks.sh tracker ${2} <manager> ..."; sub=$2; shift 2; tk_write "$sub" "$@" ;;
+      *) die "usage: kaito-tasks.sh tracker list|add|set|rm" ;;
+    esac
+    exit 0 ;;
+  tracking) tk_write project "${2:-}"; exit 0 ;;
+esac
+
+# The project's tracker lines pick the manager; tasks.manager in config is only the default.
+sel=$(node "$TK" "$pf" select "$want") || exit 1
+tm=$(printf '%s\n' "$sel" | sed -n 1p); B=$(printf '%s\n' "$sel" | sed -n 2p)
+TRK=$(printf '%s\n' "$sel" | sed -n 3p); scripted=$(printf '%s\n' "$sel" | sed -n 4p)
+[ -z "$tm" ] || mgr=$tm
 case "$mgr" in
   trello|plane|obsidian) ;;
   "") [ "$cmd" = status ] || die "no task manager set: run setup"
       echo "manager: none"; echo "onboarding: $(cfg tasks.state || :)"; exit 0 ;;
   *) echo "use the $mgr MCP; see references/tasks.md"; exit 0 ;;
 esac
+[ "$B" != - ] || B=""
 
 # A remote cache and Obsidian notes never share a folder, so a pull cannot delete notes.
 case "$mgr" in trello|plane) D="$M/tasks/$mgr/$S" ;; *) D="$M/tasks/$S" ;; esac
 board=$(grep '^board: ' "$pf" 2>/dev/null | head -n1) || board=""
-B=$(printf %s "$board" | awk '{print $3}')
+# Tracking off (for this tracker, or for the whole project) means no reads and no writes.
+off() {
+  [ "$TRK" = never ] || return 1
+  echo "tracking is off for this project${tm:+ on $tm}; turn it on with: kaito-tasks.sh tracker set <manager> tracking=always"
+}
 export M S D B MGR="$mgr"
 
 # Credentials: env, else ~/.kaito/.env (Trello also ~/.config/trello/.env). All values of one manager from one source, read as data.
@@ -74,18 +130,6 @@ need_creds() {
 remote() { case "$mgr" in trello|plane) return 0 ;; esac; return 1; }
 need_board() { [ -n "$B" ] || die "no board mapped for this project: run kaito-tasks.sh boards, then map <boardId>"; }
 
-# One memory writer at a time, same lock as kaito-mem.sh. ponytail: a lock left by a killed run is taken over after 2s.
-mlock() {
-  [ -w "$M" ] || return 1
-  i=0; until mkdir "$M/.lock" 2>/dev/null; do
-    i=$((i + 1))
-    if [ "$i" -eq 20 ]; then rmdir "$M/.lock" 2>/dev/null || :; fi
-    [ "$i" -le 21 ] || return 1
-    sleep 0.1
-  done
-  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT
-}
-
 # The node side lives in kaito-tasks.mjs and providers/<manager>.mjs.
 J() { node "$here/kaito-tasks.mjs" "$@"; }
 
@@ -94,8 +138,9 @@ case "$cmd" in
     echo "manager: $mgr"
     if remote; then
       if creds; then echo "credentials: yes ($SRC)"; else echo "credentials: no"; fi
-      echo "${board:-board: none}"
+      if [ -n "$board" ] || [ -z "$tm" ]; then echo "${board:-board: none}"; fi
     else echo "notes: $D"; fi
+    grep -q -E '^(tracker|tracking): ' "$pf" 2>/dev/null && node "$TK" "$pf" list
     c=$(cfg tasks.discovery.consent)
     if [ -n "$c" ]; then echo "discovery: $c $(cfg tasks.discovery.at) ($(node "$here/kaito-json.mjs" each "$CFG" tasks.discovery.boards | tr '\n' ' ' | sed 's/ $//'))"
     else echo "discovery: not asked"; fi
@@ -204,16 +249,19 @@ EOF
     else case "$id" in ""|*[!A-Za-z0-9]*) die "usage: kaito-tasks.sh map <boardId>" ;; esac; fi
     need_creds
     name=$(J board-name "$id")  # fetched before the lock: never hold it across a network call
+    # A project already on tracker lines keeps them: map updates that manager's line and its settings stay.
+    if grep -q '^tracker: ' "$pf" 2>/dev/null; then tk_write add "$mgr" "$id" "$name"; exit 0; fi
     (
       mkdir -p "$M/projects"; mlock
       [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
-      { grep -v '^board:' "$pf" 2>/dev/null || :; echo "board: $mgr $id $name"; } > "$pf.$$.tmp"
+      { grep -v -e '^board:' -e '^tracking: never' "$pf" 2>/dev/null || :; echo "board: $mgr $id $name"; } > "$pf.$$.tmp"
       mv "$pf.$$.tmp" "$pf"
     ) || die "could not write $pf"
     if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$S.md" >/dev/null 2>&1 || :; fi
     echo "board: $mgr $id $name"
     ;;
   pull)
+    if off; then exit 0; fi
     if [ "$mgr" = obsidian ]; then echo "obsidian notes are the source; nothing to pull"; exit 0; fi
     need_board; need_creds
     # Structure memory refreshes itself: a pull re-runs discovery when the map is older than tasks.structure_ttl_hours (default 24).
@@ -222,10 +270,16 @@ EOF
       KAITO_TTL_HOURS=$(cfg tasks.structure_ttl_hours); export KAITO_DISCOVER_IDS KAITO_TTL_HOURS
     fi
     J pull ;;
-  list) J list ;;
-  add|check|uncheck|rename|move|comment|done|reopen|item)
+  list)
+    if off; then exit 0; fi
+    # Several scripted trackers and none named: list each under its own heading.
+    if [ -z "$want" ] && [ "$(printf '%s\n' $scripted | grep -c .)" -gt 1 ]; then
+      for t in $scripted; do echo "## $t"; sh "$0" --tracker "$t" list; done
+    else J list; fi ;;
+  add|check|uncheck|rename|move|comment|link|done|reopen|item)
     op=$cmd; shift
     if [ "$op" = item ]; then [ "${1:-}" = add ] || die "usage: kaito-tasks.sh item add <task> \"<text>\""; op=item-add; shift; fi
+    if off >&2; then exit 1; fi
     if remote; then need_board; need_creds; fi
     J op "$op" "$@"
     ;;

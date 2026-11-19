@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, readdirSync, existsSync, utimesSync, copyFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { plane, all, base, redact } from '../kaito-plane.mjs';
-import { M, D, B, S, die, one, fm, slug, inside, taskFiles, writeIndex, locked, keepEdit, itemId, opts } from './lib.mjs';
+import { M, D, B, S, die, one, fm, slug, inside, taskFiles, writeIndex, locked, keepEdit, itemId, opts, httpUrl } from './lib.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const [PID = '', MID = ''] = String(B || '').split('/');
@@ -164,6 +164,10 @@ async function op(op, a) {
     } else if (op === 'comment') {
       if (!a[1]) die('comment needs text');
       await plane('POST', `${path}comments/`, { comment_html: html(a[1]) });
+    } else if (op === 'link') {
+      const body = { url: httpUrl(a[1]) };
+      if (one(a[2])) body.title = one(a[2]);
+      await plane('POST', `${path}links/`, body);
     } else if (op === 'done') {
       await plane('PATCH', path, { state: (doneState(await st()) || die('the project has no completed state')).id });
     } else if (op === 'reopen') {

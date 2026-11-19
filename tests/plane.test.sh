@@ -221,3 +221,13 @@ test_plane_and_obsidian_projects_on_one_machine() {
   out=$(sh "$T" status); printf "%s\n" "$out" | grep -qx "manager: plane" || { echo "$out"; exit 1; }
   assert_eq "$(sh "$T" pull)" "pulled 3 work items" "mapped project still on Plane"
 }
+
+test_link_attaches_a_url() {
+  home; sh "$T" map "$P1" >/dev/null; sh "$T" pull >/dev/null || exit 1
+  assert_eq "$(sh "$T" link ALL-4 https://github.com/acme/app/pull/12 "PR 12")" "ok ALL-4" link
+  assert_eq "$(last POST "$W/work-items/" body.url body.title)" "https://github.com/acme/app/pull/12 PR 12" body
+  for u in "javascript:alert(1)" "not a url" "https://user:pw@example.test/x" ""; do
+    sh "$T" link ALL-4 "$u" >/dev/null 2>&1 && { echo "  accepted '$u'"; exit 1; }
+  done
+  assert_eq "$(count POST "$W/work-items/")" 1 "bad urls never sent"
+}

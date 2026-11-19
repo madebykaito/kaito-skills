@@ -20,7 +20,7 @@ Notes live in the memory folder: `sh ~/.kaito/store/helpmekaito/scripts/kaito-me
 
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note global "<text>"` for facts true everywhere.
 `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh note project "<text>"` for facts about the current project.
-`kaito-mem.sh set board|brief_fp "<value>"` for keyed project lines.
+`kaito-mem.sh set board|brief_fp "<value>"` for keyed project lines. A project's `tracker:` and `tracking:` lines are written only by `kaito-tasks.sh tracker` and `tracking` ([tasks.md](tasks.md)).
 
 One line per note; line breaks are flattened. If it prints that memory is read-only, carry on, do not retry.
 

@@ -66,6 +66,12 @@ export function keepEdit(t, cdir) {
   console.error(`warning: ${t.f} was edited locally; your copy is in conflicts/${name}. Edit tasks through helpmekaito.`);
 }
 
+// link <task> <url> [title]: only a plain http(s) URL, so nothing else rides into the tracker.
+export const httpUrl = (x) => {
+  let u; try { u = new URL(String(x || '')); } catch { die(`bad url ${x ?? ''}`); }
+  if (!/^https?:$/.test(u.protocol) || /\s/.test(String(x)) || u.username || u.password) die(`bad url ${x}`);
+  return u.href;
+};
 export const itemId = (x) => (/^[A-Za-z0-9-]+$/.test(x || '') ? x : die(`bad item id ${x ?? ''}`));
 export function opts(rest) {
   const o = {};

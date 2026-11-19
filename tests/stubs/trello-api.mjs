@@ -117,6 +117,10 @@ function route(method, path, q, body) {
       if (arg('name')) it.name = arg('name');
       return it;
     }
+    if (method === 'POST' && p[2] === 'attachments') {
+      if (!arg('url')) return 400;
+      return { id: hex(), url: arg('url'), name: arg('name') || arg('url') };
+    }
     if (method === 'POST' && p[2] === 'actions' && p[3] === 'comments') {
       const a = { id: hex(), type: 'commentCard', data: { text: arg('text'), card: { id: c.id } } };
       actions.push(a);
