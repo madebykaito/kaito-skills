@@ -645,8 +645,8 @@ Make bisectable commits; if already committed, continue to Step 16. Never create
    Each commit works alone (no broken imports or missing code).
 3. Subject: the change for a user in plain words, issue code last; brief body;
    trailers last (a user-named issue: `Fixes: #<n>`). Leave VERSION, CHANGELOG/fragment, TODOS.md
-   and the digest uncommitted: Step 16's `finish` commits them last with
-   `--trailer 'Co-Authored-By: Claude <noreply@anthropic.com>'`. Do not add a Git tag.
+   and the digest uncommitted: Step 16's `finish` commits them last,
+   authored by the git user only, with no AI co-author trailer. Do not add a Git tag.
 
 ---
 

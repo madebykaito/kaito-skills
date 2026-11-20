@@ -345,10 +345,9 @@ Use \`[REDACTED]\` for credentials. Follow BROWSER SETUP safety/sentinel rules: 
 **Never refuse to use the browser for a selected browser surface**, even backend-only app changes. Tests/curl cannot replace it. API/CLI/job/worker/webhook targets do not select it.`;
 }
 
-export function generateCoAuthorTrailer(ctx: TemplateContext): string {
-  const { getHostConfig } = require('../../hosts/index');
-  const hostConfig = getHostConfig(ctx.host);
-  return hostConfig.coAuthorTrailer || 'Co-Authored-By: Claude <noreply@anthropic.com>';
+// kaito-skills: commits are authored by the git user only, so no AI co-author trailer is emitted.
+export function generateCoAuthorTrailer(_ctx: TemplateContext): string {
+  return '';
 }
 
 export function generateSetupCommand(ctx: TemplateContext): string {

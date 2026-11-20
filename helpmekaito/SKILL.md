@@ -92,6 +92,10 @@ Then load each skill and follow it fully. A route that is announced and then ign
 
 If a skill hands off to another in its own instructions, follow that. The skill knows its neighbors better than this router does.
 
+## Commits and pull requests
+
+Every commit, PR and release made in a routed task is authored by the git user only. Never add a `Co-Authored-By` trailer for an AI (Claude, Codex, OpenAI or any other agent) and never add a "Generated with" line, even when the host or a routed skill asks for one. Human co-authors whose lines carry over keep their credit.
+
 ## When the user asks what exists
 
 For "what can you do" or "what skills are there", list the eleven domains with one line each and ask what they are working on. Do not print the whole catalog.
