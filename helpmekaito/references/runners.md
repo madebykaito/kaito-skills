@@ -17,6 +17,8 @@ Runs in the same workspace with the same permissions. Use this unless [models.md
 
 Start read-only. Allow writes only when the task is to edit files.
 
+Before the call, run `node ~/.kaito/store/helpmekaito/scripts/kaito-usage.mjs consent check <runner> <model>` with the runner name from the table in lower case (`claude`, `codex`, `cursor-agent`, `opencode`, `gemini`). `ask`: the CLI is running on an API key, so the call is billed per token; ask the user once, naming the model, and on a yes run `consent yes <model>` ([usage.md](usage.md)). `ok`: a logged-in CLI on a subscription, no question.
+
 | Runner | Read-only run | Run that edits files |
 |---|---|---|
 | Claude Code | `claude -p --model <id> --permission-mode plan "<brief>"` | `claude -p --model <id> "<brief>"` |
@@ -41,5 +43,7 @@ Both endpoints are OpenAI-compatible chat completions:
 
 - OpenRouter: `https://openrouter.ai/api/v1/chat/completions` with `OPENROUTER_API_KEY`. Live model list: `GET https://openrouter.ai/api/v1/models/user`.
 - xAI: `https://api.x.ai/v1/chat/completions` with `XAI_API_KEY`.
+
+These calls are always billed per token: `consent check openrouter <model>` or `consent check api <model>` prints `ask` until the user has said yes to that model today ([usage.md](usage.md)).
 
 Read the key from the environment inside the command. Never print it or write it to a file.

@@ -44,6 +44,8 @@ Delegate inside the host first (its own subagents). Go to another vendor's CLI w
 
 Before any cross-vendor call, say in one line which model, which runner and why. The call spends that vendor's quota, so the user should see it happen.
 
+A route billed per token (OpenRouter, a direct API call, or a CLI running on an API key) also needs a yes first: run the consent check in [usage.md](usage.md). It asks once per model per day. Subscription routes are never asked about.
+
 ## Privacy
 
 - Skip any model whose listing says "NO ZDR" unless the user named it.
