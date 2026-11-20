@@ -21,7 +21,7 @@ tests/run.sh
 helpmekaito/scripts/check-routes.sh
 ```
 
-`tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS, Linux (Ubuntu and Alpine) and Windows (Git Bash), plus `tests/smoke.sh`, a real install and uninstall into a throwaway home.
+`tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS and Linux (Ubuntu and Alpine), plus `tests/smoke.sh`, a real install and uninstall into a throwaway home. CI does not run Windows; see [Releases](#releases).
 
 To test Linux from a Mac or Windows machine, run the same checks in Docker containers for Debian, Alpine and Fedora:
 
@@ -92,6 +92,14 @@ Upstream skills keep their original license and attribution. Changes are fine.
 ## Releases
 
 Versions follow [semver](https://semver.org). The maintainer updates `CHANGELOG.md` and pushes a `vX.Y.Z` tag. A workflow then creates the GitHub Release with generated notes.
+
+Before tagging a release, run the Windows checks on a Mac and tag only if they pass:
+
+```bash
+tests/windows.sh
+```
+
+It runs `tests/run.sh`, `tests/smoke.sh` and `check-routes.sh` in Git Bash on a Windows 11 ARM virtual machine in [UTM](https://mac.getutm.app). The machine starts disposable, so each run is thrown away when it stops and leaves nothing on disk. Build the machine once, unattended, with `tests/windows/build.sh` (its header says where to get the two ISOs). It keeps a single disk of about 13 GB. A run takes about 45 minutes; while it runs, the throwaway changes take up to 25 GB more, freed when it stops.
 
 ## Conduct
 
