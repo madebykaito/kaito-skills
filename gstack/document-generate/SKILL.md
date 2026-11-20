@@ -510,8 +510,6 @@ docs: generate [scope] documentation (Diataxis)
 [One-line summary of what was documented]
 
 Quadrants: [list which quadrants were produced]
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
 )"
 ```

@@ -433,8 +433,6 @@ modified by this run (including approved VERSION/manifest updates), skip commit/
 ```bash
 git commit -m "$(cat <<'EOF'
 docs: update project documentation for vX.Y.Z.W
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
 )"
 ```

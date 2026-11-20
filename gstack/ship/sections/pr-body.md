@@ -197,7 +197,7 @@ the receipt write below refuses (`DOCS_AUDIT_BLOCKED`) when the body lacks it.>
 <!-- gstack:agent-notes -->
 <details><summary>Agent notes</summary>
 
-<Machine-read lines, last: "🤖 Generated with Claude Code", `Refs <issue codes>`, the `## Approvals` output (Capy) with its Plan line,
+<Machine-read lines, last: `Refs <issue codes>`, the `## Approvals` output (Capy) with its Plan line,
 and the Pre-Landing Review section's `REVIEW_LOOP:`, `Gate edits:`, `Ruled note:`, `Gate disposition:`, `Review-loop exception:`
 and exception lines. `gstack-ship-receipt write` adds the receipt here; never type it.>
 
