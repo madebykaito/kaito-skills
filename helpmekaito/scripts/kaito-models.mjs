@@ -8,7 +8,7 @@
 //   kaito-models.mjs list [filter]                    every model per runner, for models-available.sh
 // Vendors: anthropic openai google xai, or the first word of a model id (kimi, deepseek).
 // When nothing fits, the line starts with "host:" and says why: use the host's own model.
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, accessSync, constants, realpathSync } from 'node:fs';
 import { join, dirname, delimiter } from 'node:path';
 import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -25,8 +25,13 @@ const RULE = [
 ];
 const words = (id) => String(id).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
+// Not text models, whatever family word they carry ("gemini-nano-banana" draws images).
+const NOT_TEXT = ['image', 'imagen', 'banana', 'veo', 'tts', 'audio', 'embedding', 'live'];
+const notText = (w) => w.some((x) => NOT_TEXT.includes(x)) || w.join('-').includes('computer-use');
+
 export function tierOf(modelId) {
   const w = words(modelId);
+  if (notText(w)) return null;
   for (const [tier, names] of RULE) if (names.some((n) => w.includes(n))) return tier;
   return null;
 }
@@ -46,14 +51,25 @@ function which(name) {
   for (const dir of (process.env.PATH || '').split(delimiter)) {
     for (const e of exts) {
       const p = join(dir, name + e);
-      try { if (dir && statSync(p).isFile()) return p; } catch {}
+      // X_OK is a plain "exists" on Windows, where there is no executable bit.
+      try { if (dir && statSync(p).isFile()) { accessSync(p, constants.X_OK); return p; } } catch {}
     }
   }
   return null;
 }
-// Through sh: on Windows the CLIs are shell or .cmd shims that node cannot start directly.
-function run(cmd) {
-  try { return execFileSync('sh', ['-c', cmd], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/); } catch { return []; }
+// A listing runs the CLI found on PATH by its full path, with an argument array and no shell:
+// a bare name would let Windows pick a same-named file in the current folder first.
+// Windows cannot start a script directly, so one without .exe runs under the sh found on PATH. A .cmd-only CLI is not listed.
+function run(name, ...args) {
+  let file = which(name);
+  if (file && process.platform === 'win32' && !/\.(exe|com)$/i.test(file)) {
+    const sh = /\.(cmd|bat)$/i.test(file) ? null : which('sh');
+    args = [file, ...args]; file = sh;
+  }
+  if (!file) return [];
+  try {
+    return execFileSync(file, args, { encoding: 'utf8', timeout: 20000, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/);
+  } catch { return []; }
 }
 
 function detect() {
@@ -72,21 +88,19 @@ function geminiModels() {
   let dir;
   try { dir = dirname(realpathSync(which('gemini'))); } catch { return []; }
   const pkg = join('node_modules', '@google', 'gemini-cli', 'bundle');
-  const ids = new Set(), loose = new Set();
+  const ids = new Set();
   for (const b of [dir, join(dir, pkg), join(dir, '..', 'lib', pkg)]) {
     let files = [];
     try { files = readdirSync(b).filter((f) => f.endsWith('.js')); } catch {}
     for (const f of files) {
       let t = '';
       try { t = readFileSync(join(b, f), 'utf8'); } catch {}
-      for (const m of t.matchAll(/MODEL[A-Z0-9_]*\s*=\s*"(gemini-\d[a-z0-9.-]*[a-z0-9])"/g)) ids.add(m[1]);
-      for (const m of t.matchAll(/"(gemini-\d[a-z0-9.-]*[a-z0-9])"/g)) loose.add(m[1]);
+      for (const m of t.matchAll(/"(gemini-\d[a-z0-9.-]*[a-z0-9])"/g)) ids.add(m[1]);
     }
-    if (loose.size) break;
+    if (ids.size) break;
   }
-  // Not for delegating: internal variants and image, embedding, live and computer-use models.
-  const junk = /-(base|customtools)$|image|embedding|live|computer-use|tts|audio/;
-  return [...(ids.size ? ids : loose)].filter((id) => !junk.test(id)).sort();
+  // Not for delegating: internal variants, and ids the tier rule cannot place (fixtures, image and live models).
+  return [...ids].filter((id) => !/-(base|customtools)$/.test(id) && tierOf(id)).sort();
 }
 
 // The lines a runner's listing prints; the model id is the first word of each.
@@ -98,10 +112,10 @@ const LIST = {
     return [...new Set([...t.matchAll(/"slug":\s*"([^"]+)"/g)].map((m) => m[1]))].sort();
   },
   gemini: geminiModels,
-  'cursor-agent': () => run('cursor-agent --list-models').filter((l) => l.includes(' - ')),
-  opencode: () => run('opencode models'),
+  'cursor-agent': () => run('cursor-agent', '--list-models').filter((l) => l.includes(' - ')),
+  opencode: () => run('opencode', 'models'),
   copilot: () => [],  // no listing command in its docs: /model inside a session
-  ollama: () => run('ollama ls').slice(1),
+  ollama: () => run('ollama', 'ls').slice(1),
 };
 const NOTE = {
   claude: ' (aliases)',
@@ -112,10 +126,10 @@ function models(runner) {
   return LIST[runner]().map((l) => l.trim()).filter(Boolean);
 }
 
-// "provider/claude-opus-5-5-thinking-high-fast" -> the model without provider, effort and speed, and how plain it is.
+// "provider/claude-opus-5-5-thinking-high-fast" -> the model without effort and speed, and how plain it is.
 const EFFORT = ['medium', 'high', 'low', 'xhigh', 'max', 'minimal', 'none'];
 function parse(id) {
-  const w = words(id.slice(id.indexOf('/') + 1));
+  const slash = id.indexOf('/'), w = words(id.slice(slash + 1));
   let cost = 0;
   for (;;) {
     const last = w[w.length - 1];
@@ -125,11 +139,14 @@ function parse(id) {
     else break;
     w.pop();
   }
-  const base = w.join('-');
-  // Version: the short numbers in the id, in order. Longer ones are dates. An alias has none and means "newest".
-  const nums = (base.match(/\d+/g) || []).filter((n) => n.length < 4).map(Number);
-  const vendor = Object.keys(VENDORS).find((v) => VENDORS[v].some((n) => w.includes(n))) || w[0];
-  return { base, cost, vendor, version: nums.length ? nums : [Infinity], preview: /preview|beta|alpha|exp/.test(base) };
+  const base = w.join('-'), bare = id.slice(slash + 1).toLowerCase();
+  // Version: the first number in the id with its minor ("5.6", "5-5"). Later numbers are dates ("-05-20", "-20251001")
+  // and sizes ("128k"), never versions. An alias has no number and means "newest".
+  const v = bare.match(/(?<!\d)(\d{1,3})(?![\dk])(?:[.-](\d{1,2})(?![\dk]))?/);
+  const vendor = Object.keys(VENDORS).find((n) => VENDORS[n].some((x) => w.includes(x))) || w[0];
+  // A preview, or a dated snapshot, loses to the stable id of the same version.
+  const preview = w.some((x) => ['preview', 'beta', 'alpha', 'exp', 'experimental', 'rc'].includes(x)) || /-\d{2}-\d{2}(-|$)|-\d{4,}(-|$)/.test(bare);
+  return { base, key: id.slice(0, slash + 1) + base, cost, vendor, version: v ? [+v[1], +(v[2] ?? -1)] : [Infinity], preview };
 }
 function newer(a, b) {
   for (let i = 0; i < Math.max(a.version.length, b.version.length); i++) {
@@ -153,7 +170,7 @@ function resolve(name, tier) {
       // Privacy (models.md): no listing marked NO ZDR, no free tier that may train on what it is sent.
       if (tierOf(m.base) !== tier || line.includes('NO ZDR') || words(id).includes('free')) continue;
       if (!RUNNERS.includes(name) && m.vendor !== name) continue;
-      if (failed.includes(`${runner} ${m.base}`)) continue;
+      if (failed.includes(`${runner} ${m.key}`)) continue;
       if (!best[m.vendor] || newer(m, best[m.vendor])) best[m.vendor] = m;
     }
   }
@@ -162,7 +179,7 @@ function resolve(name, tier) {
 }
 
 function fail(runner, model) {
-  const file = join(K, 'model-failures.json'), f = readJson(file), key = `${runner} ${parse(model).base}`;
+  const file = join(K, 'model-failures.json'), f = readJson(file), key = `${runner} ${parse(model).key}`;
   const failed = f.date === today() && Array.isArray(f.failed) ? f.failed : [];
   if (!failed.includes(key)) failed.push(key);
   writeJson(file, { date: today(), failed });

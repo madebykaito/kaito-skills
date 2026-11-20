@@ -50,6 +50,7 @@ Notes:
 - Copilot CLI: `-p` runs one prompt and exits, `-s` prints only the answer. `--allow-all-tools` and `--allow-all` skip its permission checks: only when the user asked.
 - Ollama runs local models that cannot read the repo or edit files on their own, so paste the content into the brief. `ollama launch claude --model <model>` starts an agent CLI on a local model instead. Most Ollama names carry no family word, so use one only when the user names it.
 - A run that fails because the model is unavailable or out of quota: `node scripts/kaito-models.mjs fail <runner> <model-id>`, then resolve again.
+- Windows: a CLI installed only as a `.cmd` or `.bat` file is found but its models cannot be listed, so the resolver picks nothing from it. npm installs also add a plain script, which works.
 - Long runs go in the background. Do not block the turn on a call that can take minutes.
 
 ## API only (text in, text out)

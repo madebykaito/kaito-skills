@@ -18,5 +18,6 @@ for k in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY XAI_API_
 done
 
 # The model lists come from the resolver, so both always agree.
-node "$(dirname "$0")/kaito-models.mjs" list "$filter"
+if has node; then node "$(dirname "$0")/kaito-models.mjs" list "$filter"
+else echo "MODELS: not listed, the model lists need Node (node is not on PATH)"; fi
 exit 0
