@@ -4,6 +4,26 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-20
+
+### Added
+
+- Live model routing. `kaito-models.mjs resolve <vendor|runner> <tier>` returns the newest model of that tier this machine can reach, read live from Claude Code, Codex, Cursor, opencode and Gemini CLI. The tier (light, standard, hard, frontier) comes from a rule on the model family name, so a new model needs no kaito-skills release.
+- Setup's summary lists the agent CLIs it found and stores them in `~/.kaito/agents.json`. The list is refreshed on upgrade and when it is over a day old.
+- A model that fails is skipped for the rest of that day (`kaito-models.mjs fail <runner> <model>`). A name the rule cannot place falls back to the host's model and says so.
+- GitHub Copilot CLI and Ollama as runners, written from their docs and marked untested.
+- Usage and cost report. "kaito, how much have I used" prints tokens per day and per model (input, output, cache read, cache write) with an estimated price, read from the logs Claude Code, Codex, opencode and Gemini CLI keep on your machine. Nothing is sent anywhere. A runner that cannot be read is named with the reason; Cursor keeps no token counts on disk.
+- `helpmekaito/references/prices.json`: list prices in USD per 1M tokens for Anthropic, OpenAI, Google and xAI models, each with its source link. It is refreshed at each release. A model with no row shows "no price" and is left out of the total.
+- Before a pay-per-token route (OpenRouter, a direct API call, or a CLI logged in with an API key) helpmekaito asks once, naming the model. A yes holds for the rest of that day. Subscription routes are never asked about.
+- The learning loop. helpmekaito captures corrections, preferences, what worked, what failed and repo conventions with `kaito-mem.sh learn`, and shows the top 10 with any promoted rules at the start of each task. `curate` reports duplicates, stale entries and promotion candidates; `forget` and `promote` act on one entry; `stats` counts corrections per week. Learnings stay in that project's memory file. Text that looks like a secret is refused. See `docs/learning-loop.md`.
+
+### Changed
+
+- `models.md` describes the tier rule and resolver; the dated version table is no longer the source of truth. `flash` models are standard tier and `hydrogen` is light.
+- `models-available.sh` gets its model lists from `kaito-models.mjs` and needs Node for them. It also lists Copilot CLI and Ollama.
+- Grok ids carry no family word, so asking for an xAI tier falls back to the host's model.
+- The secret check shared by `kaito-mem.sh note` and `set` also refuses bearer tokens that contain `+`, `/` or `=`.
+
 ## [1.4.0] - 2026-11-20
 
 ### Added
@@ -119,7 +139,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/madebykaito/kaito-skills/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/madebykaito/kaito-skills/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/madebykaito/kaito-skills/compare/v1.1.1...v1.2.0

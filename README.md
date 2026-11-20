@@ -94,7 +94,7 @@ Only one setup runs at a time. It stops before changing anything if `settings.js
 
 | Skill | What it does |
 |---|---|
-| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model tier for delegated work. Keeps your tasks in sync with Trello, Plane or Obsidian and helps do them. Learns each repo and its local skills. Tag it: `/helpmekaito build me a pricing page`. |
+| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model for delegated work from the agent CLIs on your machine. Keeps your tasks in sync with Trello, Plane or Obsidian and helps do them. Learns each repo, its local skills and how you work. Reports your token usage and estimated cost. Tag it: `/helpmekaito build me a pricing page`. |
 
 ### Writing and copy
 
@@ -310,7 +310,8 @@ For long, source-heavy research projects. From research-superpowers.
 - Some research skills use optional MCP servers for citation checks. They run without them.
 - Research scripts need Python 3.10 or newer. `grant-finder`, `literature-review` and `requesting-peer-review` mention upstream `research-skills/` files that are not bundled; they fall back to live search.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
-- `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Its model table is a dated snapshot.
+- `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Tiers come from a rule on the model family name; a model the rule cannot place (Grok, most open-weight ids) falls back to the host's model.
+- The usage report's prices are list-price estimates from a file refreshed at each release, not a bill. Cursor usage cannot be read.
 - Trello needs an API key and token (`kaito-tasks.sh login`). They live in `~/.kaito/.env`. An agent running as you can still read that file; setup only stops auto-allowing it.
 - Plane needs a personal API key and your workspace slug (`kaito-tasks.sh login`), stored the same way; set a URL there for a self-hosted Plane. Without a key it works through the Plane MCP connector. A project with more than 3000 work items needs a module mapping.
 - Plane has no checklists, so a checklist item is a sub work item.
