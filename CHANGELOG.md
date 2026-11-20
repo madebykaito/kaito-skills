@@ -4,6 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-20
+
+### Fixed
+
+- Commits, PRs and releases made through kaito-skills carry the git author only. gstack `ship`, `document-release` and `document-generate` no longer add a `Co-Authored-By` trailer for Claude, Codex or any other agent, and the `ship` PR body drops the "Generated with Claude Code" line. helpmekaito states the rule for every routed task.
+
 ## [1.5.0] - 2026-11-20
 
 ### Added
@@ -139,7 +145,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/madebykaito/kaito-skills/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/madebykaito/kaito-skills/compare/v1.2.0...v1.3.0
