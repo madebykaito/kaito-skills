@@ -121,3 +121,99 @@ test_learnings_stay_in_their_project() {
   assert_eq "$(mem curate | sed -n 1p)" "learnings: 1" curate
   (mem forget "only in project one" 2>/dev/null); assert_eq "$?" 1 "cannot forget another project's learning"
 }
+
+test_failed_rewrite_changes_nothing() {
+  skip_on_win "chmod cannot make a file unreadable" && return 0
+  [ "$(id -u)" != 0 ] || { echo "skip: root reads any file"; return 0; }
+  mk_home; proj app
+  mem note project "a fact" && mem learn worked "keep me" || exit 1
+  before=$(cat "$f"); log=$(cat "$KAITO_HOME/memory/learning.log")
+  chmod 000 "$f"
+  (mem learn correction "new one" 2>/dev/null); a=$?
+  (mem forget "keep me" 2>/dev/null); b=$?
+  (mem promote "keep me" project 2>/dev/null); c=$?
+  chmod 644 "$f"
+  assert_eq "$a$b$c" 111 "exit codes"
+  assert_eq "$(cat "$f")" "$before" "file kept"
+  assert_eq "$(cat "$KAITO_HOME/memory/learning.log")" "$log" "nothing logged"
+  assert_eq "$(ls "$KAITO_HOME/memory/projects" | wc -l | tr -d ' ')" 1 "no temp file left"
+  assert_no "$KAITO_HOME/memory/.lock"
+}
+
+test_forget_and_promote_take_a_scope() {
+  mk_home; proj app
+  mem learn preference "short answers" && mem learn preference "short answers" global || exit 1
+  mem forget "short answers" global || exit 1
+  grep -q 'short answers' "$f" || exit 1
+  ! grep -q 'short answers' "$KAITO_HOME/memory/global.md" || exit 1
+  mem learn worked "only global" global || exit 1
+  (mem promote "only global" project 2>/dev/null); assert_eq "$?" 1 "not in the project"
+  mem promote "short answers" project || exit 1
+  grep -qx 'rule: short answers' "$f" || exit 1
+  (mem forget "only global" elsewhere 2>/dev/null); assert_eq "$?" 2 "bad scope"
+  grep -q 'only global' "$KAITO_HOME/memory/global.md" || exit 1
+}
+
+test_norm_keeps_tech_names_apart() {
+  mk_home; proj app
+  mem learn convention "Use C#" && mem learn convention "Use C++" && mem learn convention "use c" || exit 1
+  mem learn convention "target .NET 8" && mem learn convention "target NET 8" || exit 1
+  assert_eq "$(grep -c '^learn:' "$f")" 5 "five different learnings"
+  mem learn convention "Build with Node.js." && mem learn convention "build with node.js" || exit 1
+  grep -q '^learn: convention 2 .* Build with Node.js.$' "$f" || { cat "$f"; exit 1; }
+  ! mem curate | grep -q 'duplicate: .*C#.*C++' || exit 1
+}
+
+test_more_secret_shapes() {
+  mk_home; proj app
+  for t in "ci uses glpat-abcdefghij1234567890" "send Bearer abcd+efgh/ijkl=mnop"; do
+    (mem learn convention "$t" 2>/dev/null); assert_eq "$?" 2 "$t"
+  done
+  (mem note project "send Bearer abcd+efgh/ijkl=mnop" 2>/dev/null); assert_eq "$?" 2 note
+  assert_no "$KAITO_HOME/memory"
+}
+
+test_crlf_lines_still_match() {
+  mk_home; proj app; mkdir -p "$KAITO_HOME/memory/projects"
+  printf 'learn: correction 1 2026-03-01 use pnpm\r\nlearn: worked 1 2026-03-01 drop me\r\n' > "$f"
+  on 2026-03-05 learn correction "use pnpm" || exit 1
+  assert_eq "$(grep -c pnpm "$f")" 1 "bumped, not added"
+  assert_eq "$(mem where | grep pnpm)" "learn: correction 2 2026-03-05 use pnpm" "no CR shown"
+  assert_eq "$(mem where | grep -c 'drop me$')" 1 "CR line shown clean"
+  mem forget "drop me" || exit 1
+  ! grep -q 'drop me' "$f" || exit 1
+}
+
+test_stats_with_a_space_in_the_slug() {
+  mk_home; proj "my app"
+  case "$s" in *" "*) ;; *) echo "slug has no space: $s"; exit 1 ;; esac
+  on 2026-06-27 learn correction "one" || exit 1
+  grep -q '^learn: correction 1 2026-06-27 one$' "$f" || exit 1
+  on 2026-06-28 stats | grep -qx "$s: 0 0 0 1" || { on 2026-06-28 stats; exit 1; }
+}
+
+test_last_line_without_newline() {
+  mk_home; proj app; mkdir -p "$KAITO_HOME/memory/projects"
+  printf 'learn: worked 1 2026-03-01 project last line' > "$f"
+  printf 'learn: preference 1 2026-03-01 first global line\n' > "$KAITO_HOME/memory/global.md"
+  out=$(mem where)
+  echo "$out" | grep -qx 'learn: worked 1 2026-03-01 project last line' || { echo "$out"; exit 1; }
+  echo "$out" | grep -qx 'learn: preference 1 2026-03-01 first global line' || { echo "$out"; exit 1; }
+  assert_eq "$(mem curate | sed -n 1p)" "learnings: 2" curate
+}
+
+test_where_cap_keeps_rules_and_learn_more() {
+  mk_home; proj app
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do on 2026-03-01 learn convention "fact number $i stands alone" || exit 1; done
+  mem learn worked "a project rule" && mem promote "a project rule" || exit 1
+  mem learn worked "a global rule" global && mem promote "a global rule" || exit 1
+  { i=0; while [ $i -lt 40 ]; do i=$((i + 1)); printf 's%s\tp%s\td\n' $i $i; done; } | mem local-skills || exit 1
+  mem note project "a plain note"
+  out=$(mem where)
+  echo "$out" | grep -qx 'rule: a project rule' || { echo "$out"; exit 1; }
+  echo "$out" | grep -qx 'rule: a global rule' || { echo "$out"; exit 1; }
+  assert_eq "$(echo "$out" | grep -c '^learn:')" 10 learnings
+  echo "$out" | grep -qx 'learn_more: 2 not shown; run kaito-mem.sh curate' || { echo "$out"; exit 1; }
+  assert_eq "$(echo "$out" | tail -1)" "..." "the rest is cut"
+  ! echo "$out" | grep -q 'a plain note' || exit 1
+}

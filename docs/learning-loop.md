@@ -27,17 +27,19 @@ A promoted learning becomes a `rule: <text>` line in the same file. The files ar
 
 The agent runs `kaito-mem.sh learn <kind> "<text>" [global]` as it works: when you correct it, when you state a preference, when you confirm an approach that was not the obvious one, when a route or model fails, and when it finds an unwritten convention. `helpmekaito/references/learning.md` holds the exact rules, including what not to capture: one-off task state, secrets, and anything the repo already records.
 
-Capturing a text that is already there, compared without case, punctuation or spacing, raises its count and sets its date to today. It does not add a line. The count is how often a learning was confirmed.
+Capturing a text that is already there, compared without case, punctuation or spacing, raises its count and sets its date to today. It does not add a line. `+`, `#` and a dot inside a word are kept in the comparison, so `C++`, `C#` and `Node.js` stay apart. The count is how often a learning was confirmed.
 
-Text that looks like a secret is refused: `token: x`, `password is x`, bearer tokens, common key prefixes (`sk-`, `ghp_`, `AKIA`, `xox?-`), PEM blocks, JWTs, and any run of 32 or more characters that mixes letters and digits. That last rule also refuses a full commit hash. The check is a net, not a guarantee.
+Text that looks like a secret is refused: `token: x`, `password is x`, bearer tokens, common key prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA`, `xox?-`), PEM blocks, JWTs, and any run of 32 or more characters that mixes letters and digits. That last rule also refuses a full commit hash. The check is a net, not a guarantee.
 
 ## Apply
 
 `helpmekaito` already runs `kaito-mem.sh where` at the start of every routed task. It now prints, right after the board and local skill lines:
 
-1. Every `rule:` line of the project.
+1. Every `rule:` line of the project and of `global.md`.
 2. Up to ten `learn:` lines from the project and `global.md` together, most confirmed first, then most recent.
 3. `learn_more: <n> not shown; run kaito-mem.sh curate` when there are more than ten.
+
+These lines are always printed in full. Only what follows them (plain notes and the index) is cut to keep the output near 40 lines.
 
 The agent uses them to pick the route, the skill and the model, and passes the relevant ones to work it hands off. A rule is settled. A learning yields to what you say now.
 
@@ -51,11 +53,11 @@ The agent uses them to pick the route, the skill and the model, and passes the r
 
 The agent runs it when `where` prints `learn_more:` or when you ask. It then acts with explicit commands, one learning at a time:
 
-- `kaito-mem.sh forget "<text>"` deletes one learning.
-- `kaito-mem.sh promote "<text>"` turns one learning into a `rule:` line, which is always printed and never goes stale.
+- `kaito-mem.sh forget "<text>" [global|project]` deletes one learning. Without the last word it looks in the project file first, then in `global.md`.
+- `kaito-mem.sh promote "<text>" [global|project]` turns one learning into a `rule:` line, which is always printed and never goes stale.
 - A learning that is a procedure of several steps can become a local skill in the repo's `.claude/skills/`. The agent asks first, writes the skill, and `kaito-project.sh record` lists it as a `local_skill:` line.
 
-Nothing is deleted without one of these commands.
+Nothing is deleted without one of these commands. A write that fails part way (a file that cannot be read, a failed rename) leaves the file as it was and logs nothing.
 
 ## Measure
 
