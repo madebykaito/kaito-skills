@@ -697,6 +697,7 @@ setup_tasks() {
 summary() {
   echo "kaito: $N_SKILLS skills installed, $N_LINKED links created, $N_UNLINKED removed, $N_OVERRIDES overrides written, $N_SKIPPED skipped."
   um=$(node "$J" get "$CONFIG" update.mode | tr -d '"')
+  KAITO_HOME="$KAITO_HOME" node "$REPO/helpmekaito/scripts/kaito-models.mjs" detect || :  # "agents: ..." for model routing
   echo "updates: ${um:-auto} (auto upgrades to each release, ask asks first, off never checks). Change: sh $STORE/helpmekaito/scripts/kaito-self.sh mode auto|ask|off"
 }
 

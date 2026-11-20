@@ -1,0 +1,18 @@
+#!/bin/sh
+# Stub: a slice of the real `opencode models` output.
+[ "${1:-}" = models ] || exit 0
+cat <<'EOF'
+claude-agent/opus
+openai/gpt-6-sol
+openai/gpt-6.1-sol-fast
+openai/gpt-6.1-sol
+openai/gpt-5.6-terra
+google/gemini-2.5-flash-preview-05-20
+google/gemini-2.5-flash
+google-vertex/gemini-2.5-flash
+google/gemini-nano-banana-2.1
+openrouter/phi-3-mini-128k-instruct
+openrouter/phi-3.5-mini-instruct
+opencode/hy4-flash-free
+xai/grok-4.7
+EOF

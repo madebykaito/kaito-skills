@@ -1,19 +1,36 @@
 # Models by tier
 
-Snapshot: 2026-11-16. Model names change monthly. Treat this table as a hint about rank, and treat `scripts/models-available.sh` as the truth about what exists. If a name here is missing from the live list, pick the newest model of the same family and rank.
+No model versions are listed here. A model's tier comes from the family word in its id, and `scripts/kaito-models.mjs` picks the newest model of that family this machine can reach. A new release needs no change to this file.
 
 ## Tiers
 
-| Tier | The work | Anthropic | OpenAI | Gemini | xAI | Open-weight |
-|---|---|---|---|---|---|---|
-| Light | Bulk, mechanical, well-specified: fill templates, rename, extract, format. | haiku | luna | Gemini 4 Hydrogen, 3.8 Flash | Grok 4.3 | DeepSeek V4.1 Flash |
-| Standard | Normal builds and edits from a clear plan. | sonnet | terra | Gemini 4 Hydrogen at high effort | Grok 4.6 | Qwen Max, Mistral Large 4 |
-| Hard | Architecture, review, debugging, anything needing judgment. | opus | sol | Gemini 4 Argon | Grok 4.7 | Kimi K3.1 Pro |
-| Frontier | Long, ambiguous, high-stakes work. | fable | astra | Gemini 4 Carbon | Grok 4.7 at max effort | none |
+| Tier | The work | Family word in the id |
+|---|---|---|
+| Light | Bulk, mechanical, well-specified: fill templates, rename, extract, format. | `haiku`, `luna`, `hydrogen`, and any id with `lite`, `mini` or `nano` (so `flash-lite`) |
+| Standard | Normal builds and edits from a clear plan. | `sonnet`, `terra`, `flash` |
+| Hard | Architecture, review, debugging, anything needing judgment. | `opus`, `sol`, `pro`, `argon` |
+| Frontier | Long, ambiguous, high-stakes work. | `fable`, `astra`, `ultra`, `carbon` |
 
-Many runners expose effort as a suffix (`-low`, `-high`, `-xhigh`, `-max`). Within a tier, raise effort before raising the tier.
+The rule lives in `tierOf` in `scripts/kaito-models.mjs`. When a vendor adds a family, add its word there and here.
 
-Open-weight models are reached through OpenRouter or opencode. Ranks for Gemini 4, Grok and open-weight models come from third-party comparisons, not vendor pages.
+## Picking the model
+
+```
+node scripts/kaito-models.mjs resolve <vendor-or-runner> <light|standard|hard|frontier>
+```
+
+- A vendor (`anthropic`, `openai`, `google`, `xai`, or the first word of an id such as `kimi`) looks across every agent CLI on the machine and prints one line: `<runner> <model-id>`.
+- A runner (`claude`, `codex`, `gemini`, `cursor-agent`, `opencode`, `copilot`, `ollama`) looks only there, and prints one line per vendor it reaches.
+- Newest is the highest version number in the id. At the same version a released model beats a preview. An alias such as `opus` counts as newest.
+- A line that starts with `host:` means nothing fits, and says why. Do the work on the host's model and tell the user that line.
+- Ids with no family word (Grok, most open-weight models, plain `gpt-5.5`) cannot be placed, so they are never picked. Use one only when the user names it.
+- `node scripts/kaito-models.mjs tier <model-id>` prints the tier of one id.
+
+If a run fails because the model is unavailable, out of quota or refused, run `node scripts/kaito-models.mjs fail <runner> <model-id>` and resolve again. That model is skipped on that runner for the rest of the day.
+
+The agent CLIs found are stored in `~/.kaito/agents.json`. Setup writes it, `./setup --upgrade` refreshes it, and it is found again when it is a day old. `node scripts/kaito-models.mjs detect` refreshes it now.
+
+Many runners expose effort as a suffix (`-low`, `-high`, `-xhigh`, `-max`). The resolver returns the plain or medium id. Within a tier, raise effort before raising the tier.
 
 ## Sizing the task
 
@@ -48,8 +65,8 @@ A route billed per token (OpenRouter, a direct API call, or a CLI running on an 
 
 ## Privacy
 
-- Skip any model whose listing says "NO ZDR" unless the user named it.
-- Skip free tiers that train on inputs (Gemini's free tier does) for private code unless the user named it.
+- Skip any model whose listing says "NO ZDR" unless the user named it. The resolver never picks one.
+- Skip free tiers that train on inputs (Gemini's free tier does) for private code unless the user named it. The resolver never picks an id marked `free`.
 - Send a delegate only the files the task needs.
 
 ## Fallback
