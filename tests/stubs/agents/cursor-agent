@@ -1,0 +1,20 @@
+#!/bin/sh
+# Stub: a slice of the real --list-models output.
+[ "${1:-}" = --list-models ] || exit 0
+cat <<'EOF'
+Available models
+
+auto - Auto (default)
+composer-2.5 - Composer 2.5
+claude-opus-5-thinking-high - Claude Opus 5 1M Thinking
+claude-opus-5-5-low - Claude Opus 5.5 1M Low
+claude-opus-5-5-medium - Claude Opus 5.5 1M
+claude-opus-5-5-high-fast - Claude Opus 5.5 1M High Fast
+claude-opus-4-8-high - Claude Opus 4.8 1M
+claude-fable-5-thinking-high - Claude Fable 5 1M Thinking (NO ZDR)
+gpt-5.6-sol-high - GPT-5.6 Sol 1M High
+gpt-5.6-luna-high - GPT-5.6 Luna 1M High
+gemini-4-argon-medium - Gemini 4 Argon  Medium
+gemini-3.1-pro - Gemini 3.1 Pro
+grok-4.7-high - Grok 4.7  High
+EOF

@@ -68,7 +68,7 @@ Most requests run in this session and need no model choice. Skip this step unles
 When you do delegate:
 
 1. Read [models.md](references/models.md) for the tiers and the rules on what stays in the main session.
-2. Run `scripts/models-available.sh` (add a word to filter, such as `gemini`) to see what this machine can reach.
+2. Run `node scripts/kaito-models.mjs resolve <vendor-or-runner> <tier>` for the newest model of that tier this machine can reach. A line starting `host:` means none: stay on the host's model and tell the user that line. `scripts/models-available.sh` (add a word to filter, such as `gemini`) lists everything.
 3. Read [runners.md](references/runners.md) for the exact command.
 
 Stay in the host by default. Use another vendor's CLI when the user asks for one, or when you judge it will do the job better: a different vendor for a review second opinion, a cheaper light tier for bulk work, or a tier the host lacks. If the user named a model that is not available, tell them. Do not swap it for another. Still name the skill route for the task itself, so the work can start as soon as they pick a model.
