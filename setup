@@ -621,7 +621,7 @@ setup_tasks() {
     return 0
   fi
   if ! tstep manager; then
-    m=$(ask_choice tasks_manager "Where do you keep tasks?" "trello|plane|obsidian|asana|jira|other|none" none)
+    m=$(ask_choice tasks_manager "Where do you keep tasks?" "trello|plane|linear|obsidian|asana|jira|other|none" none)
     tset tasks.manager "\"$m\""
     tmark manager
     if [ "$m" = none ]; then tset tasks.state '"skipped"'; return 0; fi
@@ -656,12 +656,12 @@ setup_tasks() {
   fi
   if ! tstep credentials; then
     case "$m" in
-      trello|plane)
-        [ "$m" = plane ] && tn=Plane || tn=Trello
+      trello|plane|linear)
+        case "$m" in plane) tn=Plane ;; linear) tn=Linear ;; *) tn=Trello ;; esac
         if [ -f "$TS" ] && KAITO_TASKS_MANAGER="$m" sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
         elif interactive && [ -f "$TS" ] && KAITO_TASKS_MANAGER="$m" sh "$TS" login && KAITO_TASKS_MANAGER="$m" sh "$TS" status 2>/dev/null | grep -q '^credentials: yes'; then tmark credentials
         else echo "tasks: $tn credentials are not set. Run this in your terminal, then re-run ./setup:"; echo "  sh $TS login"
-          [ "$m" != plane ] || echo "  Or add the Plane connector (MCP) to your agent; helpmekaito uses it when there is no key."
+          [ "$m" = trello ] || echo "  Or add the $tn connector (MCP) to your agent; helpmekaito uses it when there is no key."
         fi ;;
       asana|jira|other) echo "tasks: add the $m connector (MCP) to your agent so helpmekaito can use it."; tmark credentials ;;
       *) tmark credentials ;;
@@ -669,8 +669,9 @@ setup_tasks() {
   fi
   if ! tstep discovery; then
     case "$m" in trello) tn=Trello; tb=boards; tw="lists, labels, custom fields, member ids and usernames, all IDs, a summary of card style; no card contents" ;;
-      plane) tn=Plane; tb=projects; tw="states, modules, labels, member ids and names, all IDs, a summary of work item style; no work item contents" ;; esac
-    if [ "$m" != trello ] && [ "$m" != plane ]; then tmark discovery
+      plane) tn=Plane; tb=projects; tw="states, modules, labels, member ids and names, all IDs, a summary of work item style; no work item contents" ;;
+      linear) tn=Linear; tb=teams; tw="states, projects, labels, member ids and names, all IDs, a summary of issue style; no issue contents" ;; esac
+    if [ "$m" != trello ] && [ "$m" != plane ] && [ "$m" != linear ]; then tmark discovery
     elif tstep credentials && [ -f "$TS" ]; then
       bl=$(KAITO_TASKS_MANAGER="$m" sh "$TS" boards 2>/dev/null) || bl=""
       if [ -z "$bl" ]; then

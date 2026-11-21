@@ -5,7 +5,7 @@ J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 # Temp repo with a tiny fake gstack/ (the real one is built by hand, see the task report).
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
   mkdir -p "$R/gstack/node_modules"
   echo 'name: gstack' > "$R/gstack/SKILL.md"
   printf 'node_modules/\ndist/\n!lib/diagram-render/dist/\n' > "$R/gstack/.gitignore"

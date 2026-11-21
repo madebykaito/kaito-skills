@@ -21,7 +21,7 @@ Offer it in one line and wait for a yes, whatever the project's `tracking` setti
 1. Search first so nothing is filed twice: `gh issue list --search "<key words>" --state all`.
 2. Draft the title and body to [task-writing.md](task-writing.md), using the repo's issue form headings if `.github/ISSUE_TEMPLATE` has one. Put the tracker ticket's key and link in the body. Show the draft.
 3. On yes: `gh issue create --title "<title>" --body-file <file>`; add `--label` only with labels that exist.
-4. Link both ways. For a Trello, Plane or Obsidian ticket: `kaito-tasks.sh --tracker <manager> link <task> <issue-url> "GitHub issue #<n>"`, naming the tracker the ticket lives in, because a project can have more than one. For Jira, Asana or another tracker reached through its MCP, add the issue URL with that MCP as a link on the ticket (a comment if it has no link field); the script does not write to those.
+4. Link both ways. For a Trello, Plane, Linear or Obsidian ticket: `kaito-tasks.sh --tracker <manager> link <task> <issue-url> "GitHub issue #<n>"`, naming the tracker the ticket lives in, because a project can have more than one. For Jira, Asana or another tracker reached through its MCP, add the issue URL with that MCP as a link on the ticket (a comment if it has no link field); the script does not write to those.
 5. Parts that will be separate pull requests can be sub-issues, if the user wants them on GitHub as well as in the tracker. Otherwise the tracker's sub-tickets are enough; do not keep two copies of the breakdown.
 6. Each pull request says `Closes #<n>` (or `Refs #<n>` when it is one of several), and the tracker ticket gets a one-line comment with the PR link.
 

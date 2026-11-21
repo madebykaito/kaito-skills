@@ -5,7 +5,7 @@ J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 # Copy the repo to a temp dir so setup never touches the real checkout.
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
 }
 run_setup() {
   "$R/setup" --yes --no-gstack --no-codegraph "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
@@ -310,6 +310,15 @@ test_tasks_plane_no_credentials_names_login_and_mcp() {
   assert_eq "$(cfg tasks.state)" '"pending"' pending
   grep -q "Plane credentials are not set" "$HOME/out" || { cat "$HOME/out"; exit 1; }
   grep -q "Plane connector (MCP)" "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  ! grep -qx 'login' "$HOME/calls" || exit 1
+}
+
+test_tasks_linear_no_credentials_names_login_and_mcp() {
+  mk_home; mk_repo; stub_tasks
+  KAITO_ANSWERS=tasks_manager=linear run_setup
+  assert_eq "$(cfg tasks.state)" '"pending"' pending
+  grep -q "Linear credentials are not set" "$HOME/out" || { cat "$HOME/out"; exit 1; }
+  grep -q "Linear connector (MCP)" "$HOME/out" || { cat "$HOME/out"; exit 1; }
   ! grep -qx 'login' "$HOME/calls" || exit 1
 }
 

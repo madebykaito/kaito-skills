@@ -7,7 +7,7 @@ g() { git -c user.name=t -c user.email=t@example.test -c init.defaultBranch=main
 mk_install() {
   mk_home
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
   V=${1:-1.4.0}
   echo "$V" > "$R/VERSION"
   O="$(mktemp -d)/origin.git"

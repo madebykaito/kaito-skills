@@ -1,12 +1,13 @@
 #!/bin/sh
-# Tasks for the current project. Trello and Plane: the board (Plane: project or module) is the truth,
+# Tasks for the current project. Trello, Plane and Linear: the board (Plane: project or module; Linear: team or project) is the truth,
 # tasks/<manager>/<slug>/ is a read cache. Obsidian: one note per task under tasks/<slug>/, no remote.
 # Other managers go through their MCP.
 # A project can have several trackers (lines in its memory file); --tracker <manager> picks one, else the first scripted one.
 # Usage: kaito-tasks.sh [--tracker <manager>] <command>
 #   detect | tracker list|add <manager> <id> [name] [key=value...]|set <manager> key=value...|rm <manager> | tracking never|ask
-#   status | login | boards | modules <projectId> | consent yes|no <boardId>... | discover
-#   map <boardId> (Plane: <projectId>[/<moduleId>]) | pull | list | structure put plane (JSON on stdin)
+#   status | login | boards | modules <projectId> | projects <teamId> | consent yes|no <boardId>... | discover
+#   map <boardId> (Plane: <projectId>[/<moduleId>], Linear: <teamId>[/<projectId>]) | pull | list
+#   structure put plane|linear (JSON on stdin)
 #   add "<title>" [--list <name|id>] [--due <iso>] [--desc <text>] | item add <task> "<text>"
 #   check|uncheck <task> <item> | rename <task> "<title>" | move <task> <list|status>
 #   comment <task> "<text>" | link <task> <url> ["<title>"] | done <task> | reopen <task>
@@ -15,7 +16,7 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd -P)
 K="${KAITO_HOME:-$HOME/.kaito}"
 CFG="$K/config.json"
-USAGE="usage: kaito-tasks.sh [--tracker <manager>] detect|tracker|tracking|status|login|boards|modules|consent|discover|map|pull|list|structure put|add|item add|check|uncheck|rename|move|comment|link|done|reopen"
+USAGE="usage: kaito-tasks.sh [--tracker <manager>] detect|tracker|tracking|status|login|boards|modules|projects|consent|discover|map|pull|list|structure put|add|item add|check|uncheck|rename|move|comment|link|done|reopen"
 cfg() { node "$here/kaito-json.mjs" get "$CFG" "$1" 2>/dev/null | sed 's/^"\(.*\)"$/\1/'; }
 die() { echo "kaito-tasks: $*" >&2; exit 1; }
 
@@ -74,34 +75,50 @@ esac
 
 # The project's tracker lines pick the manager; tasks.manager in config is only the default.
 # KAITO_TASKS_MANAGER is for setup: it onboards one manager for the machine, whatever tracker the folder it runs in has.
-forced=""
-if [ -z "$want" ]; then case "${KAITO_TASKS_MANAGER:-}" in trello|plane|obsidian) forced=$KAITO_TASKS_MANAGER; want=$forced ;; esac; fi
+# --tracker <manager> on a project without that tracker yet does the same for the commands that set one up,
+# so a second tracker can be added on a machine whose default manager is another one.
+setup_cmd() { case "$cmd" in status|login|boards|modules|projects|consent|discover|map) return 0 ;; esac; return 1; }
+forced=""; boot=""
+if [ -z "$want" ]; then case "${KAITO_TASKS_MANAGER:-}" in trello|plane|linear|obsidian) forced=$KAITO_TASKS_MANAGER; want=$forced ;; esac
+else case "$want" in trello|plane|linear)
+  if setup_cmd && ! node "$TK" "$pf" select "$want" >/dev/null 2>&1; then forced=$want; boot=1; fi ;; esac
+fi
 sel=$(node "$TK" "$pf" select "$want" 2>/dev/null) || { [ -n "$forced" ] || { node "$TK" "$pf" select "$want" >/dev/null; exit 1; }; sel=""; }
 tm=$(printf '%s\n' "$sel" | sed -n 1p); B=$(printf '%s\n' "$sel" | sed -n 2p)
 TRK=$(printf '%s\n' "$sel" | sed -n 3p); scripted=$(printf '%s\n' "$sel" | sed -n 4p)
+# A tracker only its MCP can drive (a Linear line keyed by team key) goes to the MCP, unless it is being set up again.
+if [ "$(printf '%s\n' "$sel" | sed -n 5p)" = mcp ] && [ -z "$forced" ]; then
+  setup_cmd || { echo "use the $tm MCP; see references/tasks.md"; exit 0; }
+  forced=$tm; boot=1
+fi
 [ -z "$tm" ] || mgr=$tm
-if [ -n "$forced" ]; then mgr=$forced; TRK=""; want=""; fi
+if [ -n "$forced" ]; then
+  mgr=$forced; TRK=""; want=""
+  # A project set to tracking: never stays off while a new tracker is set up: discover and map refuse.
+  if [ -n "$boot" ] && grep -q -E '^(tracking: never|board: none)[[:space:]]*$' "$pf" 2>/dev/null; then TRK=never; PNEVER=1; fi
+fi
 case "$mgr" in
-  trello|plane|obsidian) ;;
-  "") [ "$cmd" = status ] || die "no task manager set: run setup"
+  trello|plane|linear|obsidian) ;;
+  ""|none) [ "$cmd" = status ] || die "no task manager set: run setup"
       echo "manager: none"; echo "onboarding: $(cfg tasks.state || :)"; exit 0 ;;
   *) echo "use the $mgr MCP; see references/tasks.md"; exit 0 ;;
 esac
 [ "$B" != - ] || B=""
 
 # A remote cache and Obsidian notes never share a folder, so a pull cannot delete notes.
-case "$mgr" in trello|plane) D="$M/tasks/$mgr/$S" ;; *) D="$M/tasks/$S" ;; esac
-board=$(grep '^board: ' "$pf" 2>/dev/null | head -n1) || board=""
+case "$mgr" in trello|plane|linear) D="$M/tasks/$mgr/$S" ;; *) D="$M/tasks/$S" ;; esac
+board=$(grep "^board: $mgr " "$pf" 2>/dev/null | head -n1) || board=""
 # Tracking off (for this tracker, or for the whole project) means no reads and no writes.
 off() {
   [ "$TRK" = never ] || return 1
-  echo "tracking is off for this project${tm:+ on $tm}; turn it on with: kaito-tasks.sh tracker set <manager> tracking=always"
+  if [ -n "${PNEVER:-}" ]; then echo "tracking is off for this project; turn it on with: kaito-tasks.sh tracking ask"
+  else echo "tracking is off for this project${tm:+ on $tm}; turn it on with: kaito-tasks.sh tracker set <manager> tracking=always"; fi
 }
 export M S D B MGR="$mgr"
 # Discovery consent is kept per manager, so answering for one never drops the other's boards. Trello keeps the first key.
 DK=tasks.discovery; [ "$mgr" = trello ] || DK="tasks.discovery_$mgr"
 
-# Credentials: env, else ~/.kaito/.env (Trello also ~/.config/trello/.env). All values of one manager from one source, read as data.
+# Credentials: env, else ~/.kaito/.env (Trello also ~/.config/trello/.env, Linear ~/.config/linear/.env). All values of one manager from one source, read as data.
 envval() { sed -n "s/^\(export \)\{0,1\}$1=//p" "$2" 2>/dev/null | head -n1 | tr -d '\r' | sed "s/^\"\(.*\)\"\$/\1/; s/^'\(.*\)'\$/\1/"; }
 creds_trello() {
   if [ -n "${TRELLO_KEY:-}" ] && [ -n "${TRELLO_TOKEN:-}" ]; then
@@ -123,17 +140,35 @@ creds_plane() {
   if [ -n "$KAITO_PLANE_KEY" ] && [ -n "$KAITO_PLANE_WORKSPACE" ]; then SRC="$K/.env"; return 0; fi
   KAITO_PLANE_KEY=""; KAITO_PLANE_WORKSPACE=""; KAITO_PLANE_BASE=""; return 1
 }
-creds() { "creds_$mgr"; }
-need_creds() {
-  if [ "$mgr" = plane ]; then
-    creds || die "no Plane credentials: run 'sh $here/kaito-tasks.sh login' in a terminal, or use the Plane MCP (references/tasks.md)"
-    export KAITO_PLANE_KEY KAITO_PLANE_WORKSPACE KAITO_PLANE_BASE  # node gets them from env, never argv
-  else
-    creds || die "no Trello credentials: run 'sh $here/kaito-tasks.sh login' in a terminal"
-    export KAITO_TRELLO_KEY KAITO_TRELLO_TOKEN
-  fi
+# Linear: LINEAR_API_KEY, a personal API key.
+creds_linear() {
+  if [ -n "${LINEAR_API_KEY:-}" ]; then KAITO_LINEAR_KEY=$LINEAR_API_KEY; SRC=env; return 0; fi
+  for f in "$K/.env" "$HOME/.config/linear/.env"; do
+    KAITO_LINEAR_KEY=$(envval LINEAR_API_KEY "$f")
+    if [ -n "$KAITO_LINEAR_KEY" ]; then SRC=$f; return 0; fi
+  done
+  KAITO_LINEAR_KEY=""; return 1
 }
-remote() { case "$mgr" in trello|plane) return 0 ;; esac; return 1; }
+creds() { "creds_$mgr"; }
+# node gets credentials from env, never argv
+need_creds() {
+  case "$mgr" in
+    plane) creds || die "no Plane credentials: run 'sh $here/kaito-tasks.sh login' in a terminal, or use the Plane MCP (references/tasks.md)"
+           export KAITO_PLANE_KEY KAITO_PLANE_WORKSPACE KAITO_PLANE_BASE ;;
+    linear) creds || die "no Linear credentials: run 'sh $here/kaito-tasks.sh login' in a terminal, or use the Linear MCP (references/tasks.md)"
+            export KAITO_LINEAR_KEY ;;
+    *) creds || die "no Trello credentials: run 'sh $here/kaito-tasks.sh login' in a terminal"
+       export KAITO_TRELLO_KEY KAITO_TRELLO_TOKEN ;;
+  esac
+}
+remote() { case "$mgr" in trello|plane|linear) return 0 ;; esac; return 1; }
+# Before a secret prompt: echo off, and back on however the script ends.
+noecho() {
+  old=$(stty -g)
+  trap 'stty "$old" 2>/dev/null || :' EXIT
+  trap 'stty "$old" 2>/dev/null || :; exit 130' INT TERM
+  stty -echo
+}
 need_board() { [ -n "$B" ] || die "no board mapped for this project: run kaito-tasks.sh boards, then map <boardId>"; }
 
 # The node side lives in kaito-tasks.mjs and providers/<manager>.mjs.
@@ -153,7 +188,7 @@ case "$cmd" in
     s=$(cfg tasks.state); echo "onboarding: ${s:-pending}"
     ;;
   login)
-    remote || die "login is for Trello and Plane; the manager is $mgr"
+    remote || die "login is for Trello, Plane and Linear; the manager is $mgr"
     [ -t 0 ] && [ -t 1 ] || die "login reads secrets, so run it in a terminal: sh $here/kaito-tasks.sh login"
     if [ "$mgr" = plane ]; then
       cat <<EOF
@@ -166,10 +201,7 @@ The Plane MCP is optional and separate: without a key helpmekaito can use it ins
 EOF
       printf "Workspace slug: "; IFS= read -r ws || ws=""
       printf "Plane URL, only if self-hosted (Enter for Plane Cloud): "; IFS= read -r burl || burl=""
-      old=$(stty -g)
-      trap 'stty "$old" 2>/dev/null || :' EXIT
-      trap 'stty "$old" 2>/dev/null || :; exit 130' INT TERM
-      stty -echo
+      noecho
       printf "Plane API key: "; IFS= read -r key || key=""; echo
       stty "$old"
       case "$ws" in ""|*[!A-Za-z0-9_-]*) die "that does not look like a workspace slug; nothing saved" ;; esac
@@ -189,6 +221,30 @@ EOF
       echo "saved Plane credentials for $u (workspace $ws) to $K/.env"
       exit 0
     fi
+    if [ "$mgr" = linear ]; then
+      cat <<EOF
+Linear needs a personal API key.
+  In Linear open Settings, Security & access, Personal API keys (https://linear.app/settings/account/security),
+  create a key and copy it.
+It is saved to $K/.env (mode 600). The key is not echoed.
+The Linear MCP is optional and separate: without a key helpmekaito can use it instead (see references/tasks.md).
+
+EOF
+      noecho
+      printf "Linear API key: "; IFS= read -r key || key=""; echo
+      stty "$old"
+      case "$key" in ""|*[!A-Za-z0-9_]*) die "that does not look like a Linear API key; nothing saved" ;; esac
+      u=$(KAITO_LINEAR_KEY=$key J me 2>/dev/null) || die "Linear did not accept that key; nothing saved"
+      (
+        umask 077; mkdir -p "$K"; t="$K/.env.$$.tmp"
+        { grep -v -E '^(export )?LINEAR_API_KEY=' "$K/.env" 2>/dev/null || :
+          printf 'LINEAR_API_KEY=%s\n' "$key"; } > "$t"
+        chmod 600 "$t"; mv "$t" "$K/.env"
+      )
+      node "$here/kaito-json.mjs" set "$CFG" tasks.steps.credentials true
+      echo "saved Linear credentials for $u to $K/.env"
+      exit 0
+    fi
     cat <<EOF
 Trello needs an API key and a token.
   1. Open https://trello.com/power-ups/admin and make a new Power-Up (any name, any workspace).
@@ -198,10 +254,7 @@ They are saved to $K/.env (mode 600). Nothing is echoed.
 The Trello MCP is optional and separate: add it from your agent's MCP or connector settings (see references/tasks.md).
 
 EOF
-    old=$(stty -g)
-    trap 'stty "$old" 2>/dev/null || :' EXIT
-    trap 'stty "$old" 2>/dev/null || :; exit 130' INT TERM
-    stty -echo
+    noecho
     printf "Trello API key: "; IFS= read -r key || key=""; echo
     printf "Trello token: "; IFS= read -r tok || tok=""; echo
     stty "$old"
@@ -217,14 +270,18 @@ EOF
     node "$here/kaito-json.mjs" set "$CFG" tasks.steps.credentials true
     echo "saved Trello credentials for $u to $K/.env"
     ;;
-  boards) remote || die "boards is for Trello and Plane"; need_creds; J boards ;;
+  boards) remote || die "boards is for Trello, Plane and Linear"; need_creds; J boards ;;
   modules)
     [ "$mgr" = plane ] || die "modules is for Plane"
     id=${2:-}; case "$id" in ""|*[!A-Za-z0-9-]*) die "usage: kaito-tasks.sh modules <projectId>" ;; esac
     need_creds; J modules "$id" ;;
+  projects)
+    [ "$mgr" = linear ] || die "projects is for Linear"
+    id=${2:-}; case "$id" in ""|*[!A-Za-z0-9-]*) die "usage: kaito-tasks.sh projects <teamId>" ;; esac
+    need_creds; J projects "$id" ;;
   structure)
-    [ "${2:-}" = put ] && [ "${3:-}" = plane ] || die "usage: kaito-tasks.sh structure put plane  (JSON on stdin)"
-    [ "$mgr" = plane ] || die "structure put is for Plane; the manager is $mgr"
+    case "${2:-}:${3:-}" in put:plane|put:linear) ;; *) die "usage: kaito-tasks.sh structure put plane|linear  (JSON on stdin)" ;; esac
+    [ "$mgr" = "$3" ] || die "structure put $3 is for the $3 manager; the manager is $mgr"
     if off; then exit 0; fi
     J structure-put ;;
   consent)
@@ -240,7 +297,7 @@ EOF
     echo "discovery consent: $a${list:+ for $*}"
     ;;
   discover)
-    remote || die "discover is for Trello and Plane"
+    remote || die "discover is for Trello, Plane and Linear"
     if off; then exit 0; fi
     [ "$(cfg "$DK.consent")" = yes ] || die "no discovery consent: ask first, then run kaito-tasks.sh consent yes <boardId>..."
     bs=$(node "$here/kaito-json.mjs" each "$CFG" "$DK.boards")
@@ -251,14 +308,25 @@ EOF
     node "$here/kaito-json.mjs" set "$CFG" tasks.steps.discovery true
     ;;
   map)
-    remote || die "map is for Trello and Plane"
+    remote || die "map is for Trello, Plane and Linear"
+    if [ -n "$boot" ] && off; then exit 0; fi
     id=${2:-}
-    if [ "$mgr" = plane ]; then case "$id" in ""|*[!A-Za-z0-9/-]*|*/*/*|/*|*/) die "usage: kaito-tasks.sh map <projectId>[/<moduleId>]" ;; esac
+    if [ "$mgr" != trello ]; then
+      u="<teamId>[/<projectId>]"; [ "$mgr" = linear ] || u="<projectId>[/<moduleId>]"
+      case "$id" in ""|*[!A-Za-z0-9/-]*|*/*/*|/*|*/) die "usage: kaito-tasks.sh map $u" ;; esac
     else case "$id" in ""|*[!A-Za-z0-9]*) die "usage: kaito-tasks.sh map <boardId>" ;; esac; fi
     need_creds
     name=$(J board-name "$id")  # fetched before the lock: never hold it across a network call
-    # A project already on tracker lines keeps them: map updates that manager's line and its settings stay.
-    if grep -q '^tracker: ' "$pf" 2>/dev/null; then tk_write add "$mgr" "$id" "$name"; exit 0; fi
+    old=$(node "$TK" "$pf" select "$mgr" 2>/dev/null | sed -n 2p) || old=""
+    # Linear trusts its cache (a cached issue skips the team and project checks), so a new id drops the old cache.
+    # Conflict copies stay: they hold the user's own edits.
+    drop_cache() {
+      [ "$mgr" = linear ] && [ "$old" != "$id" ] && [ -d "$D" ] || return 0
+      find "$D" -mindepth 1 -maxdepth 1 ! -name conflicts -exec rm -rf {} +
+    }
+    # A project already on tracker lines, or on an old board line of another manager, keeps them:
+    # map updates this manager's line and every other tracker and setting stays.
+    if grep -q '^tracker: ' "$pf" 2>/dev/null || grep '^board: ' "$pf" 2>/dev/null | grep -q -v -e "^board: $mgr " -e '^board: none'; then tk_write add "$mgr" "$id" "$name"; drop_cache; exit 0; fi
     (
       mkdir -p "$M/projects"; mlock
       [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
@@ -266,6 +334,7 @@ EOF
       mv "$pf.$$.tmp" "$pf"
     ) || die "could not write $pf"
     if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$S.md" >/dev/null 2>&1 || :; fi
+    drop_cache
     echo "board: $mgr $id $name"
     ;;
   pull)

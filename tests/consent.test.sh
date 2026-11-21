@@ -5,7 +5,7 @@ NUDGE='For design, motion, copy, SEO, video, media, research or code-quality wor
 
 mk_repo() {
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$@" "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$@" "$REPO" "$R"
 }
 run_setup() { "$R/setup" --yes --no-gstack --no-codegraph "$@" > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }; }
 S() { echo "$HOME/.claude/settings.json"; }
