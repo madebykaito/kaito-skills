@@ -4,6 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- `kaito-tasks.sh` is executable. It was the one helper script without the exec bit, so running it by path, as `SKILL.md` does, failed with "permission denied".
+- Plane: a write that succeeded always ends with `remote ok (<id>), local refresh failed: run pull` when the local refresh fails, a busy tasks folder included. Before, it could exit with an error and invite a second create.
+- Plane: a sub-item of a sub-item is no longer missing from the cache. It gets its own file when its parent has none.
+
 ## [1.6.0] - 2026-11-21
 
 ### Added
