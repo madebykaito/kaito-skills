@@ -4,9 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-22
+
 ### Fixed
 
-- Routed helpmekaito tasks now check for durable learnings at closeout. Automatic capture verifies the Markdown write, keeps retries from duplicating a lesson, and reports blocked saves. Memory and tracker writers share a lock that protects live writes.
+- Routed helpmekaito tasks now check for durable learnings at closeout. Automatic capture verifies the Markdown write, keeps retries from duplicating a lesson, and reports blocked saves. Memory and tracker writers share a lock that protects live writes. `note`, `learn`, `set` and `forget` report a busy lock instead of read-only.
 
 ## [1.6.1] - 2026-11-21
 
@@ -168,7 +170,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/madebykaito/kaito-skills/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/madebykaito/kaito-skills/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/madebykaito/kaito-skills/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...v1.5.1
