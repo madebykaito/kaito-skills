@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-21
+
 ### Added
 
 - Linear as a scripted tracker, a twin of Plane. `kaito-tasks.sh login` stores a personal API key in `~/.kaito/.env`; `boards` lists teams, `projects <teamId>` lists a team's open projects, and `map <teamId>[/<projectId>]` tracks a team or one project. Issues are read and written by identifier (`KAI-27`), a checklist item is a sub-issue, and `link` adds a URL attachment. Structure is kept in `managers/linear.json`. Without a key the Linear connector is the fallback, and `detect` finds issue keys in branches and commits and Linear links in repo docs.
@@ -154,7 +156,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/madebykaito/kaito-skills/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/madebykaito/kaito-skills/compare/v1.3.0...v1.4.0
