@@ -301,7 +301,7 @@ For long, source-heavy research projects. From research-superpowers.
 - `shaders-cursor-ripples` needs a paid package.
 - `minimal-zine-poster` needs a Gemini API key. Without it you get a prompt, not an image.
 - Node and npm are required for `./setup`.
-- Windows: setup runs in Git Bash (`setup.ps1` starts it). A user folder with a space in its name is not supported; use WSL. gstack tools are blocked by Smart App Control.
+- Windows: not tested by CI; reports and fixes are welcome. Setup runs in Git Bash (`setup.ps1` starts it). A user folder with a space in its name is not supported; use WSL. gstack tools are blocked by Smart App Control.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
