@@ -429,3 +429,9 @@ test_link_attaches_a_url_trello_and_obsidian() {
   sh "$T" link "$t" https://example.test/doc "Design [v2]" >/dev/null || { echo "  obsidian link failed"; exit 1; }
   grep -rqx 'Link: \[Design v2\](https://example.test/doc)' "$(cache)" || { cat "$(cache)"/*.md; exit 1; }
 }
+
+test_every_helper_script_is_executable() {
+  # SKILL.md runs these by path, so a script without the exec bit fails with "permission denied"
+  skip_on_win "no exec bit" && return 0
+  for f in "$REPO"/helpmekaito/scripts/*.sh; do [ -x "$f" ] || { echo "  not executable: $f"; exit 1; }; done
+}

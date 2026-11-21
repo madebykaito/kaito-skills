@@ -305,3 +305,20 @@ test_link_twice_says_already_linked() {
   sh "$T" link ALL-4 "" >/dev/null 2>&1 && { echo "  empty url accepted"; exit 1; }
   :
 }
+
+test_failed_refresh_after_a_write_still_reports_remote_ok() {
+  home; sh "$T" map "$P1" >/dev/null; sh "$T" pull >/dev/null || exit 1
+  # a lock that cannot be taken over (a file, not a dir) makes the local step die after its wait
+  L="$MEM/tasks/.$sl.lock"; rm -rf "$L"; : > "$L"
+  out=$(sh "$T" add "Once only" 2>"$HOME/err") || { echo "  exit 1 after a remote write"; cat "$HOME/err"; exit 1; }
+  assert_eq "$out" "remote ok (ALL-7), local refresh failed: run pull" msg
+  assert_eq "$(count POST "$W/work-items/")" 1 "created once"
+}
+
+test_sub_item_of_a_sub_item_is_listed() {
+  home; sh "$T" map "$P1" >/dev/null || exit 1
+  sh "$T" item add ALL-2 "Deep one" >/dev/null || exit 1
+  assert_eq "$(sh "$T" pull)" "pulled 4 work items" "ALL-7 stands alone"
+  has "$(sh "$T" list)" "ALL-7 To Do Deep one"
+  grep -q -- 'id:ALL-2 -->' "$CACHE/ALL-1-add-plane-support.md" || { echo "  child lost"; exit 1; }
+}

@@ -1,6 +1,6 @@
 // Plane: the project (or one module of it) is the truth, tasks/plane/<slug>/ is a read cache.
 // B is "<projectId>" or "<projectId>/<moduleId>". A list is a state, a checklist item is a sub work item.
-import { readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, readdirSync, existsSync, utimesSync, copyFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, writeSync, mkdirSync, renameSync, rmSync, readdirSync, existsSync, utimesSync, copyFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { plane, all, base, redact } from '../kaito-plane.mjs';
 import { M, D, B, S, die, one, fm, slug, inside, taskFiles, writeIndex, locked, keepEdit, itemId, opts, httpUrl } from './lib.mjs';
@@ -82,8 +82,18 @@ async function pull() {
   const group = (w) => st.find((s) => s.id === sid(w))?.group || '';
   const byId = new Map(items.map((w) => [w.id, w]));
   const shown = (w) => !w.archived_at && !w.is_draft && !CLOSED.includes(group(w)) && (!scope || scope.has(w.id));
-  // A sub-item sits under its parent only when the parent is itself listed; under a closed or out-of-scope parent it stands alone.
-  const top = items.filter((w) => shown(w) && !(pid(w) && byId.has(pid(w)) && shown(byId.get(pid(w)))));
+  // A sub-item sits under its parent only when the parent has a file of its own; under a closed, out-of-scope
+  // or nested parent (a sub-item's sub-item) it stands alone, so every open item is in some file.
+  const isTop = new Map();
+  const topOf = (w, seen = new Set()) => {
+    if (!isTop.has(w.id)) {
+      const p = pid(w) && byId.get(pid(w));
+      seen.add(w.id);
+      isTop.set(w.id, !p || !shown(p) || seen.has(p.id) || !topOf(p, seen));
+    }
+    return isTop.get(w.id);
+  };
+  const top = items.filter((w) => shown(w) && topOf(w));
   const at = new Date().toISOString(), labels = labelNames();
   const tmp = join(dirname(D), `.${S}.new.${process.pid}`);
   try {
@@ -217,7 +227,13 @@ async function op(op, a) {
       await plane('PATCH', path, { state: todoState(await st()).id });
     } else die(`unknown command ${op}`);
   }
-  try { await refresh(r, change); } catch { console.log(`remote ok (${r.short}), local refresh failed: run pull`); return; }
+  // The remote write is done: from here any failure, a die() in the lock or the fetch included, still reports it,
+  // so nobody retries a write that already happened.
+  const said = `remote ok (${r.short}), local refresh failed: run pull\n`;
+  const guard = (code) => { if (code) { writeSync(1, said); process.exitCode = 0; } };
+  process.on('exit', guard);
+  try { await refresh(r, change); } catch { process.off('exit', guard); writeSync(1, said); return; }
+  process.off('exit', guard);
   console.log(op === 'add' ? `added ${r.short} ${title}` : `ok ${r.short}`);
 }
 
