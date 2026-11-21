@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-21
+
 ### Fixed
 
 - `kaito-tasks.sh` is executable. It was the one helper script without the exec bit, so running it by path, as `SKILL.md` does, failed with "permission denied".
@@ -162,7 +164,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/madebykaito/kaito-skills/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/madebykaito/kaito-skills/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/madebykaito/kaito-skills/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/madebykaito/kaito-skills/compare/v1.4.0...v1.5.0
