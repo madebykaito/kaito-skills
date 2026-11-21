@@ -34,21 +34,23 @@ S=$(sh "$here/kaito-codegraph.sh" slug "$p")
 pf="$M/projects/$S.md"
 TK="$here/kaito-trackers.mjs"
 
-# One memory writer at a time, same lock as kaito-mem.sh. ponytail: a lock left by a killed run is taken over after 2s.
+. "$here/kaito-memory-lock.sh"
+
 mlock() {
-  [ -w "$M" ] || return 1
-  i=0; until mkdir "$M/.lock" 2>/dev/null; do
-    i=$((i + 1))
-    if [ "$i" -eq 20 ]; then rmdir "$M/.lock" 2>/dev/null || :; fi
-    [ "$i" -le 21 ] || return 1
-    sleep 0.1
-  done
-  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT
+  rc=0
+  memory_lock "$M" || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    73) die "memory is read-only here" ;;
+    74) die "memory is busy; try again after the other write finishes" ;;
+    *) die "could not lock memory" ;;
+  esac
 }
 # tk_write <kaito-trackers args>: change the project's tracker lines under the lock, then mirror the file.
 tk_write() {
   out=$(
-    mkdir -p "$M/projects"; mlock || { echo "kaito-tasks: memory is read-only here" >&2; exit 1; }
+    mkdir -p "$M/projects" || die "could not open memory"
+    mlock
     [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
     node "$TK" "$pf" "$@"
   ) || exit 1
@@ -328,7 +330,8 @@ EOF
     # map updates this manager's line and every other tracker and setting stays.
     if grep -q '^tracker: ' "$pf" 2>/dev/null || grep '^board: ' "$pf" 2>/dev/null | grep -q -v -e "^board: $mgr " -e '^board: none'; then tk_write add "$mgr" "$id" "$name"; drop_cache; exit 0; fi
     (
-      mkdir -p "$M/projects"; mlock
+      mkdir -p "$M/projects" || die "could not open memory"
+      mlock
       [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
       { grep -v -e '^board:' -e '^tracking: never' "$pf" 2>/dev/null || :; echo "board: $mgr $id $name"; } > "$pf.$$.tmp"
       mv "$pf.$$.tmp" "$pf"

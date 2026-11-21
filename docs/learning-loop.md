@@ -25,9 +25,13 @@ A promoted learning becomes a `rule: <text>` line in the same file. The files ar
 
 ## Capture
 
-The agent runs `kaito-mem.sh learn <kind> "<text>" [global]` as it works: when you correct it, when you state a preference, when you confirm an approach that was not the obvious one, when a route or model fails, and when it finds an unwritten convention. `helpmekaito/references/learning.md` holds the exact rules, including what not to capture: one-off task state, secrets, and anything the repo already records.
+Every routed task ends with a durable-learning assessment. When it finds one eligible item, the agent sends it to `kaito-mem.sh capture <kind>` on standard input. The writer reports whether the canonical Markdown record was saved or already contains the normalized learning. The closeout reports failed persistence honestly. A task with no eligible item completes quietly.
 
-Capturing a text that is already there, compared without case, punctuation or spacing, raises its count and sets its date to today. It does not add a line. `+`, `#` and a dot inside a word are kept in the comparison, so `C++`, `C#` and `Node.js` stay apart. The count is how often a learning was confirmed.
+Project scope is the default. Global scope requires the user to say that a correction or preference applies across projects. The writer does not store one-off task progress, secrets, code, diffs, or unverified deductions. `helpmekaito/references/learning.md` defines the exact capture rules.
+
+`learn` remains for explicit or separately confirmed learning. Repeating it raises the count and date as before. Automatic closeout retries do not add another confirmation. `+`, `#` and a dot inside a word are kept in comparison, so `C++`, `C#` and `Node.js` stay apart.
+
+If capture reports that memory is read-only, check write access from the running host. On a fresh Codex CLI session, `--add-dir` can grant access to the configured memory directory under the workspace-write sandbox. A busy writer releases its lock when it exits normally. After a force-quit or power loss, remove the `.lock` directory in the memory store only after confirming that no writer is active. The lock coordinates sessions on one machine.
 
 Text that looks like a secret is refused: `token: x`, `password is x`, bearer tokens, common key prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA`, `xox?-`), PEM blocks, JWTs, and any run of 32 or more characters that mixes letters and digits. That last rule also refuses a full commit hash. The check is a net, not a guarantee.
 
@@ -72,7 +76,7 @@ A falling row means you correct the agent less. A repeated correction counts eac
 
 ## Left for later
 
-- Capture depends on the agent following its instructions. There is no hook that detects a correction, so the count can be low for the wrong reason.
+- Capture depends on the routed closeout protocol. A future optional host hook may detect a skipped closeout when the host can identify the active routed task reliably.
 - No check that a shown learning was actually used, and no count of tasks, so corrections are not yet a rate per task.
 - Only the top ten by count and date are loaded. They are not matched to the task at hand.
 - Duplicate detection is word overlap. It misses the same idea in different words and does not see two learnings that contradict each other.

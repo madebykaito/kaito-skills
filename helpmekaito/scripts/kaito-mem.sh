@@ -3,6 +3,7 @@
 # Usage: kaito-mem.sh dir | where | note global|project "<text>" | codegraph-decision yes|no
 #        | set board|brief_fp "<value>" | local-skills (name<TAB>path<TAB>desc lines on stdin)
 #        | learn correction|preference|worked|failed|convention "<text>" [global]
+#        | capture correction|preference|worked|failed|convention [global] (one lesson on stdin)
 #        | forget "<text>" [global|project] | promote "<text>" [global|project] | curate | stats      (see references/learning.md)
 set -eu
 here=$(dirname "$0")
@@ -11,6 +12,7 @@ K="${KAITO_HOME:-$HOME/.kaito}"
 M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
 case "$M" in "~") M=$HOME ;; "~/"*) M="$HOME/${M#"~/"}" ;; "") M="$K/memory" ;; esac
 RO="memory is read-only here; to allow Codex writes run setup and answer yes to codexwrite"
+. "$here/kaito-memory-lock.sh"
 
 g=1; p=$(git rev-parse --show-toplevel 2>/dev/null) || { g=0; p=$(pwd); }
 p=$(cd "$p" && pwd -P)
@@ -24,18 +26,6 @@ mirror() {  # best effort, never changes our exit code; a real failure is shown,
     case "$o" in ""|*"skipped: disabled"|*"skipped: memory is inside the vault") ;; *) echo "$o" >&2 ;; esac
   done
 }
-# One writer at a time. ponytail: a lock left by a killed run is taken over after 2s.
-lock() {
-  [ -w "$M" ] || return 1  # read-only memory: fail fast, the caller prints why
-  i=0; until mkdir "$M/.lock" 2>/dev/null; do
-    i=$((i + 1))
-    if [ "$i" -eq 20 ]; then rmdir "$M/.lock" 2>/dev/null || :; fi  # take over a lock a killed run left
-    [ "$i" -le 21 ] || return 1
-    sleep 0.1
-  done
-  trap 'rmdir "$M/.lock" 2>/dev/null || :' EXIT  # set only once the lock is ours
-}
-
 # A narrow check, not a guarantee: it catches "token: x", "password is x", "Bearer x".
 nosecret() {
   printf %s "$1" | grep -Eiq '((api[_ -]?key|token|passw(or)?d|secret)[[:space:]]*(:|=|is[[:space:]])|bearer[[:space:]]+[a-z0-9._+/=-]{12,})' &&
@@ -45,11 +35,12 @@ nosecret() {
 # put <key> <lines>: replace every "<key>:" line of the project file with <lines>.
 put() {
   (
-    mkdir -p "$M/projects"; lock
+    mkdir -p "$M/projects" || exit 1
+    memory_lock "$M" || exit $?
     [ -e "$pf" ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
     { grep -v "^$1:" "$pf" 2>/dev/null || :; [ -z "$2" ] || printf "%s\n" "$2"; } > "$pf.$$.tmp"
     mv "$pf.$$.tmp" "$pf"
-  ) 2>/dev/null || { echo "$RO"; exit 0; }
+  ) 2>/dev/null || wfail $?
   mirror "projects/$s.md" MEMORY.md
 }
 
@@ -83,9 +74,9 @@ rewrite() {
   [ "$rc" = 0 ] && mv "$rf.$$.tmp" "$rf" && return 0
   rm -f "$rf.$$.tmp"; [ "$rc" != 4 ] || exit 4; exit 3
 }
-# wfail <status of a write subshell>: 3 is a failed rewrite, anything else is memory we may not write.
+# wfail <status of a write subshell>: 3 is a failed rewrite, 74 a busy lock, anything else is memory we may not write.
 wfail() {
-  case "$1" in 3) echo "kaito-mem: could not rewrite the memory file; nothing was changed" >&2; exit 1 ;; *) echo "$RO"; exit 0 ;; esac
+  case "$1" in 74) echo "kaito-mem: memory is busy; nothing was saved" >&2; exit 74 ;; 3) echo "kaito-mem: could not rewrite the memory file; nothing was changed" >&2; exit 1 ;; *) echo "$RO"; exit 0 ;; esac
 }
 # relearn forget|promote "<text>" [global|project]: drop the matching learning, or turn it into a "rule:" line.
 # Without a scope: the project file first, then global.
@@ -97,7 +88,7 @@ relearn() {
     [ -f "$M/$f" ] || continue
     rc=0
     (
-      lock || exit 1
+      memory_lock "$M" || exit $?
       T=$2; export T
       rewrite "$f" -v mode="$1" "$AWKLIB"'
         BEGIN { n = norm(ENVIRON["T"]) }
@@ -138,12 +129,13 @@ case "${1:-}" in
     t=$(printf %s "$3" | tr '\n\r' '  ')  # one note, one line: no injected lines
     case "$2" in global) f=global.md ;; project) f=projects/$s.md ;; *) exit 2 ;; esac
     (
-      mkdir -p "$M/projects"; lock
+      mkdir -p "$M/projects" || exit 1
+      memory_lock "$M" || exit $?
       if [ "$2" = project ] && [ ! -e "$pf" ]; then
         printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
       fi
       printf "%s\n" "- $(date +%Y-%m-%d) $t" >> "$M/$f"
-    ) 2>/dev/null || { echo "$RO"; exit 0; }
+    ) 2>/dev/null || wfail $?
     mirror "$f" MEMORY.md
     ;;
   codegraph-decision)
@@ -168,7 +160,8 @@ case "${1:-}" in
       { echo "usage: kaito-mem.sh learn correction|preference|worked|failed|convention \"<text>\" [global]" >&2; exit 2; }
     nosecret "$t"; nokey "$t"
     (
-      mkdir -p "$M/projects" || exit 1; lock || exit 1
+      mkdir -p "$M/projects" || exit 1
+      memory_lock "$M" || exit $?
       new=0; [ "$f" = global.md ] || [ -e "$pf" ] || new=1
       [ -e "$M/$f" ] || : > "$M/$f" || exit 3
       T=$t; export T
@@ -183,6 +176,48 @@ case "${1:-}" in
       printf "%s\n" "$today $s $2" >> "$M/learning.log" || :  # one line per capture: what stats counts
     ) 2>/dev/null || wfail $?
     mirror "$f" MEMORY.md
+    ;;
+  capture)
+    ok=1; t=$(tr '\n\r' '  ' | sed 's/[[:space:]]*$//')
+    case "${2:-}" in correction|preference|worked|failed|convention) ;; *) ok=0 ;; esac
+    case "${3:-project}" in project) f=projects/$s.md ;; global) f=global.md ;; *) ok=0 ;; esac
+    case "${3:-project}:${2:-}" in global:correction|global:preference|project:*) ;; *) ok=0 ;; esac
+    [ "$ok" = 1 ] && [ -n "$(printf %s "$t" | tr -d ' ')" ] ||
+      { echo "usage: kaito-mem.sh capture correction|preference|worked|failed|convention [global] < lesson" >&2; exit 2; }
+    nosecret "$t"; nokey "$t"
+    rc=0
+    (
+      mkdir -p "$M/projects" || exit 73
+      memory_lock "$M" || exit $?
+      new=0; [ "$f" = global.md ] || [ -e "$pf" ] || new=1
+      T=$t; export T
+      w=0
+      if [ -e "$M/$f" ]; then
+        rewrite "$f" -v k="$2" -v d="$today" "$AWKLIB"' \
+          BEGIN { t = ENVIRON["T"]; n = norm(t) }
+          /^learn:/ && norm(txt($0)) == n { hit = 1 }
+          { print }
+          END { if (!hit) print "learn: " k " 1 " d " " t; exit hit ? 4 : 0 }' || w=$?
+      else
+        printf '%s\n' "learn: $2 1 $today $t" > "$M/$f.$$.tmp" || exit 1
+        mv "$M/$f.$$.tmp" "$M/$f" || { rm -f "$M/$f.$$.tmp"; exit 1; }
+      fi
+      [ "$w" = 4 ] && exit 4
+      [ "$w" = 0 ] || exit 1
+      LC_ALL=C awk "$AWKLIB"'
+        BEGIN { n = norm(ENVIRON["T"]) }
+        /^learn:/ && norm(txt($0)) == n { found = 1 }
+        END { exit found ? 0 : 1 }' "$M/$f" || exit 1
+      [ "$new" = 0 ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md" || echo "kaito-mem: warning: the project index was not updated" >&2
+      printf "%s\n" "$today $s $2" >> "$M/learning.log" || echo "kaito-mem: warning: the learning log was not updated" >&2
+    ) || rc=$?
+    case "$rc" in
+      0) mirror "$f" MEMORY.md; echo saved ;;
+      4) echo already_present ;;
+      73) echo "$RO" >&2; exit 73 ;;
+      74) echo "kaito-mem: memory is busy; capture was not saved" >&2; exit 74 ;;
+      *) echo "kaito-mem: could not write the memory file; capture was not saved" >&2; exit 1 ;;
+    esac
     ;;
   forget|promote) relearn "$1" "${2:-}" "${3:-}" ;;
   curate)
@@ -211,5 +246,5 @@ case "${1:-}" in
         seen[p] = 1; a = days(today) - days($1); if ($NF == "correction" && a >= 0 && a < 28) c[p, 3 - int(a / 7)]++ }
       END { for (p in seen) print p ": " c[p, 0] + 0 " " c[p, 1] + 0 " " c[p, 2] + 0 " " c[p, 3] + 0 }' | sort
     ;;
-  *) echo "usage: kaito-mem.sh dir | where | note global|project \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | forget|promote \"<text>\" [global|project] | curate | stats" >&2; exit 2 ;;
+  *) echo "usage: kaito-mem.sh dir | where | note global|project \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | capture <kind> [global] < lesson | forget|promote \"<text>\" [global|project] | curate | stats" >&2; exit 2 ;;
 esac

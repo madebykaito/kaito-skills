@@ -202,6 +202,95 @@ test_last_line_without_newline() {
   assert_eq "$(mem curate | sed -n 1p)" "learnings: 2" curate
 }
 
+test_capture_saves_once_without_confirming_an_existing_learning() {
+  mk_home; proj app
+  out=$(printf '%s\n' 'the staging deploy uses pnpm' | (cd "$P" && KAITO_TODAY=2026-06-28 sh "$MEM" capture convention)) || exit 1
+  assert_eq "$out" saved first
+  grep -qx 'learn: convention 1 2026-06-28 the staging deploy uses pnpm' "$f" || { cat "$f"; exit 1; }
+  out=$(printf '%s\n' 'the staging deploy uses pnpm' | (cd "$P" && KAITO_TODAY=2026-07-01 sh "$MEM" capture worked)) || exit 1
+  assert_eq "$out" already_present retry
+  grep -qx 'learn: convention 1 2026-06-28 the staging deploy uses pnpm' "$f" || { cat "$f"; exit 1; }
+  assert_eq "$(grep -c '^learn:' "$f")" 1 one_line
+  assert_eq "$(cat "$KAITO_HOME/memory/learning.log")" "2026-06-28 $s convention" one_log
+  assert_no "$KAITO_HOME/memory/.lock"
+}
+
+test_capture_scopes_and_rejects_bad_input() {
+  mk_home; proj app
+  out=$(printf '%s\n' 'keep updates short' | (cd "$P" && KAITO_TODAY=2026-06-28 sh "$MEM" capture preference global)) || exit 1
+  assert_eq "$out" saved global
+  grep -qx 'learn: preference 1 2026-06-28 keep updates short' "$KAITO_HOME/memory/global.md" || exit 1
+  (printf '%s\n' 'token: abc' | (cd "$P" && sh "$MEM" capture convention) >/dev/null 2>&1); assert_eq "$?" 2 secret
+  (printf '\n' | (cd "$P" && sh "$MEM" capture convention) >/dev/null 2>&1); assert_eq "$?" 2 empty
+  (printf '%s\n' x | (cd "$P" && sh "$MEM" capture bogus) >/dev/null 2>&1); assert_eq "$?" 2 kind
+  (printf '%s\n' x | (cd "$P" && sh "$MEM" capture worked global) >/dev/null 2>&1); assert_eq "$?" 2 global_scope
+}
+
+test_capture_reports_live_lock_contention_without_removing_the_lock() {
+  mk_home; proj app
+  mkdir -p "$KAITO_HOME/memory/.lock"
+  printf '%s\n' "$$" > "$KAITO_HOME/memory/.lock/owner"
+  (printf '%s\n' 'would race a live writer' | (cd "$P" && sh "$MEM" capture convention) >/dev/null 2>&1); assert_eq "$?" 74 lock
+  assert_file "$KAITO_HOME/memory/.lock/owner"
+  assert_eq "$(cat "$KAITO_HOME/memory/.lock/owner")" "$$" owner
+  rm "$KAITO_HOME/memory/.lock/owner"; rmdir "$KAITO_HOME/memory/.lock"
+  assert_no "$f"
+}
+
+test_note_and_learn_report_a_busy_lock() {
+  mk_home; proj app
+  mkdir -p "$KAITO_HOME/memory/.lock"
+  printf '%s\n' "$$" > "$KAITO_HOME/memory/.lock/owner"
+  out=$(mem note project 'blocked note' 2>&1); assert_eq "$?" 74 note_busy
+  assert_eq "$out" 'kaito-mem: memory is busy; nothing was saved' note_msg
+  (mem learn convention 'blocked learning' >/dev/null 2>&1); assert_eq "$?" 74 learn_busy
+  (mem set brief_fp abc >/dev/null 2>&1); assert_eq "$?" 74 set_busy
+  rm "$KAITO_HOME/memory/.lock/owner"; rmdir "$KAITO_HOME/memory/.lock"
+  assert_no "$f"
+}
+
+test_parallel_capture_commits_one_record() {
+  mk_home; proj app
+  capture_one() { printf '%s\n' 'use the shared audit command' | mem capture convention; }
+  capture_one > "$P/first" & first=$!
+  capture_one > "$P/second" & second=$!
+  wait "$first" && wait "$second" || exit 1
+  assert_eq "$(sort "$P/first" "$P/second" | paste -sd ' ' -)" 'already_present saved' receipts
+  assert_eq "$(grep -c '^learn: convention 1 ' "$f")" 1 one_record
+  assert_eq "$(wc -l < "$KAITO_HOME/memory/learning.log" | tr -d ' ')" 1 one_log_entry
+}
+
+test_capture_recovers_after_failed_replace() {
+  mk_home; proj app
+  mem note project 'keep this original note' || exit 1
+  before=$(cat "$f")
+  mkdir "$P/fail-bin"
+  printf '%s\n' '#!/bin/sh' 'exit 1' > "$P/fail-bin/mv"
+  chmod +x "$P/fail-bin/mv"
+  out=$(printf '%s\n' 'retry after a failed replace' | PATH="$P/fail-bin:$PATH" mem capture convention 2>/dev/null)
+  assert_eq "$?" 1 failed_replace
+  assert_eq "$out" '' no_receipt
+  assert_eq "$(cat "$f")" "$before" original_note
+  assert_no "$KAITO_HOME/memory/.lock"
+  out=$(printf '%s\n' 'retry after a failed replace' | mem capture convention) || exit 1
+  assert_eq "$out" saved retried
+}
+
+test_capture_reports_read_only_without_success() {
+  skip_on_win "chmod cannot make a folder read-only" && return 0
+  [ "$(id -u)" != 0 ] || { echo "skip: root ignores read-only folders"; return 0; }
+  mk_home; proj app
+  mkdir -p "$KAITO_HOME/memory/projects"
+  chmod 555 "$KAITO_HOME/memory"
+  out=$(printf '%s\n' 'cannot save this' | mem capture convention 2>"$P/error")
+  status=$?
+  chmod 755 "$KAITO_HOME/memory"
+  assert_eq "$status" 73 denied
+  assert_eq "$out" '' no_receipt
+  grep -q 'memory is read-only' "$P/error" || exit 1
+  assert_no "$f"
+}
+
 test_where_cap_keeps_rules_and_learn_more() {
   mk_home; proj app
   for i in 1 2 3 4 5 6 7 8 9 10 11 12; do on 2026-03-01 learn convention "fact number $i stands alone" || exit 1; done
