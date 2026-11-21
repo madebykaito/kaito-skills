@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: linear-first-run
+expected_outcome: |
+  The user keeps tasks in Linear and has no API key stored. helpmekaito points at the terminal
+  login command or the Linear MCP, never asks for the key in chat, and lists teams by name.
+  The script itself is covered by tests/linear.test.sh.

@@ -6,7 +6,7 @@ Each skill is a folder with a `SKILL.md`. The agent reads the description and lo
 
 The work is the proof. Run it yourself.
 
-Works on macOS, Linux and Windows. Docs: [install](docs/install.md), [using the skills](docs/using-skills.md), [how it works](docs/how-it-works.md), [troubleshooting](docs/troubleshooting.md).
+Works on macOS and Linux. Windows is untested. Docs: [install](docs/install.md), [using the skills](docs/using-skills.md), [how it works](docs/how-it-works.md), [troubleshooting](docs/troubleshooting.md).
 
 ## Quick start
 
@@ -55,7 +55,7 @@ The name-only listing is a `skillOverrides` entry per skill in `~/.claude/settin
 
 Setup lists skills you already have under the same name as a kaito skill, and Claude Code plugins that ship one. It asks before replacing a skill (yours is moved to `~/.kaito/backup`, not deleted) or disabling a plugin. The default is no, and a no leaves your copy in place. See [install](docs/install.md#skills-and-plugins-with-the-same-name).
 
-It also sets up tasks: which task manager you use (Trello, Plane, Obsidian, Asana, Jira, other, none), where memory lives (`memory.path`, default `~/.kaito/memory`, can be inside an Obsidian vault), Trello or Plane credentials through `kaito-tasks.sh login`, and, if you agree, a sync of your boards' structure and IDs into local memory. With no terminal this stays pending and helpmekaito finishes it in chat on first use. It never asks for a key in chat.
+It also sets up tasks: which task manager you use (Trello, Plane, Linear, Obsidian, Asana, Jira, other, none), where memory lives (`memory.path`, default `~/.kaito/memory`, can be inside an Obsidian vault), Trello, Plane or Linear credentials through `kaito-tasks.sh login`, and, if you agree, a sync of your boards' structure and IDs into local memory. With no terminal this stays pending and helpmekaito finishes it in chat on first use. It never asks for a key in chat.
 
 It asks before each optional step. With no terminal, the default is used.
 
@@ -94,7 +94,7 @@ Only one setup runs at a time. It stops before changing anything if `settings.js
 
 | Skill | What it does |
 |---|---|
-| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model for delegated work from the agent CLIs on your machine. Keeps your tasks in sync with Trello, Plane or Obsidian and helps do them. Learns each repo, its local skills and how you work. Reports your token usage and estimated cost. Tag it: `/helpmekaito build me a pricing page`. |
+| [`helpmekaito`](helpmekaito/) | Router. Picks the right skill or chain for a task, and the model for delegated work from the agent CLIs on your machine. Keeps your tasks in sync with Trello, Plane, Linear or Obsidian and helps do them. Learns each repo, its local skills and how you work. Reports your token usage and estimated cost. Tag it: `/helpmekaito build me a pricing page`. |
 
 ### Writing and copy
 
@@ -315,6 +315,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Trello needs an API key and token (`kaito-tasks.sh login`). They live in `~/.kaito/.env`. An agent running as you can still read that file; setup only stops auto-allowing it.
 - Plane needs a personal API key and your workspace slug (`kaito-tasks.sh login`), stored the same way; set a URL there for a self-hosted Plane. Without a key it works through the Plane MCP connector. A project with more than 3000 work items needs a module mapping.
 - Plane has no checklists, so a checklist item is a sub work item.
+- Linear needs a personal API key (`kaito-tasks.sh login`), stored the same way, or read from `~/.config/linear/.env`. Without a key it works through the Linear connector. The API allows 2,500 requests an hour; a team with more than 2,000 open issues needs a project mapping. A checklist item is a sub-issue.
 - A repo's trackers and whether to track work there are remembered per repo and per machine, in the memory folder. A second machine asks again.
 - First-use detection only reads local evidence (branch, commits, docs, stored board names). It finds nothing for a tracker whose structure was never synced, and then helpmekaito asks.
 - Asana, Jira and other task managers work only through their MCP connector.

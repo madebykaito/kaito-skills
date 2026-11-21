@@ -4,6 +4,15 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- Linear as a scripted tracker, a twin of Plane. `kaito-tasks.sh login` stores a personal API key in `~/.kaito/.env`; `boards` lists teams, `projects <teamId>` lists a team's open projects, and `map <teamId>[/<projectId>]` tracks a team or one project. Issues are read and written by identifier (`KAI-27`), a checklist item is a sub-issue, and `link` adds a URL attachment. Structure is kept in `managers/linear.json`. Without a key the Linear connector is the fallback, and `detect` finds issue keys in branches and commits and Linear links in repo docs.
+- `--tracker <manager>` (Trello, Plane or Linear) works for `status`, `login`, `boards`, `modules`, `projects`, `consent`, `discover` and `map` before the project has that tracker, so a second tool can be added to one project. A project set to `tracking: never` still refuses `discover` and `map`.
+
+### Changed
+
+- Windows is no longer tested by CI (the `windows-latest` job was dropped). The README says so.
+
 ## [1.5.1] - 2026-11-20
 
 ### Fixed

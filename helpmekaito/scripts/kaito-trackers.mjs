@@ -9,7 +9,10 @@ import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 
 const [file, cmd, ...args] = process.argv.slice(2);
 const die = (m) => { console.error(`kaito-tasks: ${m}`); process.exit(1); };
-const SCRIPTED = ['trello', 'plane', 'obsidian'];  // managers kaito-tasks.sh drives itself; the rest go through their MCP
+const SCRIPTED = ['trello', 'plane', 'linear', 'obsidian'];  // managers kaito-tasks.sh drives itself; the rest go through their MCP
+// A Linear line keyed by team key (written when Linear was MCP-only, or by detect for an undiscovered team) is not scripted.
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const scripted = (t) => SCRIPTED.includes(t.manager) && (t.manager !== 'linear' || new RegExp(`^${UUID}(/${UUID})?$`, 'i').test(t.id));
 const KEYS = { role: ['official', 'personal'], tracking: ['always', 'never', 'ask'] };
 const clean = (s) => String(s ?? '').replace(/[\r\n|]+/g, ' ').trim();
 
@@ -56,11 +59,13 @@ if (cmd === 'list') {
   if (st.project) console.log(`tracking: ${st.project}`);
 } else if (cmd === 'select') {
   // Which tracker a command acts on: the named one, else the first scripted one, else the first.
+  // A fifth line "mcp" marks a tracker of a scripted manager that only its MCP can drive.
   const want = args[0] || '';
   const t = want ? st.trackers.find((x) => x.manager === want) || die(`this project has no ${want} tracker: kaito-tasks.sh tracker list`)
-    : st.trackers.find((x) => SCRIPTED.includes(x.manager)) || st.trackers[0];
-  const scripted = st.trackers.filter((x) => SCRIPTED.includes(x.manager)).map((x) => x.manager);
-  console.log([t?.manager ?? '', t?.id ?? '', st.project === 'never' ? 'never' : t?.tracking ?? st.project ?? '', scripted.join(' ')].join('\n'));
+    : st.trackers.find(scripted) || st.trackers[0];
+  const out = [t?.manager ?? '', t?.id ?? '', st.project === 'never' ? 'never' : t?.tracking ?? st.project ?? '', st.trackers.filter(scripted).map((x) => x.manager).join(' ')];
+  if (t && SCRIPTED.includes(t.manager) && !scripted(t)) out.push('mcp');
+  console.log(out.join('\n'));
 } else if (cmd === 'add') {
   const [m, id, name, ...pairs] = args;
   mgrOk(m);

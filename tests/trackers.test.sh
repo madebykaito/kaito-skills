@@ -30,6 +30,20 @@ plane_map() {
   printf '{"generated_at":"%s","boards":{"%s":{"name":"ALL","identifier":"ALL","states":[],"modules":[{"id":"%s","name":"Kaito Skills"}],"labels":[],"members":[]}}}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$P1" "$MOD" > "$MEM/managers/plane.json"
 }
+# linear_map: a stored Linear structure with team Kaito (key KAI) and project Kaito Skills
+linear_map() {
+  mkdir -p "$MEM/managers"
+  printf '{"generated_at":"%s","workspace":"acme","boards":{"%s":{"name":"Kaito","identifier":"KAI","states":[],"modules":[{"id":"%s","name":"Kaito Skills"}],"labels":[],"members":[]}}}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$P1" "$MOD" > "$MEM/managers/linear.json"
+}
+
+test_linear_tracker_round_trips_and_is_scripted() {
+  home none
+  sh "$T" tracker add linear "$P1/$MOD" "Kaito / Kaito Skills" role=official tracking=always >/dev/null || exit 1
+  has "$(sh "$T" tracker list)" "tracker: linear $P1/$MOD Kaito / Kaito Skills | role=official | tracking=always"
+  sh "$T" tracker add jira KAI "Kaito on acme" >/dev/null || exit 1
+  assert_eq "$(node "$REPO/helpmekaito/scripts/kaito-trackers.mjs" "$PF" select | tr '\n' ' ')" "linear $P1/$MOD always linear " select
+}
 
 test_two_trackers_with_roles_and_settings() {
   home none
@@ -131,6 +145,32 @@ test_detect_strong_from_branch_key() {
   assert_no "$PF"   # detect never maps
 }
 
+test_detect_linear_strong_from_branch_key() {
+  home none; linear_map; repo; git checkout -q -b KAI-27-linear-support
+  out=$(sh "$T" detect)
+  has "$out" "candidate: linear $P1 Kaito | strength=strong | evidence=branch KAI-27-linear-support carries the key KAI"
+  has "$out" "known: linear"
+}
+
+test_detect_key_known_to_plane_and_linear_gives_both() {
+  home none; plane_map; linear_map
+  sed 's/"ALL"/"KAI"/g' "$MEM/managers/plane.json" > "$HOME/p.json" && mv "$HOME/p.json" "$MEM/managers/plane.json"
+  repo; git checkout -q -b KAI-5-both
+  out=$(sh "$T" detect)
+  has "$out" "candidate: plane $P1 KAI | strength=strong"
+  has "$out" "candidate: linear $P1 Kaito | strength=strong"
+}
+
+test_detect_linear_link_in_repo_docs() {
+  home none; repo
+  printf 'Issue: https://linear.app/acme/issue/KAI-12/some-slug\n' > README.md
+  out=$(sh "$T" detect)
+  has "$out" "candidate: linear KAI KAI on linear.app/acme | strength=strong | evidence=README.md links the Linear team"
+  linear_map
+  out=$(sh "$T" detect)
+  has "$out" "candidate: linear $P1 Kaito | strength=strong | evidence=README.md links the Linear team"
+}
+
 test_detect_weak_from_name_and_one_commit() {
   home none; plane_map
   mkdir -p "$HOME/kaito-skills"; cd "$HOME/kaito-skills" || exit 1; repo "ALL-3 first commit"
@@ -213,4 +253,13 @@ test_setup_manager_override_beats_the_folder_mapping() {
   has "$(sh "$T" status)" "manager: trello"
   out=$(KAITO_TASKS_MANAGER=plane sh "$T" status); has "$out" "manager: plane"; has "$out" "credentials: yes"
   has "$(KAITO_TASKS_MANAGER=plane sh "$T" boards)" "$P1 ALL ALL"
+}
+
+test_linear_line_keyed_by_team_key_is_not_scripted() {
+  home none
+  sh "$T" tracker add linear KAI "Kaito on acme" >/dev/null || exit 1
+  sh "$T" tracker add plane "$P1" ALL >/dev/null || exit 1
+  assert_eq "$(node "$REPO/helpmekaito/scripts/kaito-trackers.mjs" "$PF" select | tr '\n' ' ')" "plane $P1 ask plane " "the default skips it"
+  assert_eq "$(node "$REPO/helpmekaito/scripts/kaito-trackers.mjs" "$PF" select linear | tr '\n' ' ')" "linear KAI ask plane mcp " "named, it is MCP-only"
+  assert_eq "$(sh "$T" --tracker linear add "x")" "use the linear MCP; see references/tasks.md" mcp
 }

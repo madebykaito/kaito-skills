@@ -172,7 +172,7 @@ test_models_available_without_node() {
 test_setup_lists_agents() {
   mk_agents
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
   "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
   grep -q '^agents: claude codex gemini cursor-agent opencode' "$HOME/out" || { cat "$HOME/out"; exit 1; }
   assert_file "$KAITO_HOME/agents.json"

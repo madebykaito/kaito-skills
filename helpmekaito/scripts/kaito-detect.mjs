@@ -3,6 +3,7 @@
 // Prints one line per candidate, strongest first:
 //   candidate: <manager> <id> <name> | strength=<strong|weak> | evidence=<what was seen>
 // then "known: <managers with a stored structure map>". Prints "candidate: none" when nothing points anywhere.
+// Trackers read: Trello, Plane, Linear (a Linear board is a team, its modules are projects), Jira links.
 // It only reports evidence. Mapping a tracker is always the user's yes.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -30,12 +31,13 @@ const hit = (manager, id, name, strong, evidence) => {
 const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
 const subjects = git('log', '-30', '--format=%s').split('\n').filter(Boolean);
 const keysIn = (s) => [...String(s).matchAll(/(?:^|[^A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,9})-\d+(?![A-Za-z0-9])/g)].map((m) => m[1].toUpperCase());
-for (const [id, b] of Object.entries(maps.plane?.boards || {})) {
+// A key known to two managers gives a candidate for each; the user picks.
+for (const manager of ['plane', 'linear']) for (const [id, b] of Object.entries(maps[manager]?.boards || {})) {
   const key = String(b.identifier || '').toUpperCase();
   if (!key) continue;
   const inBranch = keysIn(branch).includes(key), n = subjects.filter((s) => keysIn(s).includes(key)).length;
-  if (inBranch) hit('plane', id, b.name, true, `branch ${branch} carries the key ${key}`);
-  if (n) hit('plane', id, b.name, n >= 2, `${n} of the last ${subjects.length} commits carry the key ${key}`);
+  if (inBranch) hit(manager, id, b.name, true, `branch ${branch} carries the key ${key}`);
+  if (n) hit(manager, id, b.name, n >= 2, `${n} of the last ${subjects.length} commits carry the key ${key}`);
 }
 
 // 2. Tracker links in the repo's own docs.
@@ -52,6 +54,10 @@ for (const d of docs) {
     const b = maps.plane?.boards?.[m[1]];
     if (b) hit('plane', m[2] && b.modules?.some((x) => x.id === m[2]) ? `${m[1]}/${m[2]}` : m[1], b.name, true, `${d} links the project`);
   }
+  for (const m of text.matchAll(/https:\/\/linear\.app\/([A-Za-z0-9_-]+)\/(?:issue|team)\/([A-Za-z][A-Za-z0-9]{1,9})(?=[-/?#)\s]|$)/g)) {
+    const key = m[2].toUpperCase(), known = Object.entries(maps.linear?.boards || {}).find(([, b]) => String(b.identifier || '').toUpperCase() === key);
+    hit('linear', known ? known[0] : key, known ? known[1].name : `${key} on linear.app/${m[1]}`, true, `${d} links the Linear team`);
+  }
   for (const m of text.matchAll(/https:\/\/([A-Za-z0-9-]+)\.atlassian\.net\/(?:browse\/([A-Z][A-Z0-9]+)-\d+|jira\/software\/(?:c\/)?projects\/([A-Z][A-Z0-9]+))/g)) {
     hit('jira', m[2] || m[3], `${m[2] || m[3]} on ${m[1]}.atlassian.net`, true, `${d} links the Jira project`);
   }
@@ -60,8 +66,8 @@ for (const d of docs) {
 // 3. The repo or its remote is named like a known board, project or module. A name alone is weak evidence.
 const names = new Set([basename(repo), git('remote', 'get-url', 'origin').replace(/\.git$/, '').split(/[/:]/).pop()].map(norm).filter((n) => n.length >= 3));
 for (const [manager, map] of Object.entries(maps)) for (const [id, b] of Object.entries(map.boards || {})) {
-  if (names.has(norm(b.name))) hit(manager, id, b.name, false, `the repo is named like the ${manager === 'trello' ? 'board' : 'project'}`);
-  for (const mod of b.modules || []) if (names.has(norm(mod.name))) hit(manager, `${id}/${mod.id}`, `${b.name} / ${mod.name}`, false, 'the repo is named like the module');
+  if (names.has(norm(b.name))) hit(manager, id, b.name, false, `the repo is named like the ${manager === 'trello' ? 'board' : manager === 'linear' ? 'team' : 'project'}`);
+  for (const mod of b.modules || []) if (names.has(norm(mod.name))) hit(manager, `${id}/${mod.id}`, `${b.name} / ${mod.name}`, false, `the repo is named like the ${manager === 'linear' ? 'project' : 'module'}`);
 }
 
 const rows = [...found.values()].sort((a, b) => Number(b.strong) - Number(a.strong));
