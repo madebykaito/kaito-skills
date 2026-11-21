@@ -18,6 +18,17 @@ n=$(ls "$h/.claude/skills" | wc -l | tr -d ' ')
 [ "$n" -gt 100 ] || fail "only $n Claude links"
 node "$repo/helpmekaito/scripts/kaito-json.mjs" get "$h/.claude/settings.json" skillOverrides.better-ui | grep -q name-only ||
   fail "no name-only override"
+
+mkdir "$h/project"
+(
+  cd "$h/project"
+  mem="$h/.agents/skills/helpmekaito/scripts/kaito-mem.sh"
+  lesson="Use the smoke fixture for installed memory checks"
+  [ "$(printf '%s\n' "$lesson" | "$mem" capture convention)" = saved ] || fail "installed capture failed"
+  [ "$(printf '%s\n' "$lesson" | "$mem" capture convention)" = already_present ] || fail "installed capture repeated a lesson"
+  "$mem" where | grep -Eq "^learn: convention 1 [0-9-]+ $lesson$" || fail "installed capture was not recalled"
+)
+
 "$repo/setup" --yes --no-gstack --no-codegraph >/dev/null  # a re-run changes nothing
 [ "$(ls "$h/.claude/skills" | wc -l | tr -d ' ')" = "$n" ] || fail "re-run changed the links"
 

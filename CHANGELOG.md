@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- Routed helpmekaito tasks now check for durable learnings at closeout. Automatic capture verifies the Markdown write, keeps retries from duplicating a lesson, and reports blocked saves. Memory and tracker writers share a lock that protects live writes.
+
 ## [1.6.1] - 2026-11-21
 
 ### Fixed

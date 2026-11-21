@@ -74,9 +74,27 @@ test_note_read_only_fallback() {
   assert_eq "$out" "memory is read-only here; to allow Codex writes run setup and answer yes to codexwrite" msg
 }
 
+test_tracker_write_respects_the_memory_lock() {
+  mk_home; proj app
+  (cd "$P" && sh "$MEM" note project "keep this note") || exit 1
+  lock="$KAITO_HOME/memory/.lock"
+  mkdir "$lock"
+  printf '%s\n' "$$" > "$lock/owner"
+  tasks="$REPO/helpmekaito/scripts/kaito-tasks.sh"
+  out=$(cd "$P" && sh "$tasks" tracker add linear team "Example" 2>&1)
+  assert_eq "$?" 1 busy
+  assert_eq "$out" "kaito-tasks: memory is busy; try again after the other write finishes" msg
+  assert_eq "$(cat "$lock/owner")" "$$" owner
+  rm "$lock/owner"; rmdir "$lock"
+  (cd "$P" && sh "$tasks" tracker add linear team "Example") || exit 1
+  out=$(cd "$P" && sh "$MEM" where)
+  printf '%s\n' "$out" | grep -q '^tracker: linear team Example' || exit 1
+  printf '%s\n' "$out" | grep -q 'keep this note' || exit 1
+}
+
 test_mirror_called() {
   mk_home; proj app
-  d=$(mktemp -d); mkdir -p "$d"; cp "$MEM" "$d/"; cp "$CG" "$d/"
+  d=$(mktemp -d); mkdir -p "$d"; cp "$MEM" "$d/"; cp "$CG" "$d/"; cp "$REPO/helpmekaito/scripts/kaito-memory-lock.sh" "$d/"
   printf '#!/bin/sh\necho "$@" >> "$HOME/mirror.log"\nexit 1\n' > "$d/kaito-obsidian.sh"; chmod +x "$d/kaito-obsidian.sh"
   (cd "$P" && sh "$d/kaito-mem.sh" note global "hi") || exit 1
   grep -qx 'push global.md' "$HOME/mirror.log" || { cat "$HOME/mirror.log"; exit 1; }

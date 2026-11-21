@@ -8,19 +8,23 @@ helpmekaito keeps what it learns about this user and this repo, and reads it bac
 
 ## Capture
 
-Capture as it happens, before your final answer. One line, written so it makes sense in a month with no other context.
+At the closeout of every routed task, assess whether the completed work produced a durable learning. One eligible learning is captured at a time, written so it makes sense in a month with no other context.
 
 | When | Command |
 |---|---|
-| The user corrects you: wrong route, wrong skill, wrong output, "no, do it this way" | `sh "$M" learn correction "<what to do instead>"` |
-| The user states how they like things done | `sh "$M" learn preference "<text>"` |
-| The user confirms an approach that was not the obvious one | `sh "$M" learn worked "<approach, and for what>"` |
-| A route, skill, runner or model fails or gives a poor result | `sh "$M" learn failed "<what, and what to use instead>"` |
-| You find a rule of this repo that is written nowhere | `sh "$M" learn convention "<text>"` |
+| The user corrects you: wrong route, wrong skill, wrong output, "no, do it this way" | `printf '%s' "<what to do instead>" | sh "$M" capture correction` |
+| The user states how they like things done for this project | `printf '%s' "<text>" | sh "$M" capture preference` |
+| The user confirms an approach that was not the obvious one | `printf '%s' "<approach, and for what>" | sh "$M" capture worked` |
+| A route, skill, runner or model fails or gives a poor result | `printf '%s' "<what, and what to use instead>" | sh "$M" capture failed` |
+| You find a rule of this repo that is written nowhere | `printf '%s' "<text>" | sh "$M" capture convention` |
 
-- Add `global` as a last argument when it is about the user and true in every repo: `sh "$M" learn preference "<text>" global`. Everything else stays with the project.
-- A `learn:` line shown by `where` that the user corrects you on again, or that proved right again: capture it again with the same text. That raises its count instead of adding a line.
-- Count a correction every time it happens. It is the measure.
+- Add `global` only when the user explicitly says the preference or correction applies in every project: `printf '%s' "<text>" | sh "$M" capture preference global`. Everything else stays with the project.
+- `capture` reports `saved`, `already_present`, or a failure. `saved` means the canonical Markdown record committed. `already_present` means the normalized learning is already in the selected scope, so automatic capture does not raise its count. A failure means nothing may be represented as saved. `nothing_to_save` is the closeout result when the assessment finds no eligible learning, not a writer result.
+- Explicit `learn` remains available when the user asks to record or confirm a learning. Repeating that command raises the existing count and date. Automatic closeout records an identical learning only once.
+
+## Closeout result
+
+Complete the assessment even when there is nothing to save. Keep `nothing_to_save` quiet in the final answer. Say when memory is blocked and give the operational reason the writer returned. A user instruction not to retain a learning is `skipped`, with no writer call. The closeout does not create global memory unless the user made its cross-project scope explicit.
 
 ## Do not capture
 
