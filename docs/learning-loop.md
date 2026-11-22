@@ -15,7 +15,7 @@ learn: correction 2 2026-11-20 use pnpm here, never npm
 
 | Where | Holds |
 |---|---|
-| `projects/<slug>.md` | Learnings about one repo. The slug is the repo folder name plus a hash of its path, the same one the rest of memory uses. |
+| `projects/<slug>.md` | Learnings about one repo. The slug comes from the repo's `origin` remote, so checkouts and worktrees of one repo share the file. A repo with no network remote uses the folder name plus a hash of its path. |
 | `global.md` | Learnings about you that hold in every repo (`learn ... global`). |
 | `learning.log` | One line per capture: `<date> <project slug> <kind>`. Only `stats` reads it. |
 
@@ -25,7 +25,9 @@ A promoted learning becomes a `rule: <text>` line in the same file. The files ar
 
 ## Capture
 
-Every routed task ends with a durable-learning assessment. When it finds one eligible item, the agent sends it to `kaito-mem.sh capture <kind>` on standard input. The writer reports whether the canonical Markdown record was saved or already contains the normalized learning. The closeout reports failed persistence honestly. A task with no eligible item completes quietly.
+Every routed task ends with a durable-learning assessment. When it finds one eligible item, the agent sends it to `kaito-mem.sh capture <kind>` on standard input. The writer reports whether the canonical Markdown record was saved or already contains the normalized learning. The closeout reports failed persistence honestly. A task with no eligible item ends with `kaito-mem.sh closeout nothing_to_save`, which prints the word and writes nothing to memory.
+
+A skipped closeout is reported at the next routed task. `where task` records each routed task's start in `~/.kaito/closeout/`, and `capture` or `kaito-mem.sh closeout nothing_to_save|skipped` closes it. If a task is still open when the next one starts, `where task` prints `closeout_missed:` and marks it missed. This is not a host hook. Tasks carry no id, so a miss can be a task still running, and closing a recovered lesson can hide a miss by that same task. Two starts at the same moment can lose one line.
 
 Project scope is the default. Global scope requires the user to say that a correction or preference applies across projects. The writer does not store one-off task progress, secrets, code, diffs, or unverified deductions. `helpmekaito/references/learning.md` defines the exact capture rules.
 
@@ -70,13 +72,13 @@ Nothing is deleted without one of these commands. A write that fails part way (a
 ```
 corrections per week, oldest first; the last week ends 2026-11-20
 kaito-skills-1a2b3c4d: 4 3 1 0
+closeouts not recorded: 1 of 6 routed tasks started in the last 28 days
 ```
 
-A falling row means you correct the agent less. A repeated correction counts each time, because the log keeps every capture, also for learnings that were later forgotten or promoted. A correction stored with `global` counts for the project it happened in.
+The last line is for the current project: how many routed tasks started in the last 28 days have no recorded closeout. A falling row means you correct the agent less. A repeated correction counts each time, because the log keeps every capture, also for learnings that were later forgotten or promoted. A correction stored with `global` counts for the project it happened in.
 
 ## Left for later
 
-- Capture depends on the routed closeout protocol. A future optional host hook may detect a skipped closeout when the host can identify the active routed task reliably.
 - No check that a shown learning was actually used, and no count of tasks, so corrections are not yet a rate per task.
 - Only the top ten by count and date are loaded. They are not matched to the task at hand.
 - Duplicate detection is word overlap. It misses the same idea in different words and does not see two learnings that contradict each other.

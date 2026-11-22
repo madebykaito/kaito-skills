@@ -4,6 +4,14 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- Project memory is keyed on the repo, not the checkout. The project file is named from the `origin` remote (host and path, credentials dropped, SSH alias resolved), so checkouts and worktrees of one repo share it. A repo with no network remote keeps the old name. Old per-checkout files are merged on first use and kept in `projects/.migrated/`. `kaito-mem.sh merge <old-slug>` merges one the automatic step cannot reach. The brief fingerprint and local skill list are shared too. Task and codegraph folders still use the checkout path.
+
+### Added
+
+- A skipped memory closeout is reported at the next routed task. `kaito-mem.sh where task` records each routed task's start, and `capture` or `kaito-mem.sh closeout nothing_to_save|skipped` records its closeout. A task left open prints `closeout_missed:`, and `stats` counts the routed tasks whose closeout was not recorded. There is no host hook.
+
 ## [1.6.2] - 2026-11-22
 
 ### Fixed

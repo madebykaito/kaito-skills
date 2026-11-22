@@ -4,6 +4,16 @@ Notes live in the memory folder: `sh ~/.kaito/store/helpmekaito/scripts/kaito-me
 
 Notes are facts you looked up. What the user or the work taught you (corrections, preferences, what worked or failed, unwritten conventions) is a learning: capture it with `kaito-mem.sh learn`, not `note` ([learning.md](learning.md)).
 
+## Project file
+
+Project facts live in `projects/<slug>.md`. `kaito-mem.sh slug` prints the project's memory slug. It comes from the repo's `origin` remote, not the checkout path. The remote is reduced to host and path: credentials, port, query and fragment are dropped, a trailing `/` and `.git` are removed, and the host is lower-cased. An SSH host alias is resolved to its real host (`ssh -G`). The slug is the repo name followed by 8 hex characters of a hash of that remote. Checkouts and worktrees of one repo share the file. A repo with no network remote (no remote, a local path or `file://`) keeps the old slug: the folder name plus a hash of its path.
+
+The task folders under `tasks/` and the codegraph index use the checkout slug (`kaito-codegraph.sh slug`), not the project slug.
+
+Old per-checkout project files are merged into the repo's file the first time a command uses it, and the old file moves to `projects/.migrated/`. If the merge cannot run (read-only memory, busy lock), reads still include the old file and the merge happens on a later run. A file the automatic step cannot reach (for example one from another machine's path) is merged by hand:
+`sh ~/.kaito/store/helpmekaito/scripts/kaito-mem.sh merge <old-slug>`
+where `<old-slug>` is the file name under `projects/` without `.md`. It must be a single name, and it must not be the current project's file.
+
 ## Store
 
 - Stack facts (framework, package manager, test runner).

@@ -20,6 +20,8 @@ Up to ten `kaito-mem.sh note project` lines, only what the scan and a quick read
 
 Replace a stale line rather than adding a second one. Architecture beyond that is read per task, not stored.
 
+The brief and the `local_skill:` lines belong to the repo, not the checkout. Checkouts and worktrees of one repo share them: `record` in one checkout replaces the brief fingerprint and the `local_skill:` list for all checkouts of that repo. Checkouts whose brief inputs match share one brief; a checkout whose inputs differ re-records the brief when you switch to it.
+
 ## Local skills
 
 `record` writes one `local_skill: <name> <path> <description>` line per skill in `.claude/skills/` and `.agents/skills/`.

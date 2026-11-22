@@ -19,12 +19,14 @@ At the closeout of every routed task, assess whether the completed work produced
 | You find a rule of this repo that is written nowhere | `printf '%s' "<text>" | sh "$M" capture convention` |
 
 - Add `global` only when the user explicitly says the preference or correction applies in every project: `printf '%s' "<text>" | sh "$M" capture preference global`. Everything else stays with the project.
-- `capture` reports `saved`, `already_present`, or a failure. `saved` means the canonical Markdown record committed. `already_present` means the normalized learning is already in the selected scope, so automatic capture does not raise its count. A failure means nothing may be represented as saved. `nothing_to_save` is the closeout result when the assessment finds no eligible learning, not a writer result.
+- `capture` reports `saved`, `already_present`, or a failure. `saved` means the canonical Markdown record committed. `already_present` means the normalized learning is already in the selected scope, so automatic capture does not raise its count. A failure means nothing may be represented as saved. `nothing_to_save` is the closeout result when the assessment finds no eligible learning, not a writer result: record it with `sh "$M" closeout nothing_to_save`, which writes nothing to memory.
 - Explicit `learn` remains available when the user asks to record or confirm a learning. Repeating that command raises the existing count and date. Automatic closeout records an identical learning only once.
 
 ## Closeout result
 
-Complete the assessment even when there is nothing to save. Keep `nothing_to_save` quiet in the final answer. Say when memory is blocked and give the operational reason the writer returned. A user instruction not to retain a learning is `skipped`, with no writer call. The closeout does not create global memory unless the user made its cross-project scope explicit.
+Complete the assessment even when there is nothing to save. Keep `nothing_to_save` quiet in the final answer. Say when memory is blocked and give the operational reason the writer returned. A user instruction not to retain a learning is `skipped`, with no writer call: record it with `sh "$M" closeout skipped`. The closeout does not create global memory unless the user made its cross-project scope explicit.
+
+`kaito-mem.sh where task` records the start of a routed task, and a `capture` that was assessed (not one rejected as a usage error or a secret) or a `closeout` records its end. The record is best effort and never changes what those commands print. When the next `where task` prints `closeout_missed:`, an earlier routed task in this project has no recorded closeout. Tell the user in one line. If this session still holds that work, review it and capture now. It may also be a task still running in another session, so do not treat it as an error.
 
 ## Do not capture
 

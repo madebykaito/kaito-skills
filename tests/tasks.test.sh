@@ -430,6 +430,25 @@ test_link_attaches_a_url_trello_and_obsidian() {
   grep -rqx 'Link: \[Design v2\](https://example.test/doc)' "$(cache)" || { cat "$(cache)"/*.md; exit 1; }
 }
 
+test_second_checkout_of_one_origin_shares_the_project_file() {
+  home trello
+  for d in a b; do mkdir -p "$HOME/$d"; (cd "$HOME/$d" && git init -q && git remote add origin https://example.com/acme/app.git) || exit 1; done
+  sa=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/a"); sb=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/b")
+  [ "$sa" != "$sb" ] || { echo "  fixture: same path slug"; exit 1; }
+  ms=$(cd "$HOME/a" && sh "$REPO/helpmekaito/scripts/kaito-mem.sh" slug)
+  mkdir -p "$MEM/tasks/$sa"; echo "keep me" > "$MEM/tasks/$sa/t-1.md"; before=$(cksum < "$MEM/tasks/$sa/t-1.md")
+  (cd "$HOME/a" && sh "$T" map b1 >/dev/null) || { echo "  legacy map failed"; exit 1; }
+  assert_file "$MEM/projects/$ms.md"; grep -q '^board: trello b1' "$MEM/projects/$ms.md" || { echo "  no board line"; exit 1; }
+  (cd "$HOME/b" && sh "$T" tracker add trello b1 Work >/dev/null) || { echo "  tracker add failed"; exit 1; }
+  grep -q '^tracker: trello b1' "$MEM/projects/$ms.md" || { echo "  tracker add wrote another file"; cat "$MEM/projects/$ms.md"; exit 1; }
+  assert_eq "$(ls "$MEM/projects" | grep -c '\.md$')" 1 "one project file"
+  assert_eq "$(grep -c "projects/$ms.md" "$MEM/MEMORY.md")" 1 "one index line"
+  (cd "$HOME/a" && sh "$T" pull >/dev/null) || exit 1; (cd "$HOME/b" && sh "$T" pull >/dev/null) || exit 1
+  assert_file "$MEM/tasks/trello/$sa/index.md"; assert_file "$MEM/tasks/trello/$sb/index.md"
+  assert_no "$MEM/tasks/trello/$ms"
+  assert_eq "$(cksum < "$MEM/tasks/$sa/t-1.md")" "$before" "obsidian note untouched"
+}
+
 test_every_helper_script_is_executable() {
   # SKILL.md runs these by path, so a script without the exec bit fails with "permission denied"
   skip_on_win "no exec bit" && return 0

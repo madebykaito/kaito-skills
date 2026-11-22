@@ -116,6 +116,15 @@ test_uninstall() {
   assert_no "$HOME/.claude/skills/helpmekaito"
 }
 
+test_uninstall_removes_closeout() {
+  mk_home; mk_repo; mkdir -p "$KAITO_HOME/memory"; run_setup
+  mkdir -p "$KAITO_HOME/closeout"; echo "2026-11-22 open" > "$KAITO_HOME/closeout/some-project"
+  run_setup --uninstall
+  assert_no "$KAITO_HOME/closeout"
+  assert_file "$KAITO_HOME/config.json"
+  assert_file "$KAITO_HOME/memory"
+}
+
 test_purge_refuses_dangerous_home() {
   mk_home; mk_repo
   echo keep > "$HOME/mine.txt"; mkdir -p "$HOME/docs"; echo keep > "$HOME/docs/a.txt"

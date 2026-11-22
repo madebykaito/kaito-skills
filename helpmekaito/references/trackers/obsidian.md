@@ -1,6 +1,6 @@
 # Obsidian
 
-Read with [task-writing.md](../task-writing.md). In Obsidian the notes are the tasks: one note per task in `<memory>/tasks/<slug>/`, written only through `kaito-tasks.sh`.
+Read with [task-writing.md](../task-writing.md). In Obsidian the notes are the tasks: one note per task in `<memory>/tasks/<checkout slug>/`, written only through `kaito-tasks.sh`.
 
 ## Structure
 

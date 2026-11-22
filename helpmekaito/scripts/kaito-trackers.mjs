@@ -3,7 +3,7 @@
 //   tracking: never            (project level: this project is not tracked anywhere, do not ask)
 // An older "board: <manager> <id> <name>" line reads as one official tracker; "board: none" reads as tracking: never.
 // node kaito-trackers.mjs <project-file> list | select [manager] | add <manager> <id> <name> [key=value...]
-//   | set <manager> key=value... | rm <manager> | project never|ask
+//   | set <manager> key=value... | rm <manager> | project never|ask | merge <other-project-file>
 // Callers hold the memory lock around the writing commands.
 import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 
@@ -16,17 +16,18 @@ const scripted = (t) => SCRIPTED.includes(t.manager) && (t.manager !== 'linear' 
 const KEYS = { role: ['official', 'personal'], tracking: ['always', 'never', 'ask'] };
 const clean = (s) => String(s ?? '').replace(/[\r\n|]+/g, ' ').trim();
 
-const lines = (() => { try { return readFileSync(file, 'utf8').split(/\r?\n/); } catch { return []; } })();
-function parse() {
+const read = (f) => { try { return readFileSync(f, 'utf8').split(/\r?\n/); } catch { return null; } };
+const lines = read(file) ?? [];
+function parse(src = lines) {
   const out = [];
   let project = '';
-  for (const l of lines) {
+  for (const l of src) {
     let m;
     if ((m = l.match(/^tracking: (never|ask)\s*$/))) project = m[1];
     else if (/^board: none\s*$/.test(l)) project = 'never';
     else if ((m = l.match(/^(tracker|board): ([a-z][a-z0-9-]*) (\S+) ?(.*)$/))) {
       const [name, ...attrs] = m[4].split(' | ');
-      const t = { manager: m[2], id: m[3], name: name.trim(), role: 'official', tracking: 'ask', note: '', legacy: m[1] === 'board' };
+      const t = { manager: m[2], id: m[3], name: name.trim(), role: 'official', tracking: 'ask', note: '', legacy: m[1] === 'board', line: l };
       for (const a of attrs) { const [k, ...v] = a.split('='), key = k.trim(); if (['role', 'tracking', 'note'].includes(key)) t[key] = v.join('=').trim(); }
       out.push(t);
     }
@@ -34,12 +35,12 @@ function parse() {
   return { trackers: out, project };
 }
 const show = (t) => `tracker: ${t.manager} ${t.id} ${t.name} | role=${t.role} | tracking=${t.tracking}${t.note ? ` | note=${t.note}` : ''}`;
-function write({ trackers, project }) {
+function write({ trackers, project }, extra = []) {
   const rest = lines.filter((l) => !/^(tracker|board|tracking): /.test(l));
   while (rest.length && rest[rest.length - 1] === '') rest.pop();
   const head = [...trackers.map(show), ...(project ? [`tracking: ${project}`] : [])];
   const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, [...head, ...rest].join('\n') + '\n');
+  writeFileSync(tmp, [...head, ...rest, ...extra].join('\n') + '\n');
   renameSync(tmp, file);
 }
 function apply(t, pairs) {
@@ -94,4 +95,26 @@ if (cmd === 'list') {
   st.project = args[0] === 'ask' ? '' : 'never';
   write(st);
   console.log(`tracking: ${args[0]}`);
-} else die('usage: kaito-trackers.mjs <project-file> list|select|add|set|rm|project');
+} else if (cmd === 'merge') {
+  // Fold another project file's trackers into this one: this file's settings win, what would be lost is kept as a note.
+  const o = parse(read(args[0] || '') ?? die('usage: kaito-trackers.mjs <project-file> merge <other-project-file>'));
+  if (read(file) === null) die(`cannot read ${file}`);  // never rewrite a file that could not be read
+  const pad = (n) => String(n).padStart(2, '0'), now = new Date();
+  const day = process.env.KAITO_TODAY || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const notes = [];
+  const keep = (t) => {  // false when an earlier merge already saved it: a rerun adds nothing
+    const n = `merged tracker: ${t.line}`;
+    if (lines.some((l) => l.endsWith(n)) || notes.some((l) => l.endsWith(n))) return false;
+    notes.push(`- ${day} ${n}`);
+    return true;
+  };
+  const veto = st.project === 'never';  // only this file's own "never" keeps the other file's trackers out
+  if (!st.project && o.project && !(o.project === 'never' && st.trackers.length)) st.project = o.project;
+  for (const t of o.trackers) {
+    const n = st.trackers.find((x) => x.manager === t.manager);
+    if (veto) keep(t);
+    else if (!n) st.trackers.push(t);
+    else if (n.id !== t.id && keep(t)) console.error(`kaito-tasks: tracker conflict for ${t.manager}: kept ${n.id}, ${t.id} saved as a note`);
+  }
+  write(st, notes);
+} else die('usage: kaito-trackers.mjs <project-file> list|select|add|set|rm|project|merge');

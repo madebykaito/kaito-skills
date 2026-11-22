@@ -27,6 +27,13 @@ mkdir "$h/project"
   [ "$(printf '%s\n' "$lesson" | "$mem" capture convention)" = saved ] || fail "installed capture failed"
   [ "$(printf '%s\n' "$lesson" | "$mem" capture convention)" = already_present ] || fail "installed capture repeated a lesson"
   "$mem" where | grep -Eq "^learn: convention 1 [0-9-]+ $lesson$" || fail "installed capture was not recalled"
+  "$mem" where task >/dev/null || fail "installed task start failed"
+  task_output=$("$mem" where task) || fail "installed second task start failed"
+  printf '%s\n' "$task_output" | grep -q '^closeout_missed:' || fail "missing closeout reminder"
+  closeout_output=$("$mem" closeout nothing_to_save) || fail "installed closeout failed"
+  [ "$closeout_output" = nothing_to_save ] || fail "closeout did not report nothing_to_save"
+  task_output=$("$mem" where task) || fail "installed task start after closeout failed"
+  if printf '%s\n' "$task_output" | grep -q '^closeout_missed:'; then fail "closeout reminder remained after closeout"; fi
 )
 
 "$repo/setup" --yes --no-gstack --no-codegraph >/dev/null  # a re-run changes nothing

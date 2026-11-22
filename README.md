@@ -316,7 +316,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Plane needs a personal API key and your workspace slug (`kaito-tasks.sh login`), stored the same way; set a URL there for a self-hosted Plane. Without a key it works through the Plane MCP connector. A project with more than 3000 work items needs a module mapping.
 - Plane has no checklists, so a checklist item is a sub work item.
 - Linear needs a personal API key (`kaito-tasks.sh login`), stored the same way, or read from `~/.config/linear/.env`. Without a key it works through the Linear connector. The API allows 2,500 requests an hour; a team with more than 2,000 open issues needs a project mapping. A checklist item is a sub-issue.
-- A repo's trackers and whether to track work there are remembered per repo and per machine, in the memory folder. A second machine asks again.
+- A repo's trackers and whether to track work there are remembered per repo and per machine, in the memory folder. Checkouts and worktrees of one repo share them when the repo has a network remote; a repo without one is remembered per checkout. A second machine asks again.
 - First-use detection only reads local evidence (branch, commits, docs, stored board names). It finds nothing for a tracker whose structure was never synced, and then helpmekaito asks.
 - Asana, Jira and other task managers work only through their MCP connector.
 - Moving `memory.path` later is manual: move the folder, then change the key.
