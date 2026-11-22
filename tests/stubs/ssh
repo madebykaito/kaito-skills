@@ -1,0 +1,3 @@
+#!/bin/sh
+[ "$#" -eq 2 ] && [ "$1" = -G ] || exit 1
+case "$2" in gh-alias) echo 'hostname github.com' ;; *) echo "hostname $2" ;; esac

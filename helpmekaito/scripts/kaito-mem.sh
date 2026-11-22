@@ -1,23 +1,57 @@
 #!/bin/sh
 # Cross-project memory in $KAITO_HOME/memory.
-# Usage: kaito-mem.sh dir | where | note global|project "<text>" | codegraph-decision yes|no
+# Usage: kaito-mem.sh dir | slug | label | where [task] | note global|project "<text>" | codegraph-decision yes|no
 #        | set board|brief_fp "<value>" | local-skills (name<TAB>path<TAB>desc lines on stdin)
 #        | learn correction|preference|worked|failed|convention "<text>" [global]
 #        | capture correction|preference|worked|failed|convention [global] (one lesson on stdin)
 #        | forget "<text>" [global|project] | promote "<text>" [global|project] | curate | stats      (see references/learning.md)
+#        | merge <old-slug> | closeout nothing_to_save|skipped
+# The project file is keyed on the repo's network origin when it has one, else on the checkout path.
 set -eu
 here=$(dirname "$0")
 K="${KAITO_HOME:-$HOME/.kaito}"
 # memory.path in config moves the memory folder; default $K/memory. A missing helper means the default.
 M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
 case "$M" in "~") M=$HOME ;; "~/"*) M="$HOME/${M#"~/"}" ;; "") M="$K/memory" ;; esac
+[ "${1:-}" != dir ] || { echo "$M"; exit 0; }  # kaito-obsidian.sh calls dir during a mirror: no migration, no writes
 RO="memory is read-only here; to allow Codex writes run setup and answer yes to codexwrite"
 . "$here/kaito-memory-lock.sh"
 
 g=1; p=$(git rev-parse --show-toplevel 2>/dev/null) || { g=0; p=$(pwd); }
 p=$(cd "$p" && pwd -P)
-s=$(sh "$here/kaito-codegraph.sh" slug "$p")
+# ident: origin as lower-case host/path, only for a network remote. userinfo, port, query and fragment are dropped,
+# so no credential is kept. An ssh host alias resolves through ssh -G. stdin is closed: capture reads the lesson from it.
+ident() {
+  [ "$g" = 1 ] || return 0
+  u=$(git -C "$p" remote get-url origin 2>/dev/null </dev/null) || return 0
+  u=${u%%[?#]*}
+  case "$u" in *::*|*"["*) return 0 ;; esac  # a remote helper address, or an IPv6 host this does not parse
+  case "$u" in
+    *://*) sc=$(printf %s "${u%%://*}" | tr 'A-Z' 'a-z'); r=${u#*://}; h=${r%%/*}; r=${r#"$h"}; h=${h##*@}; h=${h%%:*}
+      case "$sc" in ""|file|[!a-z]*|*[!a-z0-9+.-]*) return 0 ;; esac ;;
+    *:*) h=${u%%:*}; r=${u#*:}; sc=ssh
+      case "$h" in */*|*\\*) return 0 ;; esac
+      h=${h##*@}; case "$h" in ?) return 0 ;; esac ;;  # one letter is a Windows drive
+    *) return 0 ;;
+  esac
+  case "$sc:$h" in ssh:-*|ssh:) ;; ssh:*)
+    x=$(ssh -G "$h" 2>/dev/null </dev/null | sed -n 's/^hostname //p' | head -n 1) || x=""; [ -z "$x" ] || h=$x ;; esac
+  while :; do case "$r" in /*) r=${r#/} ;; *) break ;; esac; done
+  r=$(printf %s "$r" | tr 'A-Z' 'a-z')
+  while :; do case "$r" in */) r=${r%/} ;; *) break ;; esac; done
+  r=${r%.git}
+  case "$h:$r" in -*|:*|*:|*@*) return 0 ;; esac  # an @ left in the path may be part of a credential
+  printf %s "$h/$r" | tr 'A-Z' 'a-z'
+}
+os=$(sh "$here/kaito-codegraph.sh" slug "$p")  # the checkout slug: codegraph, task caches and locks keep it
+id=$(ident) || id=""
+s=$os
+[ -z "$id" ] || s="$(printf %s "${id##*/}" | sed 's/[^A-Za-z0-9._-]/-/g')-$(printf %s "$id" | { shasum 2>/dev/null || sha1sum; } | cut -c1-8)"
 pf="$M/projects/$s.md"
+of="$M/projects/$os.md"  # the file of the path key, folded into pf on the next run that can write
+ix="- projects/$s.md ${id:-$p}"  # this project's MEMORY.md line
+CO="$K/closeout/$s"  # "<start date> open|closed|missed" per routed task; per machine, never in the memory folder
+miss=""
 
 mirror() {  # best effort, never changes our exit code; a real failure is shown, "disabled" is not
   [ -x "$here/kaito-obsidian.sh" ] || return 0
@@ -37,7 +71,7 @@ put() {
   (
     mkdir -p "$M/projects" || exit 1
     memory_lock "$M" || exit $?
-    [ -e "$pf" ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
+    [ -e "$pf" ] || printf "%s\n" "$ix" >> "$M/MEMORY.md"
     { grep -v "^$1:" "$pf" 2>/dev/null || :; [ -z "$2" ] || printf "%s\n" "$2"; } > "$pf.$$.tmp"
     mv "$pf.$$.tmp" "$pf"
   ) 2>/dev/null || wfail $?
@@ -83,7 +117,7 @@ wfail() {
 relearn() {
   case "${3:-}" in ""|global|project) ;; *) set -- "$1" "" ;; esac
   [ -n "$2" ] || { echo "usage: kaito-mem.sh $1 \"<text>\" [global|project]" >&2; exit 2; }
-  for f in "projects/$s.md" global.md; do
+  for f in "projects/$s.md" "${po:+projects/$os.md}" global.md; do
     case "${3:-}:$f" in project:global.md|global:projects/*) continue ;; esac
     [ -f "$M/$f" ] || continue
     rc=0
@@ -102,21 +136,99 @@ relearn() {
 }
 # Each file ends its own last line, and a CR from a Windows editor is dropped.
 learnings() {
-  for lf in "$pf" "$M/global.md"; do [ ! -r "$lf" ] || awk 1 "$lf"; done 2>/dev/null | tr -d '\r' | grep '^learn:' || :
+  for lf in "$pf" "$po" "$M/global.md"; do [ ! -r "$lf" ] || awk 1 "$lf"; done 2>/dev/null | tr -d '\r' | grep '^learn:' || :
+}
+# The project file, and an old one still waiting to be folded in.
+pfs() { for x in "$pf" "$po"; do [ ! -r "$x" ] || awk 1 "$x"; done; }
+# fold <old-slug>: merge projects/<old-slug>.md into this project's file, re-key the index and the log, retire it last.
+# Call inside a locked subshell; every step checks its own status (errexit is off there). A rerun after a crash
+# converges: the merge keeps the higher count, never a sum, and skips lines already present.
+fold() {
+  ol=$1; o="$M/projects/$ol.md"
+  [ -f "$o" ] || exit 0
+  if [ -f "$pf" ]; then set -- f=n "$pf" f=o "$o"; else set -- f=o "$o"; fi
+  LC_ALL=C awk "$AWKLIB"'
+    { sub("\r$", "") }
+    f == "n" { o[++n] = $0
+      if (/^learn:/) { k = norm(txt($0)); if (!(k in L)) { L[k] = n; kd[n] = $2; c[n] = $3 + 0; d[n] = $4 } }
+      else if (/^brief_fp:/) bf = 1
+      else if (/^codegraph:/) cg = 1
+      else if (/^local_skill:/) nl[n] = 1
+      else seen[$0] = 1
+      next }
+    /^(tracker|board|tracking):/ { next }
+    /^learn:/ { k = norm(txt($0))
+      if (k in L) { i = L[k]; if ($3 + 0 > c[i]) { c[i] = $3 + 0; up[i] = 1 }; if ($4 > d[i]) { d[i] = $4; up[i] = 1 } }
+      else { o[++n] = $0; L[k] = n; kd[n] = $2; c[n] = $3 + 0; d[n] = $4 }
+      next }
+    /^(brief_fp|local_skill):/ { o[++n] = $0; ol[n] = 1; if (/^brief_fp:/) obf = 1; next }
+    /^codegraph:/ { if (!cg) { o[++n] = $0; cg = 1 }; next }
+    $0 != "" && !($0 in seen) { o[++n] = $0; seen[$0] = 1 }
+    END { theirs = !bf && obf  # brief_fp and local_skill lines come from one file
+      for (i = 1; i <= n; i++) {
+        if (theirs && (i in nl)) continue
+        if (!theirs && (i in ol)) continue
+        if (i in up) print "learn: " kd[i] " " c[i] " " d[i] " " txt(o[i]); else print o[i] } }' "$@" > "$pf.$$.tmp" 2>/dev/null &&
+    mv "$pf.$$.tmp" "$pf" 2>/dev/null || { rm -f "$pf.$$.tmp" 2>/dev/null; exit 1; }
+  KAITO_TODAY=$today node "$here/kaito-trackers.mjs" "$pf" merge "$o" >/dev/null || exit 1
+  { [ -e "$M/MEMORY.md" ] || : > "$M/MEMORY.md"; } 2>/dev/null || exit 1
+  MA="- projects/$ol.md" MB="- projects/$s.md" MI=$ix; export MA MB MI
+  rewrite MEMORY.md '
+    { x = $0; sub("\r$", "", x) }
+    x == ENVIRON["MA"] || index(x, ENVIRON["MA"] " ") == 1 { next }
+    x == ENVIRON["MB"] || index(x, ENVIRON["MB"] " ") == 1 { if (!hit) print ENVIRON["MI"]; hit = 1; next }
+    { print }
+    END { if (!hit) print ENVIRON["MI"] }' 2>/dev/null
+  if [ -f "$M/learning.log" ]; then
+    MO=$ol MN=$s; export MO MN
+    rewrite learning.log '
+      { x = $0; sub("\r$", "", x); q = x; sub(/^[^ ]+ /, "", q); sub(/ [^ ]+$/, "", q) }
+      NF >= 3 && q == ENVIRON["MO"] { k = split(x, a, " "); print a[1] " " ENVIRON["MN"] " " a[k]; next }
+      { print }' 2>/dev/null
+  fi
+  mkdir -p "$M/projects/.migrated" 2>/dev/null || exit 1
+  b="$M/projects/.migrated/$ol.md"; i=0
+  while [ -e "$b" ]; do i=$((i + 1)); b="$M/projects/.migrated/$ol.md.$i"; done
+  mv "$o" "$b" 2>/dev/null || exit 1
+}
+# migrate: fold the path-keyed file in when it is pending. Silent; when it cannot run, reads include the old file.
+migrate() {
+  [ "$s" != "$os" ] && [ -f "$of" ] || return 0
+  ( memory_lock "$M" || exit $?; fold "$os" ) || return 0  # stderr kept for a tracker conflict warning
+  mirror "projects/$s.md" MEMORY.md
+}
+# co start|close: update this project's closeout state. Best effort: silent, never changes the command's result.
+co() {
+  [ ! -e "$CO" ] || [ -r "$CO" ] || return 0
+  last=$(tail -n 1 "$CO" 2>/dev/null | tr -d '\r') || last=""
+  case "$1:$last" in close:*" open"|start:*) ;; *) return 0 ;; esac
+  ( mkdir -p "$K/closeout" && { cat "$CO" 2>/dev/null || :; } | LC_ALL=C awk -v m="$1" -v today="$today" "$AWKLIB"'
+      { sub("\r$", "") } $0 != "" { l[++n] = $0 }
+      END { w = m == "start" ? " missed" : " closed"; if (n) sub(/ open$/, w, l[n]); if (m == "start") l[++n] = today " open"
+        for (i = 1; i <= n; i++) { split(l[i], a, " ")
+          if (m != "start" || (a[1] ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ && days(today) - days(a[1]) <= 28)) print l[i] } }' > "$CO.$$.tmp" &&
+    mv "$CO.$$.tmp" "$CO" ) 2>/dev/null || { rm -f "$CO.$$.tmp" 2>/dev/null; return 0; }
+  case "$1:$last" in start:*" open") miss=${last%% *} ;; esac
 }
 
+case "${1:-}" in closeout) ;; *) migrate ;; esac
+po=""; [ "$s" = "$os" ] || [ ! -f "$of" ] || po=$of  # still pending: reads include it, writes go to pf
+
 case "${1:-}" in
-  dir) echo "$M" ;;
+  slug) echo "$s" ;;
+  label) echo "${id:-$p}" ;;
   where)
+    [ $# -ne 2 ] || [ "$2" != task ] || co start  # a routed task starts: an earlier one still open had no closeout
     if [ "$g" = 0 ] || [ "$p" = / ] || [ "$p" = "$(cd "$HOME" && pwd -P)" ]; then i=n/a
     elif [ -e "$p/.codegraph" ]; then i=yes; else i=no; fi  # a dangling link is not an index
     # top is never cut: keyed lines, rules, then the most confirmed, most recent learnings of this project and user
     L=$(learnings | sort -k3,3nr -k4,4r); n=$(printf "%s\n" "$L" | grep -c . || :)
     top=$(printf "%s\n" "slug=$s" "project_file=$pf" "indexed=$i"
-      { grep -E '^(tracker|tracking|board|local_skill|rule):' "$pf" || :; grep '^rule:' "$M/global.md" || :
+      [ -z "$miss" ] || echo "closeout_missed: a task started $miss has no recorded closeout and may still be running"
+      { pfs | grep -E '^(tracker|tracking|board|local_skill|rule):' || :; grep '^rule:' "$M/global.md" || :
         [ "$n" -eq 0 ] || printf "%s\n" "$L" | head -n "$LEARN_CAP"
         [ "$n" -le "$LEARN_CAP" ] || echo "learn_more: $((n - LEARN_CAP)) not shown; run kaito-mem.sh curate"; } 2>/dev/null)
-    rest=$({ grep -vE '^(tracker|tracking|board|local_skill|rule|learn):' "$pf" || :
+    rest=$({ pfs | grep -vE '^(tracker|tracking|board|local_skill|rule|learn):' || :
       grep -vE '^(rule|learn):' "$M/global.md" || :; cat "$M/MEMORY.md" || :; } 2>/dev/null)  # project facts first: they survive the cut
     printf "%s\n" "$top"
     room=$((40 - $(printf "%s\n" "$top" | wc -l))); nr=0; [ -z "$rest" ] || nr=$(printf "%s\n" "$rest" | wc -l)
@@ -132,7 +244,7 @@ case "${1:-}" in
       mkdir -p "$M/projects" || exit 1
       memory_lock "$M" || exit $?
       if [ "$2" = project ] && [ ! -e "$pf" ]; then
-        printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md"
+        printf "%s\n" "$ix" >> "$M/MEMORY.md"
       fi
       printf "%s\n" "- $(date +%Y-%m-%d) $t" >> "$M/$f"
     ) 2>/dev/null || wfail $?
@@ -172,7 +284,7 @@ case "${1:-}" in
         { print }
         END { if (!hit) print "learn: " k " 1 " d " " t }'
       # only a learning that is on disk is indexed and logged
-      [ "$new" = 0 ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md" || :
+      [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || :
       printf "%s\n" "$today $s $2" >> "$M/learning.log" || :  # one line per capture: what stats counts
     ) 2>/dev/null || wfail $?
     mirror "$f" MEMORY.md
@@ -208,9 +320,10 @@ case "${1:-}" in
         BEGIN { n = norm(ENVIRON["T"]) }
         /^learn:/ && norm(txt($0)) == n { found = 1 }
         END { exit found ? 0 : 1 }' "$M/$f" || exit 1
-      [ "$new" = 0 ] || printf "%s\n" "- projects/$s.md $p" >> "$M/MEMORY.md" || echo "kaito-mem: warning: the project index was not updated" >&2
+      [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || echo "kaito-mem: warning: the project index was not updated" >&2
       printf "%s\n" "$today $s $2" >> "$M/learning.log" || echo "kaito-mem: warning: the learning log was not updated" >&2
     ) || rc=$?
+    co close  # the lesson was assessed, saved or not
     case "$rc" in
       0) mirror "$f" MEMORY.md; echo saved ;;
       4) echo already_present ;;
@@ -245,6 +358,27 @@ case "${1:-}" in
       NF >= 3 { p = $0; sub(/^[^ ]+ /, "", p); sub(/ [^ ]+$/, "", p)  # date first, kind last: a slug may hold spaces
         seen[p] = 1; a = days(today) - days($1); if ($NF == "correction" && a >= 0 && a < 28) c[p, 3 - int(a / 7)]++ }
       END { for (p in seen) print p ": " c[p, 0] + 0 " " c[p, 1] + 0 " " c[p, 2] + 0 " " c[p, 3] + 0 }' | sort
+    { cat "$CO" 2>/dev/null || :; } | LC_ALL=C awk -v today="$today" "$AWKLIB"'
+      { sub("\r$", ""); a = days(today) - days($1) }
+      $1 ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ && a >= 0 && a < 28 { if ($NF == "missed") n++; if ($NF == "missed" || $NF == "closed") m++ }
+      END { print "closeouts not recorded: " n + 0 " of " m + 0 " routed tasks started in the last 28 days" }'
     ;;
-  *) echo "usage: kaito-mem.sh dir | where | note global|project \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | capture <kind> [global] < lesson | forget|promote \"<text>\" [global|project] | curate | stats" >&2; exit 2 ;;
+  closeout)
+    case "$#:${2:-}" in 2:nothing_to_save|2:skipped) ;; *) echo "usage: kaito-mem.sh closeout nothing_to_save|skipped" >&2; exit 2 ;; esac
+    co close; echo "$2"
+    ;;
+  merge)
+    case "${2:-}" in ""|*/*|*..*) echo "usage: kaito-mem.sh merge <old-slug> (a projects/ file name without .md)" >&2; exit 2 ;; esac
+    [ "$2" != "$s" ] && [ ! "$M/projects/$2.md" -ef "$pf" ] || { echo "kaito-mem: $2 is this project's own file" >&2; exit 2; }
+    [ "$2" != "$os" ] || [ -f "$of" ] || { echo "merged: $2 -> $s"; exit 0; }  # the run above already folded it in
+    [ -f "$M/projects/$2.md" ] || { echo "kaito-mem: no such project file: projects/$2.md" >&2; exit 2; }
+    rc=0; ( memory_lock "$M" || exit $?; fold "$2" ) || rc=$?
+    case "$rc" in
+      0) mirror "projects/$s.md" MEMORY.md; echo "merged: $2 -> $s" ;;
+      73) echo "$RO" >&2; exit 73 ;;
+      74) echo "kaito-mem: memory is busy; nothing was merged" >&2; exit 74 ;;
+      *) echo "kaito-mem: the merge did not finish; projects/$2.md was kept, run it again" >&2; exit 1 ;;
+    esac
+    ;;
+  *) echo "usage: kaito-mem.sh dir | slug | label | where [task] | note global|project \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | capture <kind> [global] < lesson | forget|promote \"<text>\" [global|project] | curate | stats | merge <old-slug> | closeout nothing_to_save|skipped" >&2; exit 2 ;;
 esac

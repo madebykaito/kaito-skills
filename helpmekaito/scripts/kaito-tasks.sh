@@ -31,7 +31,9 @@ M=$(sh "$here/kaito-mem.sh" dir)
 p=$(git rev-parse --show-toplevel 2>/dev/null) || p=$(pwd)
 p=$(cd "$p" && pwd -P)
 S=$(sh "$here/kaito-codegraph.sh" slug "$p")
-pf="$M/projects/$S.md"
+MS=$(sh "$here/kaito-mem.sh" slug)  # the memory key (repo identity); S stays the checkout slug for cache, lock and temp names
+pf="$M/projects/$MS.md"
+[ -e "$pf" ] || [ ! -e "$M/projects/$S.md" ] || pf="$M/projects/$S.md"  # the old file is still waiting to be folded in: use it
 TK="$here/kaito-trackers.mjs"
 
 . "$here/kaito-memory-lock.sh"
@@ -46,15 +48,17 @@ mlock() {
     *) die "could not lock memory" ;;
   esac
 }
+# index_line: a new project file gets its MEMORY.md line; kaito-mem.sh owns the text after the file name.
+index_line() { [ -e "$pf" ] || printf "%s\n" "- projects/$MS.md $(sh "$here/kaito-mem.sh" label)" >> "$M/MEMORY.md"; }
 # tk_write <kaito-trackers args>: change the project's tracker lines under the lock, then mirror the file.
 tk_write() {
   out=$(
     mkdir -p "$M/projects" || die "could not open memory"
     mlock
-    [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
+    index_line
     node "$TK" "$pf" "$@"
   ) || exit 1
-  if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$S.md" >/dev/null 2>&1 || :; fi
+  if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$MS.md" >/dev/null 2>&1 || :; fi
   printf "%s\n" "$out"
 }
 
@@ -115,6 +119,17 @@ off() {
   [ "$TRK" = never ] || return 1
   if [ -n "${PNEVER:-}" ]; then echo "tracking is off for this project; turn it on with: kaito-tasks.sh tracking ask"
   else echo "tracking is off for this project${tm:+ on $tm}; turn it on with: kaito-tasks.sh tracker set <manager> tracking=always"; fi
+}
+# The cache folder is stamped with the tracker it was pulled for. Another checkout of the same repo may have remapped the
+# project since, and Linear trusts its cache. stamp check clears a stale cache (conflicts stay); stamp write only records.
+# Linear only, as drop_cache: a Plane or Trello remap keeps its cache on purpose.
+stamp() {
+  [ "$mgr" = linear ] && [ -n "$B" ] && [ -d "$D" ] || return 0
+  was=$(cat "$D/.tracker" 2>/dev/null) || was=""
+  [ "$was" != "$mgr $B" ] || return 0
+  # A cache with no stamp is from before stamps: it is kept, it may hold edits not synced yet.
+  if [ "$1" = check ] && [ -n "$was" ]; then find "$D" -mindepth 1 -maxdepth 1 ! -name conflicts -exec rm -rf {} + || :; fi
+  printf "%s\n" "$mgr $B" > "$D/.tracker" 2>/dev/null || :  # best effort: never fails a command that already ran
 }
 export M S D B MGR="$mgr"
 # Discovery consent is kept per manager, so answering for one never drops the other's boards. Trello keeps the first key.
@@ -332,11 +347,11 @@ EOF
     (
       mkdir -p "$M/projects" || die "could not open memory"
       mlock
-      [ -e "$pf" ] || printf "%s\n" "- projects/$S.md $p" >> "$M/MEMORY.md"
+      index_line
       { grep -v -e '^board:' -e '^tracking: never' "$pf" 2>/dev/null || :; echo "board: $mgr $id $name"; } > "$pf.$$.tmp"
       mv "$pf.$$.tmp" "$pf"
     ) || die "could not write $pf"
-    if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$S.md" >/dev/null 2>&1 || :; fi
+    if [ -x "$here/kaito-obsidian.sh" ]; then "$here/kaito-obsidian.sh" push "projects/$MS.md" >/dev/null 2>&1 || :; fi
     drop_cache
     echo "board: $mgr $id $name"
     ;;
@@ -349,19 +364,19 @@ EOF
       KAITO_DISCOVER_IDS=$(node "$here/kaito-json.mjs" each "$CFG" "$DK.boards" | tr '\n' ' ')
       KAITO_TTL_HOURS=$(cfg tasks.structure_ttl_hours); export KAITO_DISCOVER_IDS KAITO_TTL_HOURS
     fi
-    J pull ;;
+    stamp check; J pull; stamp write ;;
   list)
     # Several scripted trackers and none named: list each under its own heading. Each one answers for its own tracking setting.
     if [ -z "$want" ] && [ "$(printf '%s\n' $scripted | grep -c .)" -gt 1 ]; then
       for t in $scripted; do echo "## $t"; sh "$0" --tracker "$t" list; done
     elif off; then exit 0
-    else J list; fi ;;
+    else stamp check; J list; fi ;;
   add|check|uncheck|rename|move|comment|link|done|reopen|item)
     op=$cmd; shift
     if [ "$op" = item ]; then [ "${1:-}" = add ] || die "usage: kaito-tasks.sh item add <task> \"<text>\""; op=item-add; shift; fi
     if off >&2; then exit 1; fi
     if remote; then need_board; need_creds; fi
-    J op "$op" "$@"
+    stamp check; rc=0; J op "$op" "$@" || rc=$?; stamp write; exit "$rc"
     ;;
   *) echo "$USAGE" >&2; exit 2 ;;
 esac

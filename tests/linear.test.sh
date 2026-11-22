@@ -461,6 +461,22 @@ test_remap_drops_the_old_cache() {
   has "$out" "KAI-5 is not in the project"
 }
 
+test_remap_from_another_checkout_cannot_write_through_a_stale_cache() {
+  home
+  for d in a b; do mkdir -p "$HOME/$d"; (cd "$HOME/$d" && git init -q && git remote add origin https://example.com/acme/app.git) || exit 1; done
+  sb=$(sh "$REPO/helpmekaito/scripts/kaito-codegraph.sh" slug "$HOME/b"); CB="$MEM/tasks/linear/$sb"
+  (cd "$HOME/a" && sh "$T" map "$T1" >/dev/null) || exit 1
+  (cd "$HOME/b" && sh "$T" pull >/dev/null) || exit 1
+  assert_file "$CB/KAI-5-company-admin.md"
+  (cd "$HOME/a" && sh "$T" map "$T1/$PJ" >/dev/null) || exit 1
+  assert_file "$CB/KAI-5-company-admin.md"   # B's cache is not touched by A's remap
+  n=$(count IssueUpdate)
+  out=$(cd "$HOME/b" && sh "$T" done KAI-5 2>&1) && { echo "  wrote outside the project"; exit 1; }
+  has "$out" "KAI-5 is not in the project"
+  assert_eq "$(count IssueUpdate)" "$n" "no mutation for the out-of-scope issue"
+  assert_no "$CB/KAI-5-company-admin.md"
+}
+
 test_ratelimited_400_read_retries_and_succeeds() {
   home; kill $SPID; STUB_FAIL="Issues RATELIMITED 1" stub
   sh "$T" map "$T1" >/dev/null || exit 1

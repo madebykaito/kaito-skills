@@ -9,6 +9,7 @@
 | `~/.kaito/state.json` | What setup added, so re-runs and `--uninstall` touch only that. Also the installed `version` and the `repo` it came from, which upgrades use. |
 | `~/.kaito/backup` | Skills of yours that you let setup replace. Uninstall moves them back. |
 | `~/.kaito/memory` | Notes `helpmekaito` keeps about you and each repo. Change it with `memory.path`. |
+| `~/.kaito/closeout/` | Per machine: the state `where task` keeps of each routed task, so an unrecorded closeout can be reported. Not in the memory folder, so it does not sync. `setup --uninstall` removes it. |
 | `~/.kaito/.env` | Task manager credentials, written only by `kaito-tasks.sh login`. |
 | `~/.claude/skills/<skill>` | A link to the store copy, for Claude Code. |
 | `~/.agents/skills/<skill>` | A link for Codex: `helpmekaito` and your hot list. |

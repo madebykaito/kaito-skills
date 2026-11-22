@@ -558,6 +558,7 @@ uninstall() {
   restore_taken
   clone=$(node "$J" get "$STATE" repo | tr -d '"')
   rm -rf "$STORE" "$STATE"
+  rm -f "$KAITO_HOME/closeout"/*; rmdir "$KAITO_HOME/closeout" 2>/dev/null || :  # state files only, never a folder inside
   # gstack registers its own hooks at run time. With the store gone they are dead: let gstack prune them.
   h="$REPO/gstack/bin/gstack-settings-hook"
   [ -x "$h" ] || h="$clone/gstack/bin/gstack-settings-hook"  # run from the store copy: the store is gone, the clone may not be
