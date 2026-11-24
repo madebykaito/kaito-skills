@@ -17,7 +17,7 @@
   "dependencies": {
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "lucide-react": "1.76.0"
+    "lucide-react": "1.79.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
@@ -29,6 +29,6 @@
     "postcss": "^8.5.33"
   },
   "optionalDependencies": {
-    "portless": "0.13.0"
+    "portless": "0.18.1"
   }
 }

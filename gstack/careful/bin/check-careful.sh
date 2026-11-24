@@ -102,8 +102,9 @@ if grep -qE '\$\{IFS\}|\$IFS|\$\(echo[^)]*base64[^)]*\)|base64[[:space:]]+(-d|--
 fi
 
 # --- Commit-message masking (#1060) ---
-# Mask quoted -m/-am/--message argument content in git commit commands so that
-# descriptive commit messages do not trigger false positives. The quote-aware
+# Mask quoted -m/-am/--message argument content in git commit commands, and the
+# quoted --title/--body of gh issue and gh pr create, comment and edit (#4601),
+# so that descriptive text does not trigger false positives. The quote-aware
 # scanner lives in mask-commit-message.awk beside this hook: as a heredoc inside
 # a command substitution, its quote characters are mis-parsed by bash 3.2
 # (macOS /bin/bash), which made this whole hook a syntax error there. A missing
@@ -114,7 +115,7 @@ PATTERN=""
 CMD_MEDIUM="$CMD"
 CMD_MEDIUM_LOWER="$CMD_LOWER"
 _MASK_AWK="$_HOOK_DIR/mask-commit-message.awk"
-case "$CMD" in *git*commit*) _MAYBE_COMMIT=1 ;; *) _MAYBE_COMMIT=0 ;; esac
+case "$CMD" in *git*commit*|*gh*) _MAYBE_COMMIT=1 ;; *) _MAYBE_COMMIT=0 ;; esac
 if [ "$_MAYBE_COMMIT" -eq 1 ] && [ -f "$_MASK_AWK" ]; then
   if _cmd_masked=$(printf '%s' "$CMD" | awk -f "$_MASK_AWK" 2>/dev/null); then
     CMD_MEDIUM="$_cmd_masked"
@@ -140,6 +141,9 @@ _RX_CACHE="^${_RX_HOME}/(\.cache|\.npm|\.bun/install/cache|\.cargo/registry|\.lo
 _RX_ARTIFACT="^([^[:space:];&|#(${_BT}\$]*/)?(node_modules|\.next|dist|__pycache__|\.cache|build|\.turbo|coverage|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.nox|htmlcov|\.eggs|\.venv|venv|[^/[:space:]]+\.egg-info)(/|/\*)?\$"
 _RX_ROOT="^(/+|/+\*|${_RX_HOME}(/+|/+\*)?|/(usr|etc|var|home|opt|bin|sbin|lib|lib64|boot|root|srv|System|Users|Library|Applications|private|mnt/c|c)(/+|/+\*)?|${_RX_HOME}/(Documents|Desktop|Downloads|Library|Pictures|Movies|Music|\.ssh|\.config|\.aws|\.gnupg|\.kube)(/+|/+\*)?)\$"
 
+# A device node under /dev, and a system folder a cd can lead a relative delete into.
+_RX_DEV_NODE='^/dev/(sd|nvme|hd|vd|xvd|mmcblk|loop|disk|rdisk|md|dm-|nbd|sr|mapper/|sg[0-9]|zram[0-9]|ram[0-9]|mtd|ubi)'
+_RX_SYSDIR='^/(etc|usr|boot|bin|sbin|lib|lib32|lib64|root|opt|var/(lib|log|db|spool)|System|Library|private/etc)/'
 _CAREFUL_CWD="${GSTACK_HOOK_CWD:-}"
 [ -n "$_CAREFUL_CWD" ] || _CAREFUL_CWD="$PWD"
 if command -v gstack_hook_normalize_path >/dev/null 2>&1; then
@@ -161,9 +165,6 @@ _STASH_POP=0
 _GIT_SUB=-1
 _HI_RM_ROOT=0
 _HI_DISK=0
-_WIPEFS_SEEN=0
-_WIPEFS_SAFE=0
-_STMT_N=0
 _RM_UNSAFE=0
 _OUTSIDE=0
 _PUSH_DENY=""
@@ -233,6 +234,12 @@ _careful_rm_safe() {
   return 1
 }
 
+# _SQ is $1 with doubled slashes and /./ folded, the way the kernel reads it.
+_careful_squash() {
+  _SQ="$1"
+  while [[ $_SQ == *//* || $_SQ == */./* ]]; do _SQ=${_SQ//\/\//\/}; _SQ=${_SQ//\/.\//\/}; done
+}
+
 # A delete target outside the session's folder: an absolute or ~ path that is
 # not scratch or a cache, a path climbing out with .., or a word led by a
 # variable that may be unset.
@@ -240,6 +247,8 @@ _careful_outside() {
   local t="$1"
   [ -n "$t" ] || return 1
   case "/$t/" in */../*) return 0 ;; esac
+  [[ $t =~ $_RX_DEV_NODE ]] && return 0
+  _careful_squash "$t"; [[ $_SQ =~ $_RX_DEV_NODE ]] && return 0
   case "$t" in /dev/*|/proc/*|/tmp|/tmp/|/var/tmp|/var/tmp/|/private/tmp|/private/tmp/) return 1 ;; esac
   [[ $t =~ $_RX_TMP ]] && return 1
   [[ $t =~ $_RX_CACHE ]] && return 1
@@ -257,11 +266,39 @@ _careful_outside() {
     '~'|'~/'*) t="${HOME:-}${t#\~}" ;;
     '~'*) return 0 ;;
     /*) ;;
-    *) return 1 ;;
+    *)
+      [ "$_SCRATCH" -eq 0 ] && [ -n "$_CUR_DIR" ] || return 1
+      _careful_squash "$_CUR_DIR/$t"
+      if [[ $_CUR_DIR/ =~ $_RX_SYSDIR ]]; then t="$_CUR_DIR/$t"
+      elif [[ $_SQ =~ $_RX_DEV_NODE ]]; then return 0
+      elif [[ $_SQ =~ $_RX_SYSDIR ]]; then t="$_SQ"
+      else
+        # A cd that climbs with .. (cd ../../etc) lands where cd folds it.
+        _D="$_SQ"; _careful_fold
+        if [[ $_D =~ $_RX_DEV_NODE ]]; then return 0
+        elif [[ $_D =~ $_RX_SYSDIR ]]; then t="$_D"
+        else return 1; fi
+      fi ;;
   esac
   t="${t%/}"
   if [ -n "$_CAREFUL_CWD" ] && { [ "$t" = "$_CAREFUL_CWD" ] || [ "${t#"$_CAREFUL_CWD"/}" != "$t" ]; }; then return 1; fi
   return 0
+}
+
+# _D with . and .. folded the way cd reads an absolute path (logically).
+_careful_fold() {
+  case "$_D" in /*) ;; *) return 0 ;; esac
+  local out="" part rest="${_D#/}"
+  while [ -n "$rest" ]; do
+    part="${rest%%/*}"
+    case "$rest" in */*) rest="${rest#*/}" ;; *) rest="" ;; esac
+    case "$part" in
+      ''|.) ;;
+      ..) out="${out%/*}" ;;
+      *) out="$out/$part" ;;
+    esac
+  done
+  _D="${out:-/}"
 }
 
 # _CUR_DIR is the folder a cd leads to, or empty when it is unknown.
@@ -364,76 +401,41 @@ _careful_del() {
   return 0
 }
 
-# wipefs -a erases every signature on its targets. _RX_WIPEFS denies any
-# wipefs with -a, --a, --al or --all; this scan only proves the one exemption
-# on top of it. An invocation is proven when wipefs leads its statement (after
-# sudo or NAME=value words); every target, with options read the way getopt
-# reads them, is a plain literal path outside /dev with a disk-image suffix
-# (.img, .iso, .raw, .qcow2, .vhd, .vhdx, .vmdk, .dmg) that already exists as
-# a regular file, not a symlink, in a known folder; and no redirect goes into
-# /dev other than /dev/null, /dev/stdout or /dev/stderr. An unproven
-# invocation with -a in any spelling is HIGH here too.
+# wipefs -a erases every signature on its targets. _RX_WIPEFS below denies
+# any wipefs with -a, --a, --al or --all in the command text; this scan reads
+# the options the way getopt does, so a spelling the regex can't see
+# (wipefs -$'a' /dev/sdb) is HIGH too. No target is exempt: GEVA-560's replay
+# of 254,322 agent commands holds no wipefs -a at all, so an image-file
+# exemption bought nothing, and each fact it had to prove was a way past the
+# deny.
 _careful_wipefs() {
-  local k="$1" t g j=0 all=0 hit=0 tgt=0 val=0 red=0 opts=1
-  _WIPEFS_SEEN=$((_WIPEFS_SEEN + 1))
-  while [ "$j" -lt $((k - 1)) ]; do
-    case "${T[$j]}" in sudo|[A-Za-z_]*=*) ;; *) hit=1 ;; esac
-    j=$((j + 1))
-  done
+  local k="$1" t g val=0
   while [ "$k" -lt "$n" ]; do
     t="${T[$k]}"; k=$((k + 1))
     if [ "$val" -eq 1 ]; then val=0; continue; fi
+    # A redirect and its target are not options: wipefs > -- -a still wipes.
     case "$t" in
       '') continue ;;
-      '<'|'>'|'>>'|[0-9]'>'|[0-9]'>>'|[0-9]'<') red=1; continue ;;
+      '<'|'>'|'>>'|[0-9]'>'|[0-9]'>>'|[0-9]'<') val=1; continue ;;
+      [0-9]'>'*|'>'*|[0-9]'<'*|'<'*) continue ;;
     esac
-    if [ "$red" -eq 0 ]; then
-      case "$t" in [0-9]'>'*|'>'*|[0-9]'<'*|'<'*) red=1; t="${t##*[<>]}" ;; esac
-    fi
-    if [ "$red" -eq 1 ]; then
-      red=0
-      _careful_join_dir "$_CUR_DIR" "$t"
-      case "$_D" in
-        /dev/null|/dev/stdout|/dev/stderr) ;;
-        ''|/dev|/dev/*|*/dev/*) hit=1 ;;
-      esac
-      continue
-    fi
-    if [ "$opts" -eq 1 ]; then
-      case "$t" in
-        --) opts=0; continue ;;
-        --a|--al|--all) all=1; continue ;;
-        --offset|--types|--output) val=1; continue ;;
-        --*) continue ;;
-        -?*)
-          g="${t#-}"
-          while [ -n "$g" ]; do
-            case "$g" in
-              a*) all=1 ;;
-              [toO]) val=1; break ;;
-              [toO]*) break ;;
-            esac
-            g="${g#?}"
-          done
-          continue ;;
-      esac
-    fi
     case "$t" in
-      *[!A-Za-z0-9._/+@%,:~-]*|*/dev/*|dev/*) hit=1 ;;
-      *.img|*.iso|*.raw|*.qcow2|*.vhd|*.vhdx|*.vmdk|*.dmg)
-        _careful_join_dir "$_CUR_DIR" "$t"
-        case "$_D" in
-          ''|/dev/*) hit=1 ;;
-          *) if [ -f "$_D" ] && [ ! -L "$_D" ]; then tgt=1; else hit=1; fi ;;
-        esac ;;
-      *) hit=1 ;;
+      --) break ;;
+      --a|--al|--all) _HI_DISK=1 ;;
+      --offset|--types|--output) val=1 ;;
+      --*) ;;
+      -?*)
+        g="${t#-}"
+        while [ -n "$g" ]; do
+          case "$g" in
+            a*) _HI_DISK=1 ;;
+            [toO]) val=1; break ;;
+            [toO]*) break ;;
+          esac
+          g="${g#?}"
+        done ;;
     esac
   done
-  if [ "$hit" -eq 0 ] && [ "$tgt" -eq 1 ]; then
-    _WIPEFS_SAFE=$((_WIPEFS_SAFE + 1))
-  elif [ "$all" -eq 1 ]; then
-    _HI_DISK=1
-  fi
   return 0
 }
 
@@ -488,18 +490,37 @@ _careful_push_default() {
   return 0
 }
 
+# Each push is read twice: once with a push-option value counted as an operand
+# (git push -f -o x main), and once without (git push -f -o ci.skip origin on
+# main), so either reading can deny.
 _careful_push() {
-  local j=0 t c r force=0 lease=0 dry=0 del=0 np=0 nr=0 repo=0 all=0 val=0
+  _careful_push_scan 0
+  _careful_push_scan 1
+  return 0
+}
+
+_careful_push_scan() {
+  local j=0 t c r force=0 lease=0 dry=0 del=0 np=0 nr=0 repo=0 all=0 val=0 pov=0 pw=0 d0=0 fd=0 dd=0 e0=0
   local refs=()
   while [ "$j" -lt "$na" ]; do
     t="${a[$j]}"; j=$((j + 1))
     if [ "$val" -eq 1 ]; then val=0; continue; fi
+    # git reads the word after -o as its push-option value, so it never starts a
+    # dry run: the value keeps the dry-run state before it. Its other effects
+    # still count, since an option or redirect before -o can take -o itself.
+    pw=0
+    if [ "$pov" -eq 1 ]; then
+      pov=0
+      pw=1; d0=$dry; e0=$dd
+    fi
     case "$t" in
       --force-with-lease*|--force-if-includes) lease=1 ;;
       -f|--force) force=1 ;;
       --mirror) force=1; all=1 ;;
       --all|--branches) all=1 ;;
       -n|--dry-run) dry=1 ;;
+      --no-dr|--no-dry|--no-dry-|--no-dry-r|--no-dry-ru|--no-dry-run) dry=0; dd=0 ;;
+      --pu|--pus|--push|--push-|--push-o|--push-op|--push-opt|--push-opti|--push-optio|--push-option) pov=1 ;;
       -d|--delete) del=1 ;;
       --repo=*) repo=1 ;;
       --repo) repo=1; val=1 ;;
@@ -508,14 +529,25 @@ _careful_push() {
         # In a short-option group, letters after o are its push-option value.
         c="${t#-}"
         case "$c" in
-          *[!a-zA-Z]*) ;;
+          *[!a-zA-Z]*)
+            # A group with a digit (-f4, -4f, -fo-n) still forces, unless the same
+            # group holds its own -n (-fn4 is a dry run, as main reads it).
+            case "${c%%o*}" in
+              ''|*[!a-zA-Z0-9]*) ;;
+              *)
+                [ "${c%%o*}o" != "$c" ] || pov=1
+                case "${c%%o*}" in *f*) fd=1 ;; esac
+                case "${c%%o*}" in *n*) dd=1 ;; esac ;;
+            esac ;;
           *)
+            [ "${c%%o*}o" != "$c" ] || pov=1
             c="${c%%o*}"
             case "$c" in *f*) force=1 ;; esac
             case "$c" in *n*) dry=1 ;; esac ;;
         esac ;;
       [0-9]'>'*|'>'*|'<'*) ;;
       *)
+        if [ "$pw" -eq 1 ] && [ "$1" -eq 1 ]; then pov=0; [ "$d0" -eq 1 ] || dry=0; [ "$e0" -eq 1 ] || dd=0; continue; fi
         np=$((np + 1))
         # With --repo the first operand may be a refspec too: read it as one.
         if [ "$np" -gt 1 ] || [ "$repo" -eq 1 ]; then
@@ -524,8 +556,10 @@ _careful_push() {
           refs[$nr]="$r"; nr=$((nr + 1))
         fi ;;
     esac
+    if [ "$pw" -eq 1 ]; then pov=0; [ "$d0" -eq 1 ] || dry=0; [ "$e0" -eq 1 ] || dd=0; fi
   done
   [ "$dry" -eq 0 ] || return 0
+  if [ "$force" -eq 0 ] && [ "$fd" -eq 1 ] && [ "$dd" -eq 0 ]; then force=1; fi
   if [ "$force" -eq 1 ] && [ -z "$_PUSH_DENY" ]; then _careful_push_default; fi
   if [ "$force" -eq 1 ] || [ "$lease" -eq 1 ]; then _PUSH_FORCE=1; fi
   if [ "$del" -eq 1 ]; then _PUSH_DELETE=1; fi
@@ -729,7 +763,6 @@ _careful_scan() {
         continue ;;
       $'\006') _PIPE=1; _SCRATCH="$_PL_S"; _CUR_DIR="$_PL_D"; continue ;;
     esac
-    case "$seg" in *[![:space:]]*) _STMT_N=$((_STMT_N + 1)) ;; esac
     case "$seg" in
       *rm*|*git*|*find*|*rsync*|*shred*|*unlink*|*cd*|*pushd*|*popd*|*wipefs*) ;;
       *) continue ;;
@@ -748,7 +781,7 @@ _careful_scan() {
       case "${T[$i]}" in
         cd) if [ $((i + 1)) -lt "$n" ]; then _careful_cd "${T[$((i + 1))]}"; else _careful_cd ""; fi ;;
         pushd|popd) _CD_SEEN=1; _SCRATCH=0; _CUR_DIR="" ;;
-        wipefs|*/wipefs) _careful_wipefs $((i + 1)) ;;
+        wipefs|*/wipefs|'\wipefs') _careful_wipefs $((i + 1)) ;;
         rm|'\rm'|*/rm|*':-rm'|*':=rm'|*':+rm') if [ "$i" -ne "$_GIT_SUB" ]; then _careful_rm $((i + 1)); fi ;;
         git|*/git) _careful_git $((i + 1)) ;;
         find|rsync|shred|unlink) _careful_del "${T[$i]}" $((i + 1)) ;;
@@ -823,20 +856,55 @@ if [ -n "$_PUSH_DENY" ]; then
 fi
 # wipefs with -a in any spelling (-a, a short group holding a, --a, --al,
 # --all), however its targets arrive: on the line, from xargs or from stdin.
-# The one exemption: every statement in the command is a wipefs invocation
-# the statement scan proved, and the command holds no other wipefs word.
-_RX_WIPEFS="(^|[[:space:];&|(/'\"${_BT}])wipefs['\"]?([[:space:]]${_NS})?(-a|[[:space:]'\"]-[[:alnum:]]*a)"
+_RX_WIPEFS="(^|[[:space:];&|(/'\"${_BT}\\])wipefs['\"]*([[:space:]]${_NS})?(-a|[[:space:]'\"]-[[:alnum:]]*a)"
 _WIPEFS_HI=0
 case "$CMD_MEDIUM" in
-  *wipefs*)
-    if [[ $CMD_MEDIUM =~ $_RX_WIPEFS ]]; then
-      _WIPEFS_HI=1
-      _W_REST="${CMD_MEDIUM//wipefs/}"
-      if [ "$_WIPEFS_SAFE" -gt 0 ] && [ "$_WIPEFS_SAFE" -eq "$_WIPEFS_SEEN" ] && [ "$_WIPEFS_SAFE" -eq "$_STMT_N" ] && [ $(( (${#CMD_MEDIUM} - ${#_W_REST}) / 6 )) -eq "$_WIPEFS_SEEN" ]; then _WIPEFS_HI=0; fi
-    fi ;;
+  *wipefs*) if [[ $CMD_MEDIUM =~ $_RX_WIPEFS ]]; then _WIPEFS_HI=1; fi ;;
 esac
-if [ "$_HI_DISK" -eq 1 ] || [ "$_WIPEFS_HI" -eq 1 ] || [[ $CMD_MEDIUM =~ $_RX_DISK ]]; then
+# A redirect into a whole disk counts with its quotes taken out (>'/dev'/sdb),
+# and through a folder that is a symlink to /dev (d/sdb with d -> /dev): the
+# folder is resolved on disk, not read as text.
+_RX_DISK_REDIR=">[|]?[[:space:]]*(/dev/|([^[:space:];&|<>()\$${_BT}]*/)?)(sd|nvme|disk|rdisk|hd|vd|xvd|mmcblk)[a-z0-9]*([^[:alnum:]_.-]|\$)"
+_HI_REDIR=0
+_REDIR_OVER=0
+_RX_DISK_REDIR_ANY=">[|]?[[:space:]]*[^[:space:];&|<>()]*(sd|nvme|disk|rdisk|hd|vd|xvd|mmcblk)"
+case "$CMD_MEDIUM" in
+  *'>'*)
+    _rest=""
+    # grep lists each distinct redirect once, so repeated text costs one probe.
+    # Every redirect written into /dev/ is read with no limit; past 64 folders
+    # to look up on disk the scan stops and the command asks.
+    if [[ $CMD_MEDIUM =~ $_RX_DISK_REDIR_ANY ]]; then
+      _rest=$(printf '%s\n' "$CMD_MEDIUM" | tr -d "\"'" | LC_ALL=C grep -oE "$_RX_DISK_REDIR" | LC_ALL=C sort -u) || _rest=""
+    fi
+    _RX_DEV_LINE=$'(^|\n)>[|]?[[:space:]]*/dev/'
+    if [[ $_rest =~ $_RX_DEV_LINE ]]; then _HI_REDIR=1; fi
+    _probes=0
+    while IFS= read -r _m; do
+      [ "$_HI_REDIR" -eq 0 ] || break
+      [[ $_m =~ $_RX_DISK_REDIR ]] || continue
+      _d="${BASH_REMATCH[1]}"
+      case "$_d" in
+        /dev/) _HI_REDIR=1 ;;
+        *)
+          if [ "$_probes" -ge 64 ]; then _REDIR_OVER=1; break; fi
+          _probes=$((_probes + 1))
+          _d="${_d%/}"
+          case "$_d" in /*) ;; '') _d="$_CAREFUL_CWD" ;; *) _d="$_CAREFUL_CWD/$_d" ;; esac
+          if [[ "$(cd -P -- "$_d" 2>/dev/null && pwd -P)" =~ ^/+dev/*$ ]]; then _HI_REDIR=1; fi ;;
+      esac
+    done <<EOF_REDIR
+$_rest
+EOF_REDIR
+    ;;
+esac
+if [ "$_HI_DISK" -eq 1 ] || [ "$_WIPEFS_HI" -eq 1 ] || [ "$_HI_REDIR" -eq 1 ] || [[ $CMD_MEDIUM =~ $_RX_DISK ]]; then
   _careful_deny high_disk "Writing to, formatting or wiping a whole disk is blocked by gstack's destructive-command check. If the user truly means it, they run it themselves."
+fi
+if [ "$_REDIR_OVER" -eq 1 ]; then
+  _careful_log_fire disk_redirect_scan_cap
+  gstack_hook_decision ask "[careful] This command writes to more than 64 folders under disk-like names, more than the destructive-command check looks up, so it could not be fully checked. Approve only if you know what it does."
+  exit 0
 fi
 
 # --- Check for safe exceptions (one standalone rm of build artifacts) ---
@@ -860,7 +928,12 @@ case "$CMD" in
   *$'\n'*) : ;; # multi-line: fall through to the destructive checks
   *..*) : ;; # a path climbing out with .. is never build output here
   *rm*)
-    if grep -qE '^[[:space:]]*rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+|--recursive[[:space:]]+)(([^[:space:];&|#(`]*/)?(node_modules|\.next|dist|__pycache__|\.cache|build|\.turbo|coverage)[[:space:]]*)+$' <<< "$CMD" 2>/dev/null; then
+    # A target may also sit in one pair of quotes when nothing inside them
+    # differs from its unquoted spelling (#4628: rm -rf "/home/me/app/dist").
+    _RX_BUILD_NAMES='(node_modules|\.next|dist|__pycache__|\.cache|build|\.turbo|coverage)'
+    _RX_BUILD_Q="([A-Za-z0-9_./@+,:%=-]*/)?${_RX_BUILD_NAMES}"
+    _RX_BUILD_T="(([^[:space:];&|#(${_BT}]*/)?${_RX_BUILD_NAMES}|\"${_RX_BUILD_Q}\"|'${_RX_BUILD_Q}')"
+    if grep -qE "^[[:space:]]*rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+|--recursive[[:space:]]+)${_RX_BUILD_T}([[:space:]]+${_RX_BUILD_T})*[[:space:]]*\$" <<< "$CMD" 2>/dev/null; then
       echo '{}'
       exit 0
     fi

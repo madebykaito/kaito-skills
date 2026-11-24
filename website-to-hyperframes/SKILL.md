@@ -88,7 +88,7 @@ Lint, validate, snapshot, preview. Deliver the localhost Studio project URL
 render to MP4 on explicit request. Do not treat `index.html` as the project
 handoff link; it is source-code context only.
 
-**Gate:** `npx hyperframes lint` and `npx hyperframes validate` pass with zero errors, and the final response includes the active Studio project URL.
+**Gate:** Run `lint` and `validate` through the [bundled HyperFrames launcher](../hyperframes/references/plugin-installation.md). Both must pass with zero errors. Include the active preview URL in the final response.
 
 ---
 

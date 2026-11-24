@@ -33,8 +33,10 @@ const SKILL_BODY_MAX_BYTES = 512 * 1024;
 let sessionId = '';
 const trace = (fields: Record<string, string | number | boolean>, failed = false) => appendHookTrace('skill-route', sessionId, fields, failed);
 
+/** The pilot's first-step or contract text, for gstack's own skills only: another skill's text is never quoted (GST-3142). */
 function variantExtra(route: RouteCandidate, frontmatter: string): string {
   const variant = hintVariant();
+  if (!route.gstack) return '';
   if (variant === 'step') {
     const fd = fs.openSync(route.file, 'r');
     try {
