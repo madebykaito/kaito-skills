@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-11-24
+
 ### Security
 
 - Updated the App Store Screenshots template to Next.js 16.4.6 and Sharp 0.35.5.
@@ -191,7 +193,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 First release.
 
-[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/madebykaito/kaito-skills/compare/v1.6.4...HEAD
+[1.6.4]: https://github.com/madebykaito/kaito-skills/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/madebykaito/kaito-skills/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/madebykaito/kaito-skills/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/madebykaito/kaito-skills/compare/v1.6.0...v1.6.1
