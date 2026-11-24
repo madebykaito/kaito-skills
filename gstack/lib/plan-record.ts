@@ -147,7 +147,14 @@ const rowSha = (r: ApprovalRow) => createHash('sha256').update(JSON.stringify(r)
 function runIdFor(token: string, cwd: string): string {
   const dir = path.resolve(cwd, token.replace(/^~(?=\/)/, process.env.HOME ?? '~'));
   if (!token.includes('/')) return token;
-  try { return String(JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')).run ?? path.basename(dir)); } catch { return path.basename(dir); }
+  let run: Record<string, any> = {};
+  try { run = JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')); } catch {}
+  if (run.run ?? run.id) return String(run.run ?? run.id);
+  const file = path.join(dir, 'decisions.jsonl');
+  if (!fs.existsSync(file)) return path.basename(dir);
+  let runs: Set<string>;
+  try { runs = new Set(fs.readFileSync(file, 'utf8').split('\n').filter(l => l.trim()).map(l => JSON.parse(l)?.run).filter((r): r is string => typeof r === 'string' && !!r)); } catch { return ''; }
+  return runs.size === 1 ? [...runs][0]! : runs.size ? '' : path.basename(dir);
 }
 
 /** Resolve a Plan line against the approval store; `changedOnly` lists the PR's changed paths for the changelog-only exemption. */
@@ -246,7 +253,14 @@ export function readyPlan(o: { cwd: string; env: Env; body: string; policyValue?
   const own = parsePlanLine(o.body);
   const fromFinish = !own && o.finishLine ? parsePlanLine(o.finishLine) : null;
   const decl = own ?? fromFinish;
-  const mark = (res: PlanResolution): PlanResolution => (fromFinish && res.ok ? { ok: true, record: { ...res.record, from: 'finish' }, summary: `${res.summary} (from /ship finish's plan record; the PR body has no Plan: line)` } : res);
+  const mark = (res: PlanResolution): PlanResolution => {
+    if (!fromFinish || !res.ok) return res;
+    const { row_id, ...rest } = res.record;
+    const record: PlanRecord = rest.state === 'approved'
+      ? { ...rest, line: publicPlanLine(fromFinish, res), ref: RECORD_ID.test(rest.ref ?? '') ? rest.ref : planRecordId(row_id!), from: 'finish' }
+      : { ...rest, line: `Plan: exempt: ${rest.reason}`, from: 'finish' };
+    return { ok: true, record, summary: `${res.summary} (from /ship finish's plan record; the PR body has no Plan: line)` };
+  };
   if (mode.mode === 'off') {
     const note = offNote(mode);
     const line = note ? { line: note } : {};

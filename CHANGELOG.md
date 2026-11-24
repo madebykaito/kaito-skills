@@ -4,6 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Security
+
+- Updated the App Store Screenshots template to Next.js 16.4.6 and Sharp 0.35.5.
+- Bundled CodeGraph 1.6.4 and gstack 1.103.1.0, which include security fixes. Re-index existing CodeGraph projects after upgrading.
+
+### Changed
+
+- Refreshed the screenshot template’s locked dependencies and Stageshow’s Lucide and Portless pins.
+- Synced the bundled research and marketing skills with Research Superpowers 0.49.0 and Marketing Skills 2.14.28. Added the manuscript revision workflow.
+- Refreshed the core HyperFrames skills and pinned the CLI and helper packages to 0.9.90.
+
 ## [1.6.3] - 2026-11-22
 
 ### Changed

@@ -10,7 +10,7 @@ After `hyperframes add data-chart`, wire it into your `index.html`:
 <div id="stage" data-composition-id="main" data-width="1920" data-height="1080" data-duration="20">
   <video id="a-roll" src="video.mp4" data-start="0" data-duration="20" data-track-index="0"></video>
 
-  <!-- Block: appears at 2s, plays for 15s, on layer 1 -->
+  <!-- Block: appears at 2s, plays for 15s, on the lane after the video -->
   <div
     data-composition-id="data-chart"
     data-composition-src="compositions/data-chart.html"
@@ -31,7 +31,7 @@ After `hyperframes add data-chart`, wire it into your `index.html`:
 | `data-composition-id`  | Unique ID matching the block's internal composition ID               |
 | `data-start`           | When the block appears in the host timeline (seconds)                |
 | `data-duration`        | How long the block plays (seconds, at most the block's own duration) |
-| `data-track-index`     | Layer ordering — higher numbers render in front                      |
+| `data-track-index`     | Studio lane only; paint order is CSS `z-index`                       |
 | `data-width`           | Block canvas width (match the block's dimensions)                    |
 | `data-height`          | Block canvas height (match the block's dimensions)                   |
 
@@ -58,34 +58,4 @@ To position a block in a specific area of the screen, add CSS:
 
 ## Multiple blocks
 
-Include multiple blocks sequentially or overlapping:
-
-```html
-<div
-  data-composition-id="data-chart"
-  data-composition-src="compositions/data-chart.html"
-  data-start="0"
-  data-duration="15"
-  data-track-index="1"
-  data-width="1920"
-  data-height="1080"
-></div>
-<div
-  data-composition-id="flowchart"
-  data-composition-src="compositions/flowchart.html"
-  data-start="15"
-  data-duration="12"
-  data-track-index="1"
-  data-width="1920"
-  data-height="1080"
-></div>
-<div
-  data-composition-id="logo-outro"
-  data-composition-src="compositions/logo-outro.html"
-  data-start="27"
-  data-duration="6"
-  data-track-index="1"
-  data-width="1920"
-  data-height="1080"
-></div>
-```
+Add additional `<div data-composition-src="...">` siblings with non-overlapping or overlapping `data-start` values — each block's timeline is independent and seeked in sync by the runtime.

@@ -16,7 +16,8 @@ These skills are for long research projects built on many sources: a literature 
 | `semantic-wiki-review` | Auditing wiki content: contradictions, outdated claims, weak support. |
 | `wiki-graph` | Mapping the wiki as a graph: hubs, bridges, gaps, exports. |
 | `drift-report` | Checking the library, wiki and registered projects for drift. On demand only. |
-| `drafting-manuscript` | Drafting a chapter, article or grant text from the wiki, one agreed section at a time. |
+| `drafting-manuscript` | Planning the argument and evidence before drafting a chapter, article or grant text from the wiki. |
+| `revising-manuscript` | Revising an existing draft with an on-disk revision ledger. |
 | `requesting-peer-review` | A two-stage review of a finished draft: constructive, then adversarial. |
 | `grant-finder` | Finding German and European funding programs for a research topic. |
 | `finishing-a-research-project` | The final checklist before submission, publication or archive. |

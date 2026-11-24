@@ -290,7 +290,8 @@ For long, source-heavy research projects. From research-superpowers.
 | [`semantic-wiki-review`](semantic-wiki-review/) | Audits wiki content for contradictions, stale claims and weak support. |
 | [`wiki-graph`](wiki-graph/) | Maps the wiki as a graph: hubs, bridges, gaps. |
 | [`drift-report`](drift-report/) | Checks the library, wiki and projects for drift. On demand. |
-| [`drafting-manuscript`](drafting-manuscript/) | Drafts a chapter or article from the wiki, one agreed section at a time. |
+| [`drafting-manuscript`](drafting-manuscript/) | Plans the argument and evidence before drafting a chapter or article from the wiki. |
+| [`revising-manuscript`](revising-manuscript/) | Revises an existing draft with an on-disk revision ledger. |
 | [`requesting-peer-review`](requesting-peer-review/) | Two-stage review of a draft: constructive, then adversarial. |
 | [`grant-finder`](grant-finder/) | Finds German and European funding programs for a topic. |
 | [`finishing-a-research-project`](finishing-a-research-project/) | Final checklist before submission, publication or archive. |

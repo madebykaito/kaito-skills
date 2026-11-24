@@ -17,7 +17,7 @@ Route straight to these gstack sub-skills. For a gstack job not listed here, han
 | `browse` | Driving a real browser: open, click through, screenshot, read the console. |
 | `ios-qa` | QA on a live iOS device for a SwiftUI app. |
 | `ios-fix` | Fixing an iOS bug end to end. |
-| `verify` | Running the checks and tests until green while coding. |
+| `build-check` | Running the checks and tests until green while coding. |
 | `review` | A standard pre-landing review of a diff. |
 | `cso` | A security audit. |
 | `health` | A code quality dashboard for the repo. |

@@ -14,8 +14,8 @@ Tooling:
 
 | Skill | Use when |
 |---|---|
-| `hyperframes-cli` | Running `npx hyperframes`: init, lint, inspect, preview, render, doctor. |
-| `hyperframes-media` | Text-to-speech, transcription, background removal. |
+| `hyperframes-cli` | Running the pinned HyperFrames CLI: init, check, inspect, preview, render, doctor. |
+| `hyperframes-media` | Sourcing and making media, including voiceover, transcription, and background removal. |
 | `hyperframes-registry` | Installing registry blocks and components with `hyperframes add`. |
 | `contribute-catalog` | Contributing a new block upstream to the public catalog. Only then. |
 
