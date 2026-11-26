@@ -26,14 +26,21 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+      - name: Validate skill frontmatter
+        run: node tools/validate-skills.mjs
       - name: Tests
         run: tests/run.sh
+      - name: Privacy scan
+        if: matrix.os == 'ubuntu-latest'
+        run: node tools/privacy-scan.mjs
       - name: Install smoke test
         run: tests/smoke.sh
       - name: Routes
         run: |
           out=$(helpmekaito/scripts/check-routes.sh); echo "$out"
           echo "$out" | grep -qx 'routes ok'
+      - name: Skill layout
+        run: node tools/check-layout.mjs
 
   alpine:
     name: test (alpine)

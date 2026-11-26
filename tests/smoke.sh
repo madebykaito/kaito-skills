@@ -34,6 +34,11 @@ mkdir "$h/project"
   [ "$closeout_output" = nothing_to_save ] || fail "closeout did not report nothing_to_save"
   task_output=$("$mem" where task) || fail "installed task start after closeout failed"
   if printf '%s\n' "$task_output" | grep -q '^closeout_missed:'; then fail "closeout reminder remained after closeout"; fi
+  # owner memory through the Codex link, which has helpmekaito but no business beside it
+  node "$h/.kaito/store/business/scripts/kaito-owner.mjs" add lumen-tea --name "Lumen Tea Co." --kind company >/dev/null || fail "owner add failed"
+  printf '%s\n' "Lumen Tea captions lead with the estate" | "$mem" capture convention --owner lumen-tea | grep -qx saved || fail "owner capture failed"
+  "$mem" where --owner lumen-tea | grep -q 'lead with the estate$' || fail "owner memory was not recalled"
+  "$mem" closeout nothing_to_save >/dev/null
 )
 
 "$repo/setup" --yes --no-gstack --no-codegraph >/dev/null  # a re-run changes nothing

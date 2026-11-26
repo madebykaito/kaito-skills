@@ -1,0 +1,11 @@
+{
+  "name": "sales",
+  "source": "https://github.com/madebykaito/kaito-skills",
+  "license": "MIT",
+  "skills": [
+    "sales-outreach",
+    "sales-qualify",
+    "sales-retro",
+    "sales-review"
+  ]
+}

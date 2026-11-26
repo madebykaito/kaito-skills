@@ -1,0 +1,11 @@
+{
+  "name": "imagegen",
+  "source": "https://github.com/leonxlnx/taste-skill",
+  "license": "MIT",
+  "skills": [
+    "brandkit",
+    "image-to-code",
+    "imagegen-frontend-mobile",
+    "imagegen-frontend-web"
+  ]
+}

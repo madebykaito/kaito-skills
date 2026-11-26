@@ -78,7 +78,6 @@ test_nudge_default_no() {
   assert_no "$HOME/.claude/CLAUDE.md"; assert_no "$HOME/.codex/AGENTS.md"
 }
 
-fake_ponytail() { mkdir -p "$R/ponytail"; printf -- '---\nname: ponytail\n---\n' > "$R/ponytail/SKILL.md"; }
 ss() { node "$J" get "$(S)" hooks.SessionStart; }
 
 test_ponytail_only_when_present() {
@@ -87,12 +86,12 @@ test_ponytail_only_when_present() {
 }
 
 test_ponytail_hook_roundtrip() {
-  mk_home; mk_repo; fake_ponytail
+  mk_home; mk_repo
   mkdir -p "$HOME/.claude"
   echo '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo hi"}]}],"Stop":[]}}' > "$(S)"
   run_setup; assert_eq "$(ss | grep -c ponytail)" 0 default_no
   KAITO_ANSWERS=ponytail=y run_setup; KAITO_ANSWERS=ponytail=y run_setup
-  want="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$KAITO_HOME/store/ponytail/SKILL.md\\\"\"}]}"
+  want="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$KAITO_HOME/store/ponytail/ponytail/SKILL.md\\\"\"}]}"
   assert_eq "$(ss)" "[{\"hooks\":[{\"type\":\"command\",\"command\":\"echo hi\"}]},$want]" entries
   run_setup --uninstall
   assert_eq "$(ss)" '[{"hooks":[{"type":"command","command":"echo hi"}]}]' left
@@ -165,9 +164,9 @@ test_inline_marker_mention_kept() {
 }
 
 test_ponytail_users_own_hook_not_claimed() {
-  mk_home; mk_repo; fake_ponytail
+  mk_home; mk_repo
   mkdir -p "$HOME/.claude"
-  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$KAITO_HOME/store/ponytail/SKILL.md\\\"\"}]}"
+  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$KAITO_HOME/store/ponytail/ponytail/SKILL.md\\\"\"}]}"
   node "$J" add "$(S)" hooks.SessionStart "$e"
   KAITO_ANSWERS=ponytail=y run_setup
   assert_eq "$(ss)" "[$e]" once

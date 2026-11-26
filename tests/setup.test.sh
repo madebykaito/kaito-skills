@@ -15,7 +15,7 @@ ov() { node "$J" get "$HOME/.claude/settings.json" "skillOverrides.$1"; }
 
 test_setup_fresh_home() {
   mk_home; mk_repo; run_setup
-  assert_file "$KAITO_HOME/store/better-ui/SKILL.md"
+  assert_file "$KAITO_HOME/store/better/better-ui/SKILL.md"
   assert_no "$KAITO_HOME/store/gstack"
   assert_link "$HOME/.claude/skills/better-ui" "$KAITO_HOME/store/"
   assert_link "$HOME/.claude/skills/helpmekaito" "$KAITO_HOME/store/"
@@ -42,10 +42,11 @@ test_setup_idempotent() {
   run_setup
   assert_eq "$(links)" "$before" same_links
   grep -qi '^skip\|error' "$HOME/out" && { cat "$HOME/out"; exit 1; }
-  rm -rf "$R/better-ui"
+  rm -rf "$R/better/better-ui"
+  node "$J" rm "$R/better/bundle.json" skills '"better-ui"'
   run_setup
   assert_no "$HOME/.claude/skills/better-ui"
-  assert_no "$KAITO_HOME/store/better-ui"
+  assert_no "$KAITO_HOME/store/better/better-ui"
   assert_eq "$(ov better-ui)" "" override_dropped
 }
 
@@ -540,4 +541,35 @@ test_upgrade_leaves_task_onboarding_alone() {
   before=$(cat "$KAITO_HOME/config.json")
   "$R/setup" --upgrade --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
   assert_eq "$(cat "$KAITO_HOME/config.json")" "$before" config_untouched
+}
+
+test_bundle_migrates_flat_skills_and_uninstalls() {
+  mk_home; mk_repo
+  # Set up the old flat layout with both an eponymous skill and a sibling.
+  mv "$R/ponytail" "$R/old-ponytail-bundle"
+  mv "$R/old-ponytail-bundle/ponytail" "$R/ponytail"
+  mv "$R/old-ponytail-bundle/ponytail-audit" "$R/ponytail-audit"
+  mv "$R/old-ponytail-bundle/bundle.json" "$R/ponytail-manifest"
+  mkdir -p "$KAITO_HOME"
+  printf '%s\n' '{"hot":["ponytail-audit"]}' > "$KAITO_HOME/config.json"
+  KAITO_ANSWERS=ponytail=y run_setup
+  assert_link "$HOME/.claude/skills/ponytail" "$KAITO_HOME/store/ponytail"
+  assert_file "$KAITO_HOME/store/ponytail/SKILL.md"
+  assert_link "$HOME/.agents/skills/ponytail-audit" "$KAITO_HOME/store/ponytail-audit"
+
+  mv "$R/ponytail" "$R/old-ponytail-bundle/ponytail"
+  mv "$R/ponytail-audit" "$R/old-ponytail-bundle/ponytail-audit"
+  mv "$R/ponytail-manifest" "$R/old-ponytail-bundle/bundle.json"
+  mv "$R/old-ponytail-bundle" "$R/ponytail"
+  run_setup --upgrade
+  assert_file "$KAITO_HOME/store/ponytail/bundle.json"
+  assert_no "$KAITO_HOME/store/ponytail/SKILL.md"
+  assert_no "$KAITO_HOME/store/ponytail-audit"
+  assert_link "$HOME/.claude/skills/ponytail" "$KAITO_HOME/store/ponytail/ponytail"
+  assert_link "$HOME/.agents/skills/ponytail-audit" "$KAITO_HOME/store/ponytail/ponytail-audit"
+  node "$J" get "$HOME/.claude/settings.json" hooks.SessionStart | grep -qF '/ponytail/ponytail/SKILL.md' || exit 1
+  run_setup --uninstall
+  assert_no "$KAITO_HOME/store"
+  assert_no "$HOME/.claude/skills/ponytail"
+  assert_no "$HOME/.agents/skills/ponytail-audit"
 }

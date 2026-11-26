@@ -364,11 +364,14 @@ test_tracker_flag_on_a_machine_with_no_manager() {
   assert_eq "$(sh "$T" pull)" "pulled 3 issues" pull
 }
 
-# login on a pseudo-terminal: BSD script(1) only. The key is typed after a pause, since stty -echo drops typed-ahead input.
+# Send input after the terminal disables echo and prints the prompt.
+linear_login() {
+  printf '%s\n' "$1" | python3 "$TESTS_DIR/fixtures/pty-answer.py" 'Linear API key: ' sh "$T" login > "$HOME/o" 2>&1
+}
+
 test_login_checks_and_saves_the_key() {
-  [ "$(uname -s)" = Darwin ] && command -v script >/dev/null || { echo "skip: needs BSD script(1)"; return 0; }
   home; printf 'OTHER=1\nexport LINEAR_API_KEY=old\n' > "$KAITO_HOME/.env"
-  { sleep 1; printf '%s\n' "$LK"; sleep 1; } | script -q /dev/null sh "$T" login > "$HOME/o" 2>&1 || { cat "$HOME/o"; exit 1; }
+  linear_login "$LK" || { cat "$HOME/o"; exit 1; }
   has "$(cat "$HOME/o")" "saved Linear credentials for kaito to $KAITO_HOME/.env"
   grep -q "$LK" "$HOME/o" && { echo "  key echoed"; exit 1; }
   assert_eq "$(cat "$KAITO_HOME/.env")" "OTHER=1
@@ -377,9 +380,9 @@ LINEAR_API_KEY=$LK" "other lines kept, old key replaced"
   assert_eq "$(cfg_get tasks.steps.credentials)" true step
   assert_eq "$(last Viewer creds)" true "checked live"
   kill $SPID; STUB_AUTH=someotherkey stub
-  { sleep 1; printf 'lin_api_WRONG\n'; sleep 1; } | script -q /dev/null sh "$T" login > "$HOME/o" 2>&1
+  linear_login lin_api_WRONG
   has "$(cat "$HOME/o")" "Linear did not accept that key; nothing saved"
-  { sleep 1; printf 'bad key!\n'; sleep 1; } | script -q /dev/null sh "$T" login > "$HOME/o" 2>&1
+  linear_login 'bad key!'
   has "$(cat "$HOME/o")" "does not look like a Linear API key"
   assert_eq "$(sed -n 2p "$KAITO_HOME/.env")" "LINEAR_API_KEY=$LK" "a failed login keeps the saved key"
 }

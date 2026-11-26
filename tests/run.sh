@@ -33,6 +33,8 @@ for t in "$@"; do
   sed -n 's/^\(test_[a-z0-9_]*\)().*/\1/p' "$t" | sed "s|^|$t |"
 done | KAITO_TEST_LOGS=$logs xargs -P "${KAITO_TEST_JOBS:-8}" -n 2 sh -c '
   # $0 = test file (tests find lib.sh through it), $1 = test name
+  # BusyBox xargs shares its input pipe with workers. Tests must not read job names.
+  exec </dev/null
   . "$0"; log="$KAITO_TEST_LOGS/$(basename "$0" .test.sh).$1"
   if ( "$1" ) > "$log" 2>&1; then : > "$log.ok"
   else echo "FAIL $(basename "$0" .test.sh) $1"; sed "s/^/    /" "$log" | tail -n 15; fi'

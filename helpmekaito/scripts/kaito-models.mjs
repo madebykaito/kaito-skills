@@ -6,6 +6,8 @@
 //   kaito-models.mjs agents                           print the stored list (found again when a day old)
 //   kaito-models.mjs fail <runner> <model>            record a failure: resolve skips that model today
 //   kaito-models.mjs list [filter]                    every model per runner, for models-available.sh
+// Ollama is read from its HTTP server (OLLAMA_HOST), so it needs no CLI. Its tier comes from the model's parameter size
+// (models.md): "mid" is accepted for standard and "heavy" for hard; no local model is frontier.
 // Vendors: anthropic openai google xai, or the first word of a model id (kimi, deepseek).
 // When nothing fits, the line starts with "host:" and says why: use the host's own model.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, accessSync, constants, realpathSync } from 'node:fs';
@@ -13,6 +15,7 @@ import { join, dirname, delimiter } from 'node:path';
 import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ollamaBase } from './kaito-ollama.mjs';
 
 export const TIERS = ['light', 'standard', 'hard', 'frontier'];
 // The rule: the tier is the family word in the id, never the version, so a new release needs no change here.
@@ -115,7 +118,7 @@ const LIST = {
   'cursor-agent': () => run('cursor-agent', '--list-models').filter((l) => l.includes(' - ')),
   opencode: () => run('opencode', 'models'),
   copilot: () => [],  // no listing command in its docs: /model inside a session
-  ollama: () => run('ollama', 'ls').slice(1),
+  ollama: () => ollamaModels().map((m) => `${m.name}  ${m.size}`),
 };
 const NOTE = {
   claude: ' (aliases)',
@@ -124,6 +127,47 @@ const NOTE = {
 };
 function models(runner) {
   return LIST[runner]().map((l) => l.trim()).filter(Boolean);
+}
+
+// ---- Ollama: pulled models from GET /api/tags, placed in a tier by parameter size.
+// Up to 4B is light, over 4B up to 14B is standard, over 14B is hard. Embedding models and cloud models are not listed.
+const OLLAMA_TIERS = [[4, 'light'], [14, 'standard'], [Infinity, 'hard']];
+export function paramBillions(m) {
+  const s = String(m.details?.parameter_size || '').trim() || (String(m.name).match(/[:\-_](\d+(?:\.\d+)?[bm])(?![a-z])/i) || [])[1] || '';
+  const x = s.match(/^(\d+(?:\.\d+)?)\s*([KMBT])$/i);  // the unit is required: "1T" is not 1B
+  return x ? Number(x[1]) * { K: 1e-6, M: 1e-3, B: 1, T: 1000 }[x[2].toUpperCase()] : null;
+}
+export const ollamaTier = (m) => { const b = paramBillions(m); return b === null ? null : OLLAMA_TIERS.find(([max]) => b <= max)[1]; };
+// Sync on purpose (the resolver is sync): a child node does the fetch. Null when the server does not answer.
+function ollamaTags() {
+  const code = "const r=await fetch(process.argv[1]+'/api/tags',{signal:AbortSignal.timeout(2500)});if(!r.ok)process.exit(1);process.stdout.write(await r.text())";
+  try {
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', code, ollamaBase()],
+      { encoding: 'utf8', timeout: 5000, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'ignore'] });
+    const j = JSON.parse(out);
+    return Array.isArray(j.models) ? j.models : null;
+  } catch { return null; }
+}
+function ollamaModels() {
+  const isCloud = (m) => m.remote_host || m.remote_model || /(^|[:\-])cloud$/.test(m.name);
+  const isEmbed = (m) => /embed|bert|rerank/i.test(`${m.name} ${m.details?.family || ''}`);
+  return (ollamaTags() || []).filter((m) => m && typeof m.name === 'string' && !isCloud(m) && !isEmbed(m))
+    .map((m) => ({ ...m, size: m.details?.parameter_size || '?' })).sort((a, b) => a.name.localeCompare(b.name));
+}
+function resolveOllama(tier) {
+  const host = (why) => [`host: ${why}; use the host's model`];
+  let base;
+  try { base = ollamaBase(); } catch (e) { return host(e.message); }
+  if (ollamaTags() === null) return host(`Ollama is not running at ${base}`);
+  const t = tier === 'mid' ? 'standard' : tier === 'heavy' ? 'hard' : tier;
+  const ms = ollamaModels();
+  if (!ms.length) return host('no Ollama model is pulled');
+  const f = readJson(join(K, 'model-failures.json'));
+  const failed = f.date === today() && Array.isArray(f.failed) ? f.failed : [];
+  // Biggest model of the tier, then the most recently pulled.
+  const pick = ms.filter((m) => ollamaTier(m) === t && !failed.includes(`ollama ${parse(m.name).key}`))
+    .sort((a, b) => paramBillions(b) - paramBillions(a) || String(b.modified_at).localeCompare(String(a.modified_at)))[0];
+  return pick ? [`ollama ${pick.name}`] : host(`no ${t} model pulled in Ollama today`);
 }
 
 // "provider/claude-opus-5-5-thinking-high-fast" -> the model without effort and speed, and how plain it is.
@@ -158,6 +202,7 @@ function newer(a, b) {
 }
 
 function resolve(name, tier) {
+  if (name === 'ollama') return resolveOllama(tier);
   const have = agents();
   const host = (why) => [`host: ${why}; use the host's model`];
   if (RUNNERS.includes(name) && !have.includes(name)) return host(`${name} is not installed here`);
@@ -188,7 +233,7 @@ function fail(runner, model) {
 
 function list(filter = '.') {
   const re = new RegExp(filter, 'i'), out = [];
-  for (const r of RUNNERS.filter(which)) {
+  for (const r of RUNNERS.filter((x) => (x === 'ollama' ? ollamaTags() !== null : which(x)))) {
     out.push(`MODELS ${r}${NOTE[r] || ''}`, ...models(r).filter((l) => re.test(l)).slice(0, 80).map((l) => `  ${l}`));
   }
   return out;
@@ -197,7 +242,7 @@ function list(filter = '.') {
 function main([cmd, a, b]) {
   const usage = () => { console.error('usage: kaito-models.mjs tier <model-id> | resolve <vendor-or-runner> <light|standard|hard|frontier> | detect | agents | fail <runner> <model> | list [filter]'); process.exit(2); };
   if (cmd === 'tier' && a) console.log(tierOf(a) || `host: the tier rule cannot place "${a}"; use the host's model`);
-  else if (cmd === 'resolve' && a && TIERS.includes(b)) console.log(resolve(a.toLowerCase(), b).join('\n'));
+  else if (cmd === 'resolve' && a && (TIERS.includes(b) || (a.toLowerCase() === 'ollama' && ['mid', 'heavy'].includes(b)))) console.log(resolve(a.toLowerCase(), b).join('\n'));
   else if (cmd === 'detect') console.log(say(detect()));
   else if (cmd === 'agents') console.log(say(agents()));
   else if (cmd === 'fail' && a && b) console.log(fail(a, b));

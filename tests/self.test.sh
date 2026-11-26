@@ -3,17 +3,21 @@
 J="$REPO/helpmekaito/scripts/kaito-json.mjs"
 
 g() { git -c user.name=t -c user.email=t@example.test -c init.defaultBranch=main -C "$R" "$@"; }
+origin_git() { git -c user.name=t -c user.email=t@example.test -C "$fixture" --git-dir="$O" --work-tree="$fixture" "$@"; }
 # A git clone of the repo at release <version> (default 1.4.0) with a local bare origin, installed.
 mk_install() {
   mk_home
+  # Hooks can export paths into the caller's Git directory and object store.
+  unset $(git rev-parse --local-env-vars)
+  fixture="$(mktemp -d)"
   R="$(mktemp -d)/kaito-skills"
-  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$R"
+  node "$REPO/helpmekaito/scripts/kaito-sync.mjs" mirror -x .git -x .codegraph -x ./gstack -x ./.superpowers -x node_modules "$REPO" "$fixture" || exit 1
   V=${1:-1.4.0}
-  echo "$V" > "$R/VERSION"
+  echo "$V" > "$fixture/VERSION"
   O="$(mktemp -d)/origin.git"
-  git -c init.defaultBranch=main init -q --bare "$O"
-  g init -q; g add -A; g commit -qm "$V"; g tag "v$V"
-  g remote add origin "$O"; g push -q -u origin main "v$V"
+  git init -q --bare --initial-branch=main "$O" &&
+    origin_git add -A && origin_git commit -qm "$V" && origin_git tag "v$V" &&
+    git clone -q --no-local "$O" "$R" && g remote set-head origin -d || exit 1
   KAITO_SELF_SETUP_ARGS="--no-gstack --no-codegraph"; export KAITO_SELF_SETUP_ARGS
   KAITO_SELF_FOREGROUND=1; export KAITO_SELF_FOREGROUND  # the upgrade runs inline, so a test can read its result
   "$R/setup" --yes --no-gstack --no-codegraph > "$HOME/out" 2>&1 || { cat "$HOME/out"; exit 1; }
@@ -21,13 +25,11 @@ mk_install() {
   SELF="$KAITO_HOME/store/helpmekaito/scripts/kaito-self.sh"
 }
 self() { sh "$SELF" "$@"; }
-# release <version>: origin gets the release and its tag, the clone stays where it was and has not fetched.
+# Publish in the origin's own object store, leaving the installed clone untouched.
 release() {
-  old=$(g rev-parse HEAD)
-  echo "$1" > "$R/VERSION"
-  printf '# Changelog\n\n## [%s] - 2026-01-01\n\n### Added\n\n- first change in %s\n- second change\n\n## [1.0.0]\n\n- old change\n' "$1" "$1" > "$R/CHANGELOG.md"
-  g commit -qam "$1"; g tag "v$1"; g push -qf origin main "v$1"
-  g reset -q --hard "$old"; g tag -d "v$1" > /dev/null
+  echo "$1" > "$fixture/VERSION"
+  printf '# Changelog\n\n## [%s] - 2026-01-01\n\n### Added\n\n- first change in %s\n- second change\n\n## [1.0.0]\n\n- old change\n' "$1" "$1" > "$fixture/CHANGELOG.md"
+  origin_git commit -qam "$1" && origin_git tag "v$1" || exit 1
 }
 state_version() { node "$J" get "$KAITO_HOME/state.json" version; }
 
@@ -143,7 +145,7 @@ test_upgrade_refuses_unsafe_clone() {
 test_upgrade_lands_on_the_tag() {
   mk_install; release 1.5.0
   old=$(g rev-parse HEAD)
-  g reset -q --hard origin/main
+  g fetch -q origin && g reset -q --hard origin/main || exit 1
   echo 9.9.9 > "$R/VERSION"; echo later > "$R/LATER"; g add -A; g commit -qm "unreleased work"; g push -q origin main
   g reset -q --hard "$old"
   self upgrade > "$HOME/o" 2>&1 || { cat "$HOME/o" "$KAITO_HOME/upgrade.log"; exit 1; }
@@ -182,7 +184,7 @@ test_uninstall_dry_run() {
   grep -qx '  plugins: x@m, y@m' "$HOME/o" || { cat "$HOME/o"; exit 1; }
   grep -qxF "  and delete $KAITO_HOME with config, memory and task credentials" "$HOME/o" || { cat "$HOME/o"; exit 1; }
   grep -q '^keeps:' "$HOME/o" && { cat "$HOME/o"; exit 1; }
-  assert_file "$KAITO_HOME/store/better-ui/SKILL.md"
+  assert_file "$KAITO_HOME/store/better/better-ui/SKILL.md"
   assert_link "$HOME/.claude/skills/helpmekaito" "$KAITO_HOME/store/"
   assert_eq "$(state_version)" '"1.4.0"' state_kept
 }

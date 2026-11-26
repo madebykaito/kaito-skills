@@ -1,0 +1,34 @@
+{
+ "meta": {
+  "name": "seedvr2_upscale",
+  "engine": "seedvr2",
+  "mode": "upscale",
+  "need_gb": 14,
+  "license": "seedvr2",
+  "output": "video",
+  "upload": "video",
+  "models": [
+   {"node": "UNETLoader", "input": "unet_name", "file": "seedvr2_3b_int8_convrot.safetensors"},
+   {"node": "VAELoader", "input": "vae_name", "file": "seedvr2_ema_vae_fp16.safetensors"}
+  ],
+  "defaults": {"mult": 2.0, "chunk": 33, "overlap": 2, "color": "lab", "seed": 42, "prefix": "video/kaito_up"},
+  "note": "SeedVR2 3B int8, one sampler step, native ComfyUI nodes. Slow: plan on minutes per second of video."
+ },
+ "graph": {
+  "load": {"class_type": "LoadVideo", "inputs": {"file": "{{video}}"}},
+  "parts": {"class_type": "GetVideoComponents", "inputs": {"video": ["load", 0]}},
+  "scale": {"class_type": "ResizeImageMaskNode", "inputs": {"input": ["parts", 0], "resize_type": "scale by multiplier", "resize_type.multiplier": "{{mult}}", "scale_method": "lanczos"}},
+  "prep": {"class_type": "SeedVR2Preprocess", "inputs": {"resized_images": ["scale", 0]}},
+  "vae": {"class_type": "VAELoader", "inputs": {"vae_name": "seedvr2_ema_vae_fp16.safetensors"}},
+  "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "seedvr2_3b_int8_convrot.safetensors", "weight_dtype": "default"}},
+  "enc": {"class_type": "VAEEncodeTiled", "inputs": {"pixels": ["prep", 0], "vae": ["vae", 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8}},
+  "chunk": {"class_type": "SeedVR2TemporalChunk", "inputs": {"latent": ["enc", 0], "temporal_overlap": "{{overlap}}", "chunking_mode": "manual", "chunking_mode.frames_per_chunk": "{{chunk}}"}},
+  "cond": {"class_type": "SeedVR2Conditioning", "inputs": {"model": ["unet", 0], "vae_conditioning": ["chunk", 0]}},
+  "sample": {"class_type": "KSampler", "inputs": {"model": ["unet", 0], "positive": ["cond", 0], "negative": ["cond", 1], "latent_image": ["chunk", 0], "seed": "{{seed}}", "steps": 1, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+  "merge": {"class_type": "SeedVR2TemporalMerge", "inputs": {"latents": ["sample", 0], "temporal_overlap": ["chunk", 1]}},
+  "dec": {"class_type": "VAEDecodeTiled", "inputs": {"samples": ["merge", 0], "vae": ["vae", 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8}},
+  "post": {"class_type": "SeedVR2PostProcessing", "inputs": {"images": ["dec", 0], "original_resized_images": ["scale", 0], "color_correction_method": "{{color}}"}},
+  "video": {"class_type": "CreateVideo", "inputs": {"images": ["post", 0], "fps": ["parts", 2], "audio": ["parts", 1]}},
+  "save": {"class_type": "SaveVideo", "inputs": {"video": ["video", 0], "filename_prefix": "{{prefix}}", "format": "auto", "format.codec": "auto"}}
+ }
+}

@@ -6,30 +6,54 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 
 | Skills / assets | Source | License |
 |---|---|---|
-| `animate`, `animate-expo`, `animation-performance`, `animation-vocabulary`, `apple-design`, `ask-sonner`, `break-ui`, `choreograph`, `emil-design-eng`, `find-animation-opportunities`, `gestures`, `improve-animations`, `learn-taste`, `mobile-native`, `pick-ui-library`, `prototype`, `remove-animations`, `review-animations` | [emilkowalski/skills](https://github.com/emilkowalski/skills), Emil Kowalski | MIT |
-| `better-accessibility`, `better-colors`, `better-interface`, `better-layout`, `better-motion`, `better-typography`, `better-ui`, `better-writing`, `interface-review` | [jakubkrehel/skills](https://github.com/jakubkrehel/skills), Jakub Krehel | MIT |
+| `animate/animate`, `animate/animate-expo`, `animation-performance`, `animation-vocabulary`, `apple-design`, `ask-sonner`, `break-ui`, `choreograph`, `emil-design-eng`, `find-animation-opportunities`, `gestures`, `improve-animations`, `learn-taste`, `mobile-native`, `pick-ui-library`, `prototype`, `remove-animations`, `review-animations` | [emilkowalski/skills](https://github.com/emilkowalski/skills), Emil Kowalski | MIT |
+| `better/better-accessibility`, `better/better-colors`, `better/better-interface`, `better/better-layout`, `better/better-motion`, `better/better-typography`, `better/better-ui`, `better/better-writing`, `better/interface-review` | [jakubkrehel/skills](https://github.com/jakubkrehel/skills), Jakub Krehel | MIT |
 | `beam-glow-states`, `beautiful-shadows`, `container-lines`, `corner-diagonals`, `css-border-gradient`, `documentary-brutalist-agency`, `editorial-portfolio-chapters`, `framed-grid-layout`, `glass-dark-ui`, `landing-page`, `liquid-metal-border`, `mesh-gradient-dark-blue-clean`, `operational-enterprise-ai`, `pricing-page`, `product-proof-saas`, `progressive-blur`, `reveal-hover-effect`, `service-booking-flow`, `shaders-cursor-ripples`, `skeuomorphic-ui`, `staggered-word-reveal`, `thinking-orbs`, `webgl-laser` | [MengTo/Skills](https://github.com/MengTo/Skills), Meng To | MIT |
 | `minimal-zine-poster` | [LiamGvchi/gc-minimal-zine-poster](https://github.com/LiamGvchi/gc-minimal-zine-poster), LiamGvchi | MIT |
 | `stageshow` | [benjitaylor/skills](https://github.com/benjitaylor/skills), Benji Taylor | MIT |
 | `stageshow/kit/brands` artwork | [SVGL](https://github.com/pheralb/svgl) (MIT), [payment-icons](https://github.com/aaronfagan/svg-credit-card-payment-icons) (Apache-2.0), [Cryptocurrency Icons](https://github.com/spothq/cryptocurrency-icons) (CC0 1.0), [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0 1.0); per-file sources in `stageshow/kit/brands/SOURCES.md` | as listed |
 | `impeccable` | [pbakaus/impeccable](https://github.com/pbakaus/impeccable), Paul Bakaus | Apache-2.0 |
 | `gstack` | [garrytan/gstack](https://github.com/garrytan/gstack) v1.103.1.0, Garry Tan; its own `gstack/LICENSE` and `gstack/NOTICE.md` ship with it | MIT |
-| `hyperframes`, `hyperframes-cli`, `hyperframes-media`, `hyperframes-registry`, `website-to-hyperframes`, `remotion-to-hyperframes`, `contribute-catalog`, `gsap`, `animejs`, `waapi`, `css-animations`, `lottie`, `three`, `typegpu`, `tailwind` | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) v0.9.90 (refreshed core skills and pinned CLI), HeyGen, Inc. | Apache-2.0 |
+| `hyperframes/hyperframes`, `hyperframes/hyperframes-cli`, `hyperframes/hyperframes-media`, `hyperframes/hyperframes-registry`, `hyperframes/website-to-hyperframes`, `hyperframes/remotion-to-hyperframes`, `contribute-catalog`, `gsap`, `animejs`, `waapi`, `css-animations`, `lottie`, `three`, `typegpu`, `tailwind` | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) v0.9.90 (refreshed core skills and pinned CLI), HeyGen, Inc. | Apache-2.0, also in [hyperframes/LICENSE](hyperframes/LICENSE) |
 | `frontend-design` | Anthropic | Apache-2.0 |
 | `vercel-react-best-practices`, `web-design-guidelines` | Vercel | MIT |
 | `stop-slop` | Hardik Pandya | MIT |
 | `conductor-rewrite-performance`, `linear-local-first-architecture` | brotzky/performance-skills (the repository is no longer public) | not confirmed: no license text was vendored |
-| `higgsfield-brandkit`, `higgsfield-faceless-video`, `higgsfield-generate`, `higgsfield-marketplace-cards`, `higgsfield-product-photoshoot`, `higgsfield-soul-id`, `higgsfield-video-explainer`, `higgsfield-websites`, `higgsfield-youtube-thumbnail` | [higgsfield-ai/skills](https://github.com/higgsfield-ai/skills), Higgsfield AI | MIT |
+| `higgsfield/higgsfield-brandkit`, `higgsfield/higgsfield-faceless-video`, `higgsfield/higgsfield-generate`, `higgsfield/higgsfield-marketplace-cards`, `higgsfield/higgsfield-product-photoshoot`, `higgsfield/higgsfield-soul-id`, `higgsfield/higgsfield-video-explainer`, `higgsfield/higgsfield-websites`, `higgsfield/higgsfield-youtube-thumbnail` | [higgsfield-ai/skills](https://github.com/higgsfield-ai/skills), Higgsfield AI | MIT |
 | `design-taste-frontend` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill) v2.5.1 (`skills/taste-skill`), Leonxlnx | MIT |
-| `stitch-design-taste`, `image-to-code`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `brandkit` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill), Leonxlnx, the last versions before upstream moved them to [Leonxlnx/taste-skill-classics](https://github.com/Leonxlnx/taste-skill-classics) and [Leonxlnx/imagegen-skills](https://github.com/Leonxlnx/imagegen-skills) on 2026-10-19 | MIT |
+| `stitch-design-taste`, `imagegen/image-to-code`, `imagegen/imagegen-frontend-web`, `imagegen/imagegen-frontend-mobile`, `imagegen/brandkit` | [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill), Leonxlnx, the last versions before upstream moved them to [Leonxlnx/taste-skill-classics](https://github.com/Leonxlnx/taste-skill-classics) and [Leonxlnx/imagegen-skills](https://github.com/Leonxlnx/imagegen-skills) on 2026-10-19 | MIT |
 | `systematic-debugging`, `test-driven-development`, `using-git-worktrees` | [obra/superpowers](https://github.com/obra/superpowers), Jesse Vincent | MIT |
-| `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
+| `ponytail/ponytail`, `ponytail/ponytail-review`, `ponytail/ponytail-audit`, `ponytail/ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
 | `banner-design` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), Next Level Builder | MIT |
-| `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `revising-manuscript`, `scaffold-research-project`, `semantic-wiki-review`, `wiki-graph`, `wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.49.0, Patrick Leiverkus | MIT |
-| `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) v2.14.28, Corey Haines | MIT |
+| `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `revising-manuscript`, `scaffold-research-project`, `semantic-wiki-review`, `wiki/wiki-graph`, `wiki/wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.49.0, Patrick Leiverkus | MIT |
+| `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `cold-email` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `prospecting` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `social` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `emails` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `launch` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `lead-magnets` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `referrals` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ads` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ad-creative` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `influencer-marketing` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `marketing-plan` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ab-testing` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `churn-prevention` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
 | `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav | MIT |
 | `adversarial-review`, `ogilvy`, `tailwind-v4`, `visual-style-presets` | [boraoztunc/skills](https://github.com/boraoztunc/skills), Bora Öztunç | MIT, stated in its README; the repository ships no license file of its own |
+| `local-video/workflows/h3_t2v.json`, `h3_i2v.json` | Node graphs rebuilt from the MiniMax H3 recipe in [Bambushu/minimax-h3-mac](https://github.com/Bambushu/minimax-h3-mac) (MacMax, MAD IT), itself derived from the ComfyUI `video_minimax_h3_t2v` template (Comfy Org). The model weights are not bundled and keep their own licences, including the MiniMax H3 Community License. | MIT |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
+
+## Kaito skills in bundles
+
+These skills are authored here and use the repository [MIT license](LICENSE).
+
+| Skills | Source | License |
+|---|---|---|
+| `sales/sales-outreach`, `sales/sales-qualify`, `sales/sales-retro`, `sales/sales-review` | Kaito Junior | MIT |
+| `marketing/marketing-brief`, `marketing/marketing-retro`, `marketing/marketing-review` | Kaito Junior | MIT |
+| `instagram/instagram-insights`, `instagram/instagram-publish` | Kaito Junior | MIT |
 
 ## Notices carried from upstream
 
@@ -663,3 +687,37 @@ Applies to impeccable (Copyright 2025 Paul Bakaus), the HyperFrames skills (Copy
    END OF TERMS AND CONDITIONS
 
 ```
+
+### MIT, MAD IT and Comfy Org (`local-video` H3 workflows)
+
+```text
+MIT License
+
+Copyright (c) 2026 MAD IT
+
+MIT License
+
+Copyright (c) 2023-present Comfy Org
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Social Media Skills playbooks
+
+The playbooks in `social-publish/references/` are from [social-media-skills/skills](https://github.com/social-media-skills/skills), commit `f28cef2b7067ec64e79c9d85421c022c06659e03`, by Frank Heijdenrijk and contributors, under the MIT License. The license text is in `social-publish/references/LICENSE`.

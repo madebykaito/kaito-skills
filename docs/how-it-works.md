@@ -4,7 +4,8 @@
 
 | Path | What |
 |---|---|
-| `~/.kaito/store/<skill>` | A copy of each skill. Agents read skills from here, never from the repo. |
+| `~/.kaito/store/<skill>` | A standalone skill. |
+| `~/.kaito/store/<bundle>/<skill>` | A skill in a family. Setup keeps the whole family together and links each member by name. |
 | `~/.kaito/config.json` | Your settings: hot list, gstack on or off, task manager, memory path. |
 | `~/.kaito/state.json` | What setup added, so re-runs and `--uninstall` touch only that. Also the installed `version` and the `repo` it came from, which upgrades use. |
 | `~/.kaito/backup` | Skills of yours that you let setup replace. Uninstall moves them back. |
@@ -14,7 +15,7 @@
 | `~/.claude/skills/<skill>` | A link to the store copy, for Claude Code. |
 | `~/.agents/skills/<skill>` | A link for Codex: `helpmekaito` and your hot list. |
 
-On macOS and Linux the links are symlinks. On Windows they are directory junctions.
+On macOS and Linux the links are symlinks. On Windows they are directory junctions. An upgrade replaces the old links and removes their flat store copies when skills move into a bundle.
 
 Because agents read the store and not the repo, you can edit or switch branches in the repo without breaking a running session. Run `./setup` to publish your changes to the store.
 

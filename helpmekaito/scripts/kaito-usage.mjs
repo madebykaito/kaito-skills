@@ -313,6 +313,8 @@ const KEYS = { anthropic: ['ANTHROPIC_API_KEY'], openai: ['OPENAI_API_KEY', 'COD
   google: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'], xai: ['XAI_API_KEY'] };
 const CLI_VENDOR = { claude: 'anthropic', codex: 'openai', gemini: 'google' };
 const SUBSCRIPTION = ['host', 'cursor-agent'];  // host subagents and Cursor run on the login
+// Local Ollama is free and sends nothing out. A cloud model (its name ends in cloud) runs on Ollama's servers, so that one asks.
+const isLocalOllama = (r, model) => r === 'ollama' && !/(^|[:-])cloud$/i.test(model);
 const keySet = (vendor) => (KEYS[vendor] || []).some((k) => env[k]);  // presence only, never printed
 const STORED = {
   // Codex auth.json: auth_mode "apikey" (or a Bedrock key), or an older file holding a key and no ChatGPT tokens.
@@ -332,7 +334,7 @@ const STORED = {
 
 function payPerToken(runner, model) {
   const r = runner.toLowerCase();
-  if (SUBSCRIPTION.includes(r)) return false;
+  if (SUBSCRIPTION.includes(r) || isLocalOllama(r, model)) return false;
   if (CLI_VENDOR[r]) return keySet(CLI_VENDOR[r]) || Boolean(STORED[r]?.());
   if (r === 'opencode') {  // provider/id
     const provider = model.includes('/') ? model.split('/')[0].toLowerCase() : '';

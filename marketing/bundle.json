@@ -1,0 +1,10 @@
+{
+  "name": "marketing",
+  "source": "https://github.com/madebykaito/kaito-skills",
+  "license": "MIT",
+  "skills": [
+    "marketing-brief",
+    "marketing-retro",
+    "marketing-review"
+  ]
+}

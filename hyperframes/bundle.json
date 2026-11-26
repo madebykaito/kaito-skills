@@ -1,0 +1,13 @@
+{
+  "name": "hyperframes",
+  "source": "https://github.com/heygen-com/hyperframes",
+  "license": "Apache-2.0",
+  "skills": [
+    "hyperframes",
+    "hyperframes-cli",
+    "hyperframes-media",
+    "hyperframes-registry",
+    "remotion-to-hyperframes",
+    "website-to-hyperframes"
+  ]
+}

@@ -142,26 +142,45 @@ make_config() {
 EOF
 }
 
+# Each catalog path is either a standalone skill or bundle/skill.
 install_store() {
-  SKILLS=""
-  mkdir -p "$STORE"
+  SKILLS="" BUNDLED="" STORE_FOLDERS=""
+  catalog=$(node "$REPO/helpmekaito/scripts/kaito-catalog.mjs" "$REPO") || die "could not read skill catalog"
   set --
-  for d in "$REPO"/*/; do
-    d=${d%/} n=${d##*/}
-    [ -f "$d/SKILL.md" ] && [ "$n" != gstack ] || continue
-    set -- "$@" "$REPO/$n"
+  for rel in $catalog; do
+    n=${rel##*/} folder=${rel%%/*}
     SKILLS="$SKILLS $n"; N_SKILLS=$((N_SKILLS + 1))
+    [ "$rel" = "$n" ] || BUNDLED="$BUNDLED $rel"
+    if ! has "$folder" "$STORE_FOLDERS"; then
+      STORE_FOLDERS="$STORE_FOLDERS $folder"
+      set -- "$@" "$REPO/$folder"
+    fi
   done
+  # Record both layouts before copying so an interrupted install is recoverable.
+  previous=$(node "$J" get "$STATE" store_skills | json_list)
+  pending=$previous
+  for folder in $STORE_FOLDERS; do has "$folder" "$pending" || pending="$pending $folder"; done
+  node "$J" set "$STATE" store_skills "$(to_json "$pending")"
+  mkdir -p "$STORE"
   [ $# -gt 0 ] && node "$SYNC" into -x .git -x node_modules -x dist "$STORE" "$@"
   cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.md" "$STORE/" 2>/dev/null || :  # skills point at these
-  cp "$REPO/setup" "$REPO/VERSION" "$REPO/CHANGELOG.md" "$STORE/" 2>/dev/null || :  # kaito-self.sh: uninstall without the clone, version, what changed
-  # Remove only skills an earlier run put here. Anything else in the store is not ours.
-  for n in $(node "$J" get "$STATE" store_skills | json_list); do
+  cp "$REPO/setup" "$REPO/VERSION" "$REPO/CHANGELOG.md" "$STORE/" 2>/dev/null || :  # uninstall without the clone
+}
+
+# Retire old store folders after links are replaced, while old junctions still resolve.
+prune_store() {
+  for n in $previous; do
     case "$n" in .*) continue ;; esac
-    has "$n" "$SKILLS" || rm -rf "${STORE:?}/${n:?}"
+    has "$n" "$STORE_FOLDERS" || rm -rf "${STORE:?}/${n:?}"
   done
-  node "$J" set "$STATE" store_skills "$(to_json "$SKILLS")"
-  return 0
+  node "$J" set "$STATE" store_skills "$(to_json "$STORE_FOLDERS")"
+}
+
+skill_target() {
+  target="$STORE/$1"
+  for rel in $BUNDLED; do
+    if [ "${rel##*/}" = "$1" ]; then target="$STORE/$rel"; return; fi
+  done
 }
 
 # Build gstack in its store copy (never the repo), render it per host, and pick
@@ -212,7 +231,8 @@ gstack_pick() {
 link_dir() {
   mkdir -p "$1"
   for n in $2; do
-    p="$1/$n" t="$STORE/$n"
+    p="$1/$n"
+    skill_target "$n"; t=$target
     has "$n" "$GS" && t="$STORE/_gstack-claude/$n"
     [ "$t" = "$STORE/_gstack-claude/gstack" ] && t="$STORE/_gstack-claude"
     if [ -L "$p" ] && [ "$(rl "$p")" = "$t" ]; then :
@@ -501,14 +521,24 @@ nudge_stage() {
   done
 }
 
+ponytail_hook() {
+  printf '%s\n' "{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$1/SKILL.md\\\"\"}]}"
+}
+
 hook_stage() {
-  e="{\"hooks\":[{\"type\":\"command\",\"command\":\"cat \\\"$STORE/ponytail/SKILL.md\\\"\"}]}"
+  skill_target ponytail
+  e=$(ponytail_hook "$target")
   prev=$(node "$J" get "$STATE" managed_hook)
-  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then  # KAITO_HOME moved: retire the old hook, whatever the answer below
+  migrate=0
+  if [ -n "$prev" ] && [ "$prev" != "$e" ]; then
+    # Carry forward consent for an installed flat hook when its skill moves into a bundle.
+    if [ "$prev" = "$(ponytail_hook "$STORE/ponytail")" ]; then
+      case "$(node "$J" get "$SETTINGS" hooks.SessionStart)" in *"$prev"*) migrate=1 ;; esac
+    fi
     node "$J" rm "$SETTINGS" hooks.SessionStart "$prev"; node "$J" del "$STATE" managed_hook; prev=""
   fi
-  [ -f "$STORE/ponytail/SKILL.md" ] || return 0
-  ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
+  [ -f "$target/SKILL.md" ] || return 0
+  [ "$migrate" = 1 ] || ask ponytail "Add the ponytail always-on SessionStart hook?" n || return 0
   # The same hook already there and not recorded as ours is the user's: leave it, do not claim it.
   if [ -z "$prev" ]; then case "$(node "$J" get "$SETTINGS" hooks.SessionStart)" in *"$e"*) return 0 ;; esac; fi
   node "$J" set "$STATE" managed_hook "$e"
@@ -714,6 +744,7 @@ make_config
 install_store
 [ "$GSTACK" = 1 ] && gstack_stage
 link_all
+prune_store
 takeover_stage
 for p in $DUPS; do skip "$p"; done
 write_overrides

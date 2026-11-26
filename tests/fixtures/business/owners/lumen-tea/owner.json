@@ -1,0 +1,14 @@
+{
+  "id": "lumen-tea",
+  "name": "Lumen Tea Co.",
+  "kind": "company",
+  "locale": "en-IN",
+  "timezone": "Asia/Kolkata",
+  "currency": "INR",
+  "gstin": "19ABCDE1234F1Z5",
+  "bindings": ["/fixtures/lumen-tea"],
+  "channels": { "instagram": "@lumentea.example" },
+  "keys": { "instagram": "/fixtures/keys/lumen-tea-instagram.env" },
+  "memory_root": "/fixtures/lumen-tea/memory",
+  "cloud_ok": false
+}

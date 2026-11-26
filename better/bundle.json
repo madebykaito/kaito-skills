@@ -1,0 +1,16 @@
+{
+  "name": "better",
+  "source": "https://github.com/jakubkrehel/skills",
+  "license": "MIT",
+  "skills": [
+    "better-accessibility",
+    "better-colors",
+    "better-interface",
+    "better-layout",
+    "better-motion",
+    "better-typography",
+    "better-ui",
+    "better-writing",
+    "interface-review"
+  ]
+}
