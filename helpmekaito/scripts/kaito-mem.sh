@@ -6,10 +6,33 @@
 #        | capture correction|preference|worked|failed|convention [global] (one lesson on stdin)
 #        | forget "<text>" [global|project] | promote "<text>" [global|project] | curate | stats      (see references/learning.md)
 #        | merge <old-slug> | closeout nothing_to_save|skipped
+# --owner <id> anywhere on the line adds one business owner's memory: where reads it too, and note owner, learn and
+# capture write to it instead of the project file. The owner comes from business/scripts/kaito-owner.mjs; no other
+# owner's memory is ever read.
 # The project file is keyed on the repo's network origin when it has one, else on the checkout path.
 set -eu
 here=$(dirname "$0")
 K="${KAITO_HOME:-$HOME/.kaito}"
+# Take --owner <id> out of the arguments, wherever it is.
+OWN=""; n=$#; i=0
+while [ "$i" -lt "$n" ]; do
+  a=$1; shift; i=$((i + 1))
+  if [ "$a" = --owner ]; then
+    [ "$i" -lt "$n" ] && [ -z "$OWN" ] || { echo "kaito-mem: --owner needs one owner id" >&2; exit 2; }
+    OWN=$1; shift; i=$((i + 1))
+  else set -- "$@" "$a"; fi
+done
+OF=""; OM=""
+if [ -n "$OWN" ]; then
+  case "$OWN" in *[!a-z0-9-]*|-*|*-|*--*) echo "kaito-mem: owner id must be kebab-case: $OWN" >&2; exit 2 ;; esac
+  oc="$here/../../business/scripts/kaito-owner.mjs"
+  [ -f "$oc" ] || { echo "kaito-mem: --owner needs the business skill; run ./setup in kaito-skills" >&2; exit 2; }
+  orc=0; ro=$(node "$oc" resolve --owner "$OWN") || orc=$?
+  [ "$orc" = 0 ] || exit "$orc"  # kaito-owner said why on stderr: 4 not found, 1 a broken record
+  OM=$(printf '%s\n' "$ro" | sed -n 's/^memory=//p')
+  [ -n "$OM" ] || { echo "kaito-mem: kaito-owner printed no memory folder for $OWN" >&2; exit 1; }
+  OF="$OM/owner.md"  # one file per owner: facts, rule: and learn: lines, the same format as a project file
+fi
 # memory.path in config moves the memory folder; default $K/memory. A missing helper means the default.
 M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
 case "$M" in "~") M=$HOME ;; "~/"*) M="$HOME/${M#"~/"}" ;; "") M="$K/memory" ;; esac
@@ -102,7 +125,7 @@ nokey() {
 # rewrite <file> <awk args>: call inside a locked subshell. The file is replaced only when it was read and awk
 # exited 0. awk exit 4 ("no match") is passed on; any other failure is exit 3. Either way the file stays as it was.
 rewrite() {
-  rf="$M/$1"; shift
+  case "$1" in /*) rf=$1 ;; *) rf="$M/$1" ;; esac; shift
   [ -r "$rf" ] || exit 3
   rc=0; LC_ALL=C awk "$@" "$rf" > "$rf.$$.tmp" || rc=$?
   [ "$rc" = 0 ] && mv "$rf.$$.tmp" "$rf" && return 0
@@ -112,17 +135,24 @@ rewrite() {
 wfail() {
   case "$1" in 74) echo "kaito-mem: memory is busy; nothing was saved" >&2; exit 74 ;; 3) echo "kaito-mem: could not rewrite the memory file; nothing was changed" >&2; exit 1 ;; *) echo "$RO"; exit 0 ;; esac
 }
+# target: where learn and capture write. f stays the memory-relative name for mirror; fp is the file, LD the folder
+# locked, MK the folder made, ls the name learning.log counts it under. With --owner it is the owner's file only.
+target() {
+  if [ -n "$OWN" ]; then f=$OF; fp=$OF; LD=$OM; MK=$OM; ls="owner:$OWN"
+  else fp="$M/$f"; LD=$M; MK="$M/projects"; ls=$s; fi
+}
 # relearn forget|promote "<text>" [global|project]: drop the matching learning, or turn it into a "rule:" line.
-# Without a scope: the project file first, then global.
+# Without a scope: the owner file (with --owner), the project file, then global. Scope owner: the owner file only.
 relearn() {
-  case "${3:-}" in ""|global|project) ;; *) set -- "$1" "" ;; esac
-  [ -n "$2" ] || { echo "usage: kaito-mem.sh $1 \"<text>\" [global|project]" >&2; exit 2; }
-  for f in "projects/$s.md" "${po:+projects/$os.md}" global.md; do
-    case "${3:-}:$f" in project:global.md|global:projects/*) continue ;; esac
-    [ -f "$M/$f" ] || continue
+  case "${3:-}:$OWN" in :*|global:*|project:*|owner:?*) ;; *) set -- "$1" "" ;; esac
+  [ -n "$2" ] || { echo "usage: kaito-mem.sh $1 \"<text>\" [global|project] | $1 \"<text>\" [owner] --owner <id>" >&2; exit 2; }
+  for f in ${OF:+"$OF"} "projects/$s.md" "${po:+projects/$os.md}" global.md; do
+    case "${3:-}:$f" in project:global.md|project:/*|global:projects/*|global:/*|owner:global.md|owner:projects/*) continue ;; esac
+    case "$f" in /*) ff=$f; fl=$OM ;; *) ff="$M/$f"; fl=$M ;; esac
+    [ -f "$ff" ] || continue
     rc=0
     (
-      memory_lock "$M" || exit $?
+      memory_lock "$fl" || exit $?
       T=$2; export T
       rewrite "$f" -v mode="$1" "$AWKLIB"'
         BEGIN { n = norm(ENVIRON["T"]) }
@@ -130,13 +160,13 @@ relearn() {
         { print }
         END { exit hit ? 0 : 4 }'
     ) 2>/dev/null || rc=$?
-    case "$rc" in 0) mirror "$f"; return 0 ;; 4) ;; *) wfail "$rc" ;; esac
+    case "$rc:$f" in 0:/*) return 0 ;; 0:*) mirror "$f"; return 0 ;; 4:*) ;; *) wfail "$rc" ;; esac
   done
   echo "kaito-mem: no such learning; copy its text from kaito-mem.sh curate" >&2; exit 1
 }
 # Each file ends its own last line, and a CR from a Windows editor is dropped.
 learnings() {
-  for lf in "$pf" "$po" "$M/global.md"; do [ ! -r "$lf" ] || awk 1 "$lf"; done 2>/dev/null | tr -d '\r' | grep '^learn:' || :
+  for lf in "$pf" "$po" ${OF:+"$OF"} "$M/global.md"; do [ ! -r "$lf" ] || awk 1 "$lf"; done 2>/dev/null | tr -d '\r' | grep '^learn:' || :
 }
 # The project file, and an old one still waiting to be folded in.
 pfs() { for x in "$pf" "$po"; do [ ! -r "$x" ] || awk 1 "$x"; done; }
@@ -224,11 +254,14 @@ case "${1:-}" in
     # top is never cut: keyed lines, rules, then the most confirmed, most recent learnings of this project and user
     L=$(learnings | sort -k3,3nr -k4,4r); n=$(printf "%s\n" "$L" | grep -c . || :)
     top=$(printf "%s\n" "slug=$s" "project_file=$pf" "indexed=$i"
+      [ -z "$OWN" ] || printf "%s\n" "owner=$OWN" "owner_file=$OF"
       [ -z "$miss" ] || echo "closeout_missed: a task started $miss has no recorded closeout and may still be running"
-      { pfs | grep -E '^(tracker|tracking|board|local_skill|rule):' || :; grep '^rule:' "$M/global.md" || :
+      { pfs | grep -E '^(tracker|tracking|board|local_skill|rule):' || :
+        [ -z "$OF" ] || grep '^rule:' "$OF" || :; grep '^rule:' "$M/global.md" || :
         [ "$n" -eq 0 ] || printf "%s\n" "$L" | head -n "$LEARN_CAP"
         [ "$n" -le "$LEARN_CAP" ] || echo "learn_more: $((n - LEARN_CAP)) not shown; run kaito-mem.sh curate"; } 2>/dev/null)
-    rest=$({ pfs | grep -vE '^(tracker|tracking|board|local_skill|rule|learn):' || :
+    rest=$({ [ -z "$OF" ] || grep -vE '^(rule|learn):' "$OF" || :  # the owner's facts first: business work is about them
+      pfs | grep -vE '^(tracker|tracking|board|local_skill|rule|learn):' || :
       grep -vE '^(rule|learn):' "$M/global.md" || :; cat "$M/MEMORY.md" || :; } 2>/dev/null)  # project facts first: they survive the cut
     printf "%s\n" "$top"
     room=$((40 - $(printf "%s\n" "$top" | wc -l))); nr=0; [ -z "$rest" ] || nr=$(printf "%s\n" "$rest" | wc -l)
@@ -236,10 +269,14 @@ case "${1:-}" in
     else [ "$room" -le 1 ] || printf "%s\n" "$rest" | head -n $((room - 1)); echo ...; fi
     ;;
   note)
-    [ $# -eq 3 ] || { echo "usage: kaito-mem.sh note global|project \"<text>\"" >&2; exit 2; }
+    [ $# -eq 3 ] || { echo "usage: kaito-mem.sh note global|project \"<text>\" | note owner \"<text>\" --owner <id>" >&2; exit 2; }
     nosecret "$3"
     t=$(printf %s "$3" | tr '\n\r' '  ')  # one note, one line: no injected lines
-    case "$2" in global) f=global.md ;; project) f=projects/$s.md ;; *) exit 2 ;; esac
+    case "$2:$OWN" in global:*) f=global.md ;; project:*) f=projects/$s.md ;; owner:?*) f="" ;; *) echo "kaito-mem: note owner needs --owner <id>" >&2; exit 2 ;; esac
+    if [ -z "$f" ]; then
+      ( mkdir -p "$OM" || exit 73; memory_lock "$OM" || exit $?; printf "%s\n" "- $(date +%Y-%m-%d) $t" >> "$OF" ) 2>/dev/null || wfail $?
+      exit 0
+    fi
     (
       mkdir -p "$M/projects" || exit 1
       memory_lock "$M" || exit $?
@@ -268,14 +305,16 @@ case "${1:-}" in
     ok=1; t=$(printf %s "${3:-}" | tr '\n\r' '  ')
     case "${2:-}" in correction|preference|worked|failed|convention) ;; *) ok=0 ;; esac
     case "${4:-project}" in project) f=projects/$s.md ;; global) f=global.md ;; *) ok=0 ;; esac
+    [ -z "$OWN" ] || [ "${4:-project}" = project ] || ok=0  # an owner lesson is the owner's, never global
     [ "$ok" = 1 ] && [ -n "$(printf %s "$t" | tr -d ' ')" ] ||
-      { echo "usage: kaito-mem.sh learn correction|preference|worked|failed|convention \"<text>\" [global]" >&2; exit 2; }
+      { echo "usage: kaito-mem.sh learn correction|preference|worked|failed|convention \"<text>\" [global] | learn <kind> \"<text>\" --owner <id>" >&2; exit 2; }
     nosecret "$t"; nokey "$t"
+    target
     (
-      mkdir -p "$M/projects" || exit 1
-      memory_lock "$M" || exit $?
-      new=0; [ "$f" = global.md ] || [ -e "$pf" ] || new=1
-      [ -e "$M/$f" ] || : > "$M/$f" || exit 3
+      mkdir -p "$MK" || exit 1
+      memory_lock "$LD" || exit $?
+      new=0; [ "$f" = global.md ] || [ -n "$OWN" ] || [ -e "$pf" ] || new=1
+      [ -e "$fp" ] || : > "$fp" || exit 3
       T=$t; export T
       # the same text again, whatever the kind, confirms the learning: count up, date to today
       rewrite "$f" -v k="$2" -v d="$today" "$AWKLIB"'
@@ -285,47 +324,49 @@ case "${1:-}" in
         END { if (!hit) print "learn: " k " 1 " d " " t }'
       # only a learning that is on disk is indexed and logged
       [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || :
-      printf "%s\n" "$today $s $2" >> "$M/learning.log" || :  # one line per capture: what stats counts
+      { [ -d "$M" ] || mkdir -p "$M"; } && printf "%s\n" "$today $ls $2" >> "$M/learning.log" || :  # one line per capture: what stats counts
     ) 2>/dev/null || wfail $?
-    mirror "$f" MEMORY.md
+    [ -n "$OWN" ] || mirror "$f" MEMORY.md
     ;;
   capture)
     ok=1; t=$(tr '\n\r' '  ' | sed 's/[[:space:]]*$//')
     case "${2:-}" in correction|preference|worked|failed|convention) ;; *) ok=0 ;; esac
     case "${3:-project}" in project) f=projects/$s.md ;; global) f=global.md ;; *) ok=0 ;; esac
     case "${3:-project}:${2:-}" in global:correction|global:preference|project:*) ;; *) ok=0 ;; esac
+    [ -z "$OWN" ] || [ "${3:-project}" = project ] || ok=0  # an owner lesson is the owner's, never global
     [ "$ok" = 1 ] && [ -n "$(printf %s "$t" | tr -d ' ')" ] ||
-      { echo "usage: kaito-mem.sh capture correction|preference|worked|failed|convention [global] < lesson" >&2; exit 2; }
+      { echo "usage: kaito-mem.sh capture correction|preference|worked|failed|convention [global] < lesson | capture <kind> --owner <id> < lesson" >&2; exit 2; }
     nosecret "$t"; nokey "$t"
+    target
     rc=0
     (
-      mkdir -p "$M/projects" || exit 73
-      memory_lock "$M" || exit $?
-      new=0; [ "$f" = global.md ] || [ -e "$pf" ] || new=1
+      mkdir -p "$MK" || exit 73
+      memory_lock "$LD" || exit $?
+      new=0; [ "$f" = global.md ] || [ -n "$OWN" ] || [ -e "$pf" ] || new=1
       T=$t; export T
       w=0
-      if [ -e "$M/$f" ]; then
+      if [ -e "$fp" ]; then
         rewrite "$f" -v k="$2" -v d="$today" "$AWKLIB"' \
           BEGIN { t = ENVIRON["T"]; n = norm(t) }
           /^learn:/ && norm(txt($0)) == n { hit = 1 }
           { print }
           END { if (!hit) print "learn: " k " 1 " d " " t; exit hit ? 4 : 0 }' || w=$?
       else
-        printf '%s\n' "learn: $2 1 $today $t" > "$M/$f.$$.tmp" || exit 1
-        mv "$M/$f.$$.tmp" "$M/$f" || { rm -f "$M/$f.$$.tmp"; exit 1; }
+        printf '%s\n' "learn: $2 1 $today $t" > "$fp.$$.tmp" || exit 1
+        mv "$fp.$$.tmp" "$fp" || { rm -f "$fp.$$.tmp"; exit 1; }
       fi
       [ "$w" = 4 ] && exit 4
       [ "$w" = 0 ] || exit 1
       LC_ALL=C awk "$AWKLIB"'
         BEGIN { n = norm(ENVIRON["T"]) }
         /^learn:/ && norm(txt($0)) == n { found = 1 }
-        END { exit found ? 0 : 1 }' "$M/$f" || exit 1
+        END { exit found ? 0 : 1 }' "$fp" || exit 1
       [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || echo "kaito-mem: warning: the project index was not updated" >&2
-      printf "%s\n" "$today $s $2" >> "$M/learning.log" || echo "kaito-mem: warning: the learning log was not updated" >&2
+      { [ -d "$M" ] || mkdir -p "$M"; } && printf "%s\n" "$today $ls $2" >> "$M/learning.log" || echo "kaito-mem: warning: the learning log was not updated" >&2
     ) || rc=$?
     co close  # the lesson was assessed, saved or not
     case "$rc" in
-      0) mirror "$f" MEMORY.md; echo saved ;;
+      0) [ -n "$OWN" ] || mirror "$f" MEMORY.md; echo saved ;;
       4) echo already_present ;;
       73) echo "$RO" >&2; exit 73 ;;
       74) echo "kaito-mem: memory is busy; capture was not saved" >&2; exit 74 ;;
@@ -380,5 +421,5 @@ case "${1:-}" in
       *) echo "kaito-mem: the merge did not finish; projects/$2.md was kept, run it again" >&2; exit 1 ;;
     esac
     ;;
-  *) echo "usage: kaito-mem.sh dir | slug | label | where [task] | note global|project \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | capture <kind> [global] < lesson | forget|promote \"<text>\" [global|project] | curate | stats | merge <old-slug> | closeout nothing_to_save|skipped" >&2; exit 2 ;;
+  *) echo "usage: kaito-mem.sh dir | slug | label | where [task] | note global|project|owner \"<text>\" | codegraph-decision yes|no | set board|brief_fp \"<value>\" | local-skills | learn <kind> \"<text>\" [global] | capture <kind> [global] < lesson | forget|promote \"<text>\" [global|project|owner] | curate | stats | merge <old-slug> | closeout nothing_to_save|skipped; add --owner <id> for one business owner's memory" >&2; exit 2 ;;
 esac

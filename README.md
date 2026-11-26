@@ -296,6 +296,14 @@ For long, source-heavy research projects. From research-superpowers.
 | [`grant-finder`](grant-finder/) | Finds German and European funding programs for a topic. |
 | [`finishing-a-research-project`](finishing-a-research-project/) | Final checklist before submission, publication or archive. |
 
+### Business
+
+Run several brands from one Mac, one owner at a time.
+
+| Skill | What it does |
+|---|---|
+| [`business`](business/) | Owner records and the rules for business work: every job names its owner first, loads only that owner's memory, and sends nothing without your approval of the exact payload. `kaito-owner.mjs` adds, lists, binds and resolves owners. |
+
 ## Known limits
 
 - Some skills overlap. `better-*` gives exact values. `impeccable`, `apple-design`, and `emil-design-eng` give taste. Use both.
@@ -308,6 +316,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
 - Skill hooks last only for the session that loaded the skill.
 - Research hooks are not installed. `drift-report` runs on demand.
+- `business` owners are set up by hand with `kaito-owner.mjs add`. With several owners, work outside a bound folder stops until you name one.
 - Some research skills use optional MCP servers for citation checks. They run without them.
 - Research scripts need Python 3.10 or newer. `grant-finder`, `literature-review` and `requesting-peer-review` mention upstream `research-skills/` files that are not bundled; they fall back to live search.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
