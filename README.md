@@ -207,6 +207,14 @@ Image, video, audio, and sites through the Higgsfield CLI. Needs a Higgsfield ac
 | [`higgsfield-brandkit`](higgsfield-brandkit/) | Full brand systems: logo marks, palettes, mockups, decks. |
 | [`higgsfield-websites`](higgsfield-websites/) | Build and deploy websites, apps, and games. |
 
+### Local stills (mflux)
+
+Images made on this Mac with mflux. No account or credits.
+
+| Skill | What it does |
+|---|---|
+| [`keyframes`](keyframes/) | Styled stills and same-face stills with Z-Image-Turbo and FLUX.2 klein, sized for Reels, with a sidecar per image and an optional likeness score. |
+
 ### Page types
 
 | Skill | What it does |
@@ -305,6 +313,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Windows: not tested by CI; reports and fixes are welcome. Setup runs in Git Bash (`setup.ps1` starts it). A user folder with a space in its name is not supported; use WSL. gstack tools are blocked by Smart App Control.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
+- `keyframes` needs mflux (`uv tool install mflux`), Python 3 and ffmpeg. The first run of each model downloads several GB of weights to the Hugging Face cache, and a run needs about 16 GB of free RAM, so run one heavy model at a time. The pinned weights (Z-Image-Turbo, FLUX.2 klein 4B) are Apache-2.0; non-commercial weights are refused unless you pass `--noncommercial-ok`. The likeness score needs a python with dlib that you set up yourself (`LIKENESS_PYTHON`).
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
 - Skill hooks last only for the session that loaded the skill.
 - Research hooks are not installed. `drift-report` runs on demand.

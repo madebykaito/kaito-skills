@@ -18,6 +18,14 @@ Every `higgsfield-*` skill runs the Higgsfield CLI and needs a Higgsfield accoun
 | `higgsfield-brandkit` | A full brand system made with Higgsfield: palette, logo, type, mockups, brandbook PPTX or PDF. |
 | `higgsfield-websites` | A site, app or game built and hosted on Higgsfield, or game art such as spritesheets. Only when the user wants Higgsfield hosting. |
 
+## Local stills (mflux)
+
+| Skill | Use when |
+|---|---|
+| `keyframes` | A still image made locally on this Mac: a styled still from a prompt and a brand style file, or a same-face still from reference photos, sized for Reels, with seed and weight license recorded. No account or credits. Needs mflux and the model weights; heavy, one model at a time. |
+
+For cloud images use the Higgsfield skills above. `keyframes` is the route when the user wants local, free, or a seed that repeats.
+
 ## Design reference images
 
 | Skill | Use when |
