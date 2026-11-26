@@ -7,7 +7,7 @@ import socketserver
 import sys
 from email import policy
 from email.parser import BytesParser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 mode, root = sys.argv[1], Path(sys.argv[2])
@@ -42,12 +42,14 @@ class Smtp(socketserver.StreamRequestHandler):
                 assert line.lower().startswith(b"rcpt to:<guest@example.test>")
                 if (root / "refuse").exists():
                     self.wfile.write(b"550 mailbox unavailable\r\n")
-                    return
+                    continue
             if verb == b"DATA":
                 self.wfile.write(b"354 send message\r\n")
                 data = []
                 while (part := self.rfile.readline()) not in (b".\r\n", b""):
                     data.append(part[1:] if part.startswith(b"..") else part)
+                if not part:
+                    return
                 check_mime(b"".join(data))
                 delivered()
                 if mode == "smtp-drop":
@@ -122,7 +124,8 @@ class Http(BaseHTTPRequestHandler):
         assert fields["Signature"] == hmac.digest(secret, string.encode(), "sha256").hex()
 
 
-sink = socketserver.TCPServer(("127.0.0.1", 0), Smtp) if mode.startswith("smtp") else HTTPServer(("127.0.0.1", 0), Http)
+# HTTPServer also resolves a server name, which the loopback fixture does not use.
+sink = socketserver.TCPServer(("127.0.0.1", 0), Smtp if mode.startswith("smtp") else Http)
 port = sink.server_address[1]
 url = f"http://127.0.0.1:{port}"
 if mode.startswith("smtp"):
@@ -135,4 +138,7 @@ else:
 temp = root / "engine.tmp"
 temp.write_text(json.dumps(config))
 temp.replace(root / "engine.json")
+temp = root / "mail.port.tmp"
+temp.write_text(f"{port}\n")
+temp.replace(root / "mail.port")
 sink.serve_forever()

@@ -32,6 +32,21 @@ fixture_approve() {
 assert_eq() { [ "$1" = "$2" ] || { echo "  not equal: '$1' vs '$2' ($3)"; exit 1; }; }
 assert_file() { [ -e "$1" ] || { echo "  missing: $1"; exit 1; }; }
 assert_no() { [ ! -e "$1" ] && [ ! -L "$1" ] || { echo "  should not exist: $1"; exit 1; }; }
+
+# wait_for_server <port-file> <pid> <name> <log-file>
+wait_for_server() {
+  local deadline
+  deadline=$(($(date +%s) + 30))
+  while [ ! -s "$1" ]; do
+    if ! kill -0 "$2" 2>/dev/null || [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "  $3 did not start" >&2
+      cat "$4" >&2
+      exit 1
+    fi
+    sleep 0.1
+  done
+}
+
 assert_link() {
   [ -L "$1" ] || { echo "  not a symlink: $1"; exit 1; }
   case "$(readlink "$1")" in "$2"*) ;; *) echo "  link $1 -> $(readlink "$1"), want prefix $2"; exit 1;; esac

@@ -12,9 +12,10 @@ import io
 import json
 import os
 import re
+import socketserver
 import sys
 import wave
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 GB = 1024 ** 3
@@ -133,9 +134,12 @@ class H(BaseHTTPRequestHandler):
         self.send(404, {"error": "not found"})
 
 
-srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
-open(A.port_file + ".tmp", "w").write(str(srv.server_address[1]))
-os.rename(A.port_file + ".tmp", A.port_file)
+# The HTTP handler only needs TCP and a numeric loopback address.
+srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), H)
+srv.daemon_threads = True
+with open(A.port_file + ".tmp", "w") as port_file:
+    print(srv.server_address[1], file=port_file)
+os.replace(A.port_file + ".tmp", A.port_file)
 try:
     srv.serve_forever()
 except KeyboardInterrupt:

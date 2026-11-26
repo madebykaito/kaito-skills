@@ -68,11 +68,15 @@ def smtp_send(config, message, data):
     port = config.get("port", 465 if mode == "implicit" else 587)
     if mode not in {"implicit", "starttls", "none"} or (mode == "none" and host not in LOOPBACK):
         raise ValueError("SMTP requires TLS except on loopback")
-    context = ssl.create_default_context()
-    if mode == "implicit":
-        client = smtplib.SMTP_SSL(host, port, timeout=TIMEOUT, context=context)
+    if mode == "none":
+        # The loopback SMTP peer has no need for a system hostname lookup or TLS context.
+        client = smtplib.SMTP(host, port, local_hostname="localhost", timeout=TIMEOUT)
     else:
-        client = smtplib.SMTP(host, port, timeout=TIMEOUT)
+        context = ssl.create_default_context()
+        if mode == "implicit":
+            client = smtplib.SMTP_SSL(host, port, timeout=TIMEOUT, context=context)
+        else:
+            client = smtplib.SMTP(host, port, timeout=TIMEOUT)
     try:
         client.ehlo_or_helo_if_needed()
         if mode == "starttls":

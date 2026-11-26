@@ -16,13 +16,8 @@ start_fake() {
   _pf="$HOME/fake.port"; rm -f "$_pf"
   python3 "$TESTS_DIR/stubs/fake_comfy.py" --port-file "$_pf" --log "$FAKELOG" "$@" > "$HOME/fake.out" 2>&1 &
   FAKEPID=$!
-  trap 'kill $FAKEPID 2>/dev/null' EXIT
-  _i=0
-  while [ ! -s "$_pf" ]; do
-    _i=$((_i + 1))
-    [ "$_i" -le 100 ] || { echo "  fake ComfyUI did not start"; cat "$HOME/fake.out"; exit 1; }
-    sleep 0.1
-  done
+  trap 'kill "$FAKEPID" 2>/dev/null || :; wait "$FAKEPID" 2>/dev/null || :' EXIT
+  wait_for_server "$_pf" "$FAKEPID" 'fake ComfyUI' "$HOME/fake.out"
   COMFY_URL="http://127.0.0.1:$(cat "$_pf")"; export COMFY_URL
 }
 

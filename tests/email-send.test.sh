@@ -30,15 +30,10 @@ proposal() {
 }
 approve_fixture() { fixture_approve "$REF" "$DIG" >/dev/null; }
 start_sink() {
-  python3 "$TESTS_DIR/fixtures/mail-sink.py" "$1" "$HOME" &
+  python3 "$TESTS_DIR/fixtures/mail-sink.py" "$1" "$HOME" > "$HOME/mail.out" 2>&1 &
   sink_pid=$!
   trap 'kill "$sink_pid" 2>/dev/null || :; wait "$sink_pid" 2>/dev/null || :' EXIT
-  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    [ ! -s "$HOME/engine.json" ] || return 0
-    sleep 0.2
-  done
-  echo "loopback sink did not start" >&2
-  exit 1
+  wait_for_server "$HOME/mail.port" "$sink_pid" 'loopback sink' "$HOME/mail.out"
 }
 state() { L status "$REF" | sed -n 's/^state=//p'; }
 
@@ -103,6 +98,7 @@ test_missing_smtp_ack_is_uncertain() {
   expect 3 E send "$REF" --digest "$DIG" --owner lumen-tea
   assert_eq "$(state)" uncertain smtp-drop
   expect 3 E send "$REF" --digest "$DIG" --owner lumen-tea
+  assert_eq "$(cat "$HOME/delivered")" smtp-drop once
 }
 
 test_two_approved_retries_share_one_send() {
@@ -117,9 +113,18 @@ test_two_approved_retries_share_one_send() {
   proposal smtp --retry-of "$old_ref"; approve_fixture || exit 1
   first_ref=$REF; first_digest=$DIG
   proposal smtp --retry-of "$old_ref"; approve_fixture || exit 1
-  expect 0 E send "$first_ref" --digest "$first_digest" --owner lumen-tea
-  expect 3 E send "$REF" --digest "$DIG" --owner lumen-tea
-  grep -q 'already been accepted' "$HOME/result" || { cat "$HOME/result"; exit 1; }
+  E send "$first_ref" --digest "$first_digest" --owner lumen-tea > "$HOME/first" 2>&1 & first=$!
+  E send "$REF" --digest "$DIG" --owner lumen-tea > "$HOME/second" 2>&1 & second=$!
+  a=0; wait "$first" || a=$?
+  b=0; wait "$second" || b=$?
+  case "$a:$b" in
+    0:3) sent_ref=$first_ref; blocked_ref=$REF; blocked_log="$HOME/second" ;;
+    3:0) sent_ref=$REF; blocked_ref=$first_ref; blocked_log="$HOME/first" ;;
+    *) cat "$HOME/first" "$HOME/second" "$HOME/mail.out"; exit 1 ;;
+  esac
+  grep -q 'already been accepted' "$blocked_log" || { cat "$blocked_log"; exit 1; }
+  REF=$sent_ref; assert_eq "$(state)" sent winner
+  REF=$blocked_ref; assert_eq "$(state)" approved blocked
   assert_eq "$(cat "$HOME/delivered")" smtp delivered
 }
 

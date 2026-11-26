@@ -265,7 +265,8 @@ function scanMedia(file, abs) {
 // ---- file list
 function listFiles() {
   if (folder === null) {
-    const out = execFileSync('git', ['ls-files', '-z'], { cwd: repo, maxBuffer: 1 << 28 }).toString('utf8');
+    const out = execFileSync('git', ['-c', `safe.directory=${repo}`, 'ls-files', '-z'],
+      { cwd: repo, maxBuffer: 1 << 28 }).toString('utf8');
     return { root: repo, files: out.split('\0').filter(Boolean) };
   }
   const root = path.resolve(folder), files = [];
