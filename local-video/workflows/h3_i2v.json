@@ -1,0 +1,292 @@
+{
+ "meta": {
+  "name": "h3_i2v",
+  "mode": "i2v",
+  "defaults": {
+   "seed": 77001,
+   "steps": 8,
+   "seconds": 5,
+   "megapixels": 0.2,
+   "prefix": "video/kaito_h3"
+  },
+  "engine": "h3",
+  "need_gb": 26,
+  "license": "minimax-h3",
+  "models": [
+   {
+    "node": "UnetLoaderGGUF",
+    "input": "unet_name",
+    "file": "MiniMax-H3-FL2VA-Pruned-Q5_K_M.gguf"
+   },
+   {
+    "node": "CLIPLoaderGGUF",
+    "input": "clip_name",
+    "file": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf"
+   },
+   {
+    "node": "LoraLoaderModelOnly",
+    "input": "lora_name",
+    "file": "H3-PK-Parasyte-Turbo.safetensors"
+   },
+   {
+    "node": "VAELoader",
+    "input": "vae_name",
+    "file": "minimax_h3_video_vae_fp16.safetensors"
+   },
+   {
+    "node": "VAELoader",
+    "input": "vae_name",
+    "file": "minimax_h3_audio_vae_fp32.safetensors"
+   }
+  ],
+  "output": "video",
+  "note": "Parasyte turbo LoRA 1.5, AdaLN strip, sigma shift 12/3, er_sde with beta57, 8 steps"
+ },
+ "graph": {
+  "unet": {
+   "class_type": "UnetLoaderGGUF",
+   "inputs": {
+    "unet_name": "MiniMax-H3-FL2VA-Pruned-Q5_K_M.gguf"
+   }
+  },
+  "lora": {
+   "class_type": "LoraLoaderModelOnly",
+   "inputs": {
+    "model": [
+     "unet",
+     0
+    ],
+    "lora_name": "H3-PK-Parasyte-Turbo.safetensors",
+    "strength_model": 1.5
+   }
+  },
+  "adaln": {
+   "class_type": "H3AdaLNLoRAFix",
+   "inputs": {
+    "model": [
+     "lora",
+     0
+    ],
+    "mode": "strip"
+   }
+  },
+  "shift": {
+   "class_type": "MiniMaxH3SigmaShift",
+   "inputs": {
+    "model": [
+     "adaln",
+     0
+    ],
+    "shift_video": 12.0,
+    "shift_audio": 3.0
+   }
+  },
+  "clip": {
+   "class_type": "CLIPLoaderGGUF",
+   "inputs": {
+    "clip_name": "qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf",
+    "type": "minimax"
+   }
+  },
+  "vvae": {
+   "class_type": "VAELoader",
+   "inputs": {
+    "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+   }
+  },
+  "avae": {
+   "class_type": "VAELoader",
+   "inputs": {
+    "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+   }
+  },
+  "seconds": {
+   "class_type": "PrimitiveFloat",
+   "inputs": {
+    "value": "{{seconds}}"
+   }
+  },
+  "frames": {
+   "class_type": "ComfyMathExpression",
+   "inputs": {
+    "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+    "values.a": [
+     "seconds",
+     0
+    ]
+   }
+  },
+  "noise": {
+   "class_type": "RandomNoise",
+   "inputs": {
+    "noise_seed": "{{seed}}"
+   }
+  },
+  "sampler": {
+   "class_type": "KSamplerSelect",
+   "inputs": {
+    "sampler_name": "er_sde"
+   }
+  },
+  "sigmas": {
+   "class_type": "BasicScheduler",
+   "inputs": {
+    "model": [
+     "shift",
+     0
+    ],
+    "scheduler": "beta57",
+    "steps": "{{steps}}",
+    "denoise": 1
+   }
+  },
+  "guider": {
+   "class_type": "BasicGuider",
+   "inputs": {
+    "model": [
+     "shift",
+     0
+    ],
+    "conditioning": [
+     "cond",
+     0
+    ]
+   }
+  },
+  "sample": {
+   "class_type": "SamplerCustomAdvanced",
+   "inputs": {
+    "noise": [
+     "noise",
+     0
+    ],
+    "guider": [
+     "guider",
+     0
+    ],
+    "sampler": [
+     "sampler",
+     0
+    ],
+    "sigmas": [
+     "sigmas",
+     0
+    ],
+    "latent_image": [
+     "cond",
+     1
+    ]
+   }
+  },
+  "vdec": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "sample",
+     0
+    ],
+    "vae": [
+     "vvae",
+     0
+    ]
+   }
+  },
+  "adec": {
+   "class_type": "VAEDecodeAudio",
+   "inputs": {
+    "samples": [
+     "sample",
+     0
+    ],
+    "vae": [
+     "avae",
+     0
+    ]
+   }
+  },
+  "video": {
+   "class_type": "CreateVideo",
+   "inputs": {
+    "fps": 24,
+    "bit_depth": 8,
+    "images": [
+     "vdec",
+     0
+    ],
+    "audio": [
+     "adec",
+     0
+    ]
+   }
+  },
+  "save": {
+   "class_type": "SaveVideo",
+   "inputs": {
+    "filename_prefix": "{{prefix}}",
+    "format": "auto",
+    "codec": "auto",
+    "video": [
+     "video",
+     0
+    ]
+   }
+  },
+  "still": {
+   "class_type": "LoadImage",
+   "inputs": {
+    "image": "{{image}}"
+   }
+  },
+  "fit": {
+   "class_type": "ImageScaleToTotalPixels",
+   "inputs": {
+    "image": [
+     "still",
+     0
+    ],
+    "upscale_method": "lanczos",
+    "megapixels": "{{megapixels}}",
+    "resolution_steps": 32
+   }
+  },
+  "size": {
+   "class_type": "GetImageSize",
+   "inputs": {
+    "image": [
+     "fit",
+     0
+    ]
+   }
+  },
+  "cond": {
+   "class_type": "MiniMaxH3ImageToVideo",
+   "inputs": {
+    "prompt": "{{prompt}}",
+    "length": [
+     "frames",
+     1
+    ],
+    "clip": [
+     "clip",
+     0
+    ],
+    "vae": [
+     "vvae",
+     0
+    ],
+    "width": [
+     "size",
+     0
+    ],
+    "height": [
+     "size",
+     1
+    ],
+    "first_frame": [
+     "fit",
+     0
+    ]
+   }
+  }
+ }
+}

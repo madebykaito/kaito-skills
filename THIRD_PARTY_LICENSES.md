@@ -29,6 +29,7 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) v2.14.28, Corey Haines | MIT |
 | `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav | MIT |
 | `adversarial-review`, `ogilvy`, `tailwind-v4`, `visual-style-presets` | [boraoztunc/skills](https://github.com/boraoztunc/skills), Bora Öztunç | MIT, stated in its README; the repository ships no license file of its own |
+| `local-video/workflows/h3_t2v.json`, `h3_i2v.json` | Node graphs rebuilt from the MiniMax H3 recipe in [Bambushu/minimax-h3-mac](https://github.com/Bambushu/minimax-h3-mac) (MacMax, MAD IT), itself derived from the ComfyUI `video_minimax_h3_t2v` template (Comfy Org). The model weights are not bundled and keep their own licences, including the MiniMax H3 Community License. | MIT |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
 
 ## Notices carried from upstream
@@ -662,4 +663,34 @@ Applies to impeccable (Copyright 2025 Paul Bakaus), the HyperFrames skills (Copy
 
    END OF TERMS AND CONDITIONS
 
+```
+
+### MIT, MAD IT and Comfy Org (`local-video` H3 workflows)
+
+```text
+MIT License
+
+Copyright (c) 2026 MAD IT
+
+MIT License
+
+Copyright (c) 2023-present Comfy Org
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

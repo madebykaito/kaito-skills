@@ -207,6 +207,15 @@ Image, video, audio, and sites through the Higgsfield CLI. Needs a Higgsfield ac
 | [`higgsfield-brandkit`](higgsfield-brandkit/) | Full brand systems: logo marks, palettes, mockups, decks. |
 | [`higgsfield-websites`](higgsfield-websites/) | Build and deploy websites, apps, and games. |
 
+### Media (this Mac, local)
+
+Video and music made on your own machine through ComfyUI. No account, no credits. Needs Comfy Desktop and the model files.
+
+| Skill | What it does |
+|---|---|
+| [`local-video`](local-video/) | Image to video and text to video (MiniMax H3, LTX), SeedVR2 upscale, Ken Burns from stills. |
+| [`music`](music/) | Instrumental beds with ACE-Step, several takes with different styles, 48 kHz WAV. |
+
 ### Page types
 
 | Skill | What it does |
@@ -305,6 +314,8 @@ For long, source-heavy research projects. From research-superpowers.
 - Windows: not tested by CI; reports and fixes are welcome. Setup runs in Git Bash (`setup.ps1` starts it). A user folder with a space in its name is not supported; use WSL. gstack tools are blocked by Smart App Control.
 - Bun is required only for `gstack`. Use `--no-gstack` to skip it.
 - Higgsfield skills need a Higgsfield account and credits.
+- `local-video` and `music` run on Apple silicon through ComfyUI (Comfy Desktop) and need the model files downloaded by hand: MiniMax H3 is about 37 GB, SeedVR2 about 4 GB, ACE-Step about 10 GB, LTX is optional. They want a Mac with 48 GB; one heavy model runs at a time and a run is refused (exit 3) when free memory is below its need. An H3 clip takes about 9 minutes and a SeedVR2 upscale about 17 minutes per 5 s shot.
+- MiniMax H3 is under the MiniMax H3 Community License: not for use in the US, EU, UK or South Korea, and commercial use of the outputs needs a MiniMax licence. `local-video` prints it and needs `--license-ok`. The Ken Burns command and ffmpeg need no licence.
 - Skill hooks (`careful`, `freeze`, `guard`) work on Claude Code only.
 - Skill hooks last only for the session that loaded the skill.
 - Research hooks are not installed. `drift-report` runs on demand.
