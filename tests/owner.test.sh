@@ -142,7 +142,13 @@ test_owner_capture_lands_in_owner_memory() {
   assert_no "$jf"
   ! grep -rq 'estate name' "$KAITO_HOME/memory/projects" 2>/dev/null || { echo "  landed in project memory"; exit 1; }
   ! grep -q 'estate name' "$KAITO_HOME/memory/global.md" 2>/dev/null || { echo "  landed in global"; exit 1; }
-  grep -q ' owner:lumen-tea convention$' "$KAITO_HOME/memory/learning.log" || exit 1
+  grep -q ' owner:lumen-tea convention$' "$KAITO_HOME/owners/lumen-tea/memory/learning.log" || exit 1
+  ! grep -q 'owner:' "$KAITO_HOME/memory/learning.log" 2>/dev/null || { echo "  owner capture in the shared log"; exit 1; }
+  # global or project notes with --owner are refused, and an empty --owner never falls back to project memory
+  (cd "$d" && sh "$MEM" note global "Lumen fact" --owner lumen-tea > /dev/null 2>&1); assert_eq "$?" 2 note-global
+  (cd "$d" && sh "$MEM" note project "Lumen fact" --owner lumen-tea > /dev/null 2>&1); assert_eq "$?" 2 note-project
+  (cd "$d" && echo "Empty owner lesson" | sh "$MEM" capture convention --owner "" > /dev/null 2>&1); assert_eq "$?" 2 empty-owner
+  ! grep -rqE 'Lumen fact|Empty owner lesson' "$KAITO_HOME/memory" 2>/dev/null || { echo "  leaked into shared memory"; exit 1; }
   # global is refused with --owner; note owner and learn go to the owner file too
   (cd "$d" && echo "x y z" | sh "$MEM" capture preference global --owner lumen-tea > /dev/null 2>&1); assert_eq "$?" 2 global
   (cd "$d" && sh "$MEM" note owner "Ira Das invoices in INR" --owner ira-das) || exit 1
@@ -166,4 +172,37 @@ test_repo_memory_unchanged_without_business() {
   assert_eq "$r" saved saved
   (cd "$d" && sh "$s/kaito-mem.sh" where) | grep -q 'Repo lesson stays in the repo' || exit 1
   (cd "$d" && sh "$s/kaito-mem.sh" where --owner lumen-tea > /dev/null 2>&1); assert_eq "$?" 2 no-business
+}
+
+test_links_and_gaps_refused() {
+  skip_on_win "links are not real symlinks everywhere" && return 0
+  mk_home; lumen; ira; dir app
+  # an owner.md that links to another owner's file is never read or written
+  echo "- Lumen secret recipe" > "$KAITO_HOME/owners/lumen-tea/memory/owner.md"
+  ln -s "$KAITO_HOME/owners/lumen-tea/memory/owner.md" "$KAITO_HOME/owners/ira-das/memory/owner.md"
+  out=$(cd "$d" && sh "$MEM" where --owner ira-das 2>&1); assert_eq "$?" 1 link-read
+  printf '%s\n' "$out" | grep -q 'secret recipe' && exit 1
+  (cd "$d" && sh "$MEM" note owner "x" --owner ira-das > /dev/null 2>&1); assert_eq "$?" 1 link-write
+  assert_eq "$(cat "$KAITO_HOME/owners/lumen-tea/memory/owner.md")" "- Lumen secret recipe" untouched
+  rm "$KAITO_HOME/owners/ira-das/memory/owner.md"
+  # a folder without a record, or a linked owner folder, stops resolve instead of leaving one owner as the only one
+  mkdir "$KAITO_HOME/owners/half-done"; ko resolve; assert_eq "$rc" 1 no-record
+  rmdir "$KAITO_HOME/owners/half-done"
+  ln -s "$HOME" "$KAITO_HOME/owners/linked"; ko resolve; assert_eq "$rc" 1 linked-dir
+  rm "$KAITO_HOME/owners/linked"; mkdir "$HOME/away"; ln -s "$HOME/away" "$KAITO_HOME/owners/linked"
+  ko add linked --name x --kind company; assert_eq "$rc" 1 add-over-link
+  assert_no "$HOME/away/owner.json"; rm "$KAITO_HOME/owners/linked"
+  # a line break in a path is refused
+  f="$KAITO_HOME/owners/ira-das/owner.json"
+  node -e 'const fs=require("fs");const o=JSON.parse(fs.readFileSync(process.argv[1]));o.memory_root=process.argv[2]+"\n/x";fs.writeFileSync(process.argv[1],JSON.stringify(o))' "$f" "$KAITO_HOME/owners/lumen-tea/memory"
+  ko resolve --owner ira-das; assert_eq "$rc" 1 newline
+}
+
+test_add_refuses_memory_overlap() {
+  mk_home; lumen
+  f="$KAITO_HOME/owners/lumen-tea/owner.json"
+  node -e 'const fs=require("fs");const o=JSON.parse(fs.readFileSync(process.argv[1]));o.memory_root=process.argv[2];fs.writeFileSync(process.argv[1],JSON.stringify(o))' "$f" "$KAITO_HOME/owners/ira-das/memory"
+  ko add ira-das --name "Ira Das" --kind person; assert_eq "$rc" 1 overlap
+  assert_no "$KAITO_HOME/owners/ira-das/owner.json"
+  ko resolve; assert_eq "$rc" 0 still-resolves
 }

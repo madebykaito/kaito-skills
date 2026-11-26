@@ -49,6 +49,9 @@ function problems(o, folderId) {
   const bad = [];
   if (!o || typeof o !== 'object' || Array.isArray(o)) return ['owner.json must hold one JSON object'];
   for (const k of Object.keys(o)) if (!FIELDS.has(k)) bad.push(`unknown field "${k}"`);
+  // no control characters anywhere: the shell reads this record line by line
+  const ctl = (v) => (typeof v === 'string' ? /[\u0000-\u001f\u007f]/.test(v) : v && typeof v === 'object' ? Object.values(v).some(ctl) : false);
+  for (const [k, v] of Object.entries(o)) if (ctl(v)) bad.push(`${k} must not hold a line break or control character`);
   if (typeof o.id !== 'string' || !ID.test(o.id) || o.id.length > 64) bad.push('id must be kebab-case');
   else if (folderId && o.id !== folderId) bad.push(`id "${o.id}" does not match its folder "${folderId}"`);
   if (typeof o.name !== 'string' || !o.name.trim()) bad.push('name is required');
@@ -100,20 +103,29 @@ function allOwners() {
   }
   const list = [];
   for (const d of names) {
-    if (d.name.startsWith('.') || !d.isDirectory()) continue;
-    if (!ID.test(d.name)) fail(1, `${path.join(OWNERS, d.name)}: an owner folder name must be kebab-case`);
+    if (d.name.startsWith('.')) continue;
+    const at = path.join(OWNERS, d.name);
+    // a link or a folder without a record is refused, never skipped: skipping could leave the wrong owner as the only one
+    if (d.isSymbolicLink()) fail(1, `${at}: an owner folder must be a real folder, not a link`);
+    if (!d.isDirectory()) continue;
+    if (!ID.test(d.name)) fail(1, `${at}: an owner folder name must be kebab-case`);
     const o = readOwner(d.name);
-    if (o) list.push(o);
+    if (!o) fail(1, `${at} has no owner.json; add one or remove the folder`);
+    list.push(o);
   }
   list.sort((a, b) => a.id.localeCompare(b.id));
-  // Owner memory never overlaps: a shared or nested folder would load one owner's facts for another.
+  overlap(list);
+  return list;
+}
+
+// Owner memory never overlaps: a shared or nested folder would load one owner's facts for another.
+function overlap(list) {
   for (let i = 0; i < list.length; i += 1) {
     for (let j = i + 1; j < list.length; j += 1) {
       const a = real(memoryDir(list[i])), b = real(memoryDir(list[j]));
       if (within(a, b) || within(b, a)) fail(1, `owners ${list[i].id} and ${list[j].id} share a memory folder (${a}, ${b}); give each its own`);
     }
   }
-  return list;
 }
 
 function writeOwner(o) {
@@ -200,14 +212,19 @@ function main(argv) {
       const { opts, pos } = parse(rest, ['name', 'kind', 'locale', 'timezone', 'currency', 'gstin']);
       if (pos.length !== 1 || !opts.name || !opts.kind) fail(2, 'usage: kaito-owner.mjs add <id> --name <name> --kind company|person [--locale <tag>] [--timezone <tz>] [--currency <ISO>] [--gstin <no>]');
       const id = checkId(pos[0]);
-      allOwners(); // a broken record elsewhere is reported before anything is written
-      if (fs.existsSync(path.join(root(id), 'owner.json'))) fail(1, `owner ${id} already exists: ${root(id)}`);
+      const owners = allOwners(); // a broken record elsewhere is reported before anything is written
+      let exists = true;
+      try { fs.lstatSync(root(id)); } catch { exists = false; }
+      if (exists) fail(1, `owner ${id} already exists, or something else is at ${root(id)}`);
       const o = {
         id, name: opts.name, kind: opts.kind, locale: opts.locale || 'en-IN',
         timezone: opts.timezone || 'Asia/Kolkata', currency: opts.currency || 'INR',
         ...(opts.gstin ? { gstin: opts.gstin } : {}),
         bindings: [], channels: {}, keys: {}, cloud_ok: false,
       };
+      const bad = problems(o, id);
+      if (bad.length) fail(1, `refusing to add ${id}: ${bad.join('; ')}`);
+      overlap([...owners, o]); // the new owner's memory folder must not be one an existing owner already uses
       writeOwner(o);
       fs.mkdirSync(memoryDir(o), { recursive: true });
       console.log(`added ${id}`);

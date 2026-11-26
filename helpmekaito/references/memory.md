@@ -21,6 +21,9 @@ Business work for one owner (a brand the user runs, see the `business` skill) ad
 - `kaito-mem.sh where task --owner <id>` prints the usual lines plus `owner=`, `owner_file=` and that owner's `owner.md`: `rule:` lines, learnings and facts. Owner facts come first in the facts section. No other owner's file is read.
 - `kaito-mem.sh capture <kind> --owner <id>`, `learn <kind> "<text>" --owner <id>` and `note owner "<text>" --owner <id>` write to the owner's file only. `global` with `--owner` is refused.
 - `forget|promote "<text>" owner --owner <id>` changes the owner's file only.
+- `note global|project` with `--owner` is refused: those files are read in every other owner's tasks.
+
+Owner captures are logged in the owner's own `learning.log`, not the shared one. A linked `owner.md` or memory folder is refused.
 
 The owner's file is `owner.md` in its `memory_root`, or in `~/.kaito/owners/<id>/memory/`. It is not indexed in `MEMORY.md` and not mirrored to Obsidian; point `memory_root` into the vault instead. Without `--owner` no owner memory is read or written, and repo memory works as before.
 

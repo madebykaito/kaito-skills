@@ -28,7 +28,8 @@ One person runs several brands from one Mac. This skill is the foundation the bu
    - One owner configured: it resolves automatically.
    - Several: the user names one, or a folder binding that contains the current folder picks it. The deepest binding wins.
    - Exit 3 prints `ambiguous: <ids>`. Stop and ask the user which owner, naming the choices. Never guess, and never pick the first.
-   - Exit 4 prints `none`. Offer to add one (below), or do the work with no owner: then nothing owner-specific is read or written.
+   - Exit 4 printing `none`: no owner exists. Offer to add one (below), or do the work with no owner: then nothing owner-specific is read or written.
+   - Exit 4 with `not found`: the named owner does not exist. Stop and ask; never fall back to no owner.
 
 2. Read memory for that owner: `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where task --owner <id>`. It prints the repo memory plus that owner's `owner.md`, never another owner's. helpmekaito runs both steps for you when it routes here.
 
@@ -55,7 +56,7 @@ Each owner is a folder `~/.kaito/owners/<id>/` with an `owner.json`:
 | `memory_root` | optional folder for the owner's memory, for example inside an Obsidian vault; default `<root>/memory` |
 | `cloud_ok` | `true` lets cloud engines run for this owner; default `false` |
 
-The script refuses a record with a bad field, an unknown field, an id that does not match its folder, a key value where a key path belongs, or two owners whose memory folders overlap. One broken record stops every resolve, so a broken owner is never skipped in favour of the wrong one.
+The script refuses a record with a bad field, an unknown field, a line break in a value, an id that does not match its folder, a key value where a key path belongs, an owner folder that is a link or has no `owner.json`, or two owners whose memory folders overlap. One broken record stops every resolve, so a broken owner is never skipped in favour of the wrong one.
 
 Commands:
 

@@ -14,24 +14,29 @@ set -eu
 here=$(dirname "$0")
 K="${KAITO_HOME:-$HOME/.kaito}"
 # Take --owner <id> out of the arguments, wherever it is.
-OWN=""; n=$#; i=0
+OWN=""; ow=0; n=$#; i=0
 while [ "$i" -lt "$n" ]; do
   a=$1; shift; i=$((i + 1))
   if [ "$a" = --owner ]; then
-    [ "$i" -lt "$n" ] && [ -z "$OWN" ] || { echo "kaito-mem: --owner needs one owner id" >&2; exit 2; }
-    OWN=$1; shift; i=$((i + 1))
+    [ "$i" -lt "$n" ] && [ "$ow" = 0 ] && [ -n "$1" ] || { echo "kaito-mem: --owner needs one owner id" >&2; exit 2; }
+    OWN=$1; ow=1; shift; i=$((i + 1))
   else set -- "$@" "$a"; fi
 done
 OF=""; OM=""
 if [ -n "$OWN" ]; then
   case "$OWN" in *[!a-z0-9-]*|-*|*-|*--*) echo "kaito-mem: owner id must be kebab-case: $OWN" >&2; exit 2 ;; esac
-  oc="$here/../../business/scripts/kaito-owner.mjs"
+  # business sits beside helpmekaito in the store or the repo; a host's skills folder may link helpmekaito alone
+  oc="$(cd "$here" && pwd -P)/../../business/scripts/kaito-owner.mjs"
+  [ -f "$oc" ] || oc="$K/store/business/scripts/kaito-owner.mjs"
   [ -f "$oc" ] || { echo "kaito-mem: --owner needs the business skill; run ./setup in kaito-skills" >&2; exit 2; }
   orc=0; ro=$(node "$oc" resolve --owner "$OWN") || orc=$?
   [ "$orc" = 0 ] || exit "$orc"  # kaito-owner said why on stderr: 4 not found, 1 a broken record
   OM=$(printf '%s\n' "$ro" | sed -n 's/^memory=//p')
   [ -n "$OM" ] || { echo "kaito-mem: kaito-owner printed no memory folder for $OWN" >&2; exit 1; }
+  ! command -v cygpath > /dev/null 2>&1 || OM=$(cygpath -u "$OM")  # Git Bash: node prints C:\..., the code below wants /c/...
   OF="$OM/owner.md"  # one file per owner: facts, rule: and learn: lines, the same format as a project file
+  # a link could point at another owner's file: refuse it rather than follow it
+  [ ! -L "$OM" ] && [ ! -L "$OF" ] || { echo "kaito-mem: $OWN's memory must be a real folder and file, not a link: $OF" >&2; exit 1; }
 fi
 # memory.path in config moves the memory folder; default $K/memory. A missing helper means the default.
 M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
@@ -138,8 +143,8 @@ wfail() {
 # target: where learn and capture write. f stays the memory-relative name for mirror; fp is the file, LD the folder
 # locked, MK the folder made, ls the name learning.log counts it under. With --owner it is the owner's file only.
 target() {
-  if [ -n "$OWN" ]; then f=$OF; fp=$OF; LD=$OM; MK=$OM; ls="owner:$OWN"
-  else fp="$M/$f"; LD=$M; MK="$M/projects"; ls=$s; fi
+  if [ -n "$OWN" ]; then f=$OF; fp=$OF; LD=$OM; MK=$OM; LL="$OM/learning.log"; ls="owner:$OWN"
+  else fp="$M/$f"; LD=$M; MK="$M/projects"; LL="$M/learning.log"; ls=$s; fi
 }
 # relearn forget|promote "<text>" [global|project]: drop the matching learning, or turn it into a "rule:" line.
 # Without a scope: the owner file (with --owner), the project file, then global. Scope owner: the owner file only.
@@ -272,7 +277,9 @@ case "${1:-}" in
     [ $# -eq 3 ] || { echo "usage: kaito-mem.sh note global|project \"<text>\" | note owner \"<text>\" --owner <id>" >&2; exit 2; }
     nosecret "$3"
     t=$(printf %s "$3" | tr '\n\r' '  ')  # one note, one line: no injected lines
-    case "$2:$OWN" in global:*) f=global.md ;; project:*) f=projects/$s.md ;; owner:?*) f="" ;; *) echo "kaito-mem: note owner needs --owner <id>" >&2; exit 2 ;; esac
+    # with --owner only the owner's file: a global or project note would be read in every other owner's tasks
+    case "$2:$OWN" in global:|project:) ;; owner:?*) ;; *) echo "kaito-mem: use note global|project without --owner, or note owner with --owner <id>" >&2; exit 2 ;; esac
+    case "$2" in global) f=global.md ;; project) f=projects/$s.md ;; owner) f="" ;; esac
     if [ -z "$f" ]; then
       ( mkdir -p "$OM" || exit 73; memory_lock "$OM" || exit $?; printf "%s\n" "- $(date +%Y-%m-%d) $t" >> "$OF" ) 2>/dev/null || wfail $?
       exit 0
@@ -324,7 +331,7 @@ case "${1:-}" in
         END { if (!hit) print "learn: " k " 1 " d " " t }'
       # only a learning that is on disk is indexed and logged
       [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || :
-      { [ -d "$M" ] || mkdir -p "$M"; } && printf "%s\n" "$today $ls $2" >> "$M/learning.log" || :  # one line per capture: what stats counts
+      printf "%s\n" "$today $ls $2" >> "$LL" || :  # one line per capture: what stats counts
     ) 2>/dev/null || wfail $?
     [ -n "$OWN" ] || mirror "$f" MEMORY.md
     ;;
@@ -362,7 +369,7 @@ case "${1:-}" in
         /^learn:/ && norm(txt($0)) == n { found = 1 }
         END { exit found ? 0 : 1 }' "$fp" || exit 1
       [ "$new" = 0 ] || printf "%s\n" "$ix" >> "$M/MEMORY.md" || echo "kaito-mem: warning: the project index was not updated" >&2
-      { [ -d "$M" ] || mkdir -p "$M"; } && printf "%s\n" "$today $ls $2" >> "$M/learning.log" || echo "kaito-mem: warning: the learning log was not updated" >&2
+      printf "%s\n" "$today $ls $2" >> "$LL" || echo "kaito-mem: warning: the learning log was not updated" >&2
     ) || rc=$?
     co close  # the lesson was assessed, saved or not
     case "$rc" in
