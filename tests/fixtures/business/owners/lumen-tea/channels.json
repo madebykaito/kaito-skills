@@ -1,0 +1,6 @@
+{
+  "channels": [
+    { "platform": "instagram", "handle": "@lumentea.example", "role": "main", "languages": ["en", "bn"], "cadence_per_week": 4 },
+    { "platform": "email", "handle": "lumen@example.com", "role": "newsletter", "languages": ["en"], "cadence_per_week": 1 }
+  ]
+}

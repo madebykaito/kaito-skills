@@ -28,6 +28,9 @@ jobs:
           node-version: 22
       - name: Tests
         run: tests/run.sh
+      - name: Privacy scan
+        if: matrix.os == 'ubuntu-latest'
+        run: node tools/privacy-scan.mjs
       - name: Install smoke test
         run: tests/smoke.sh
       - name: Routes

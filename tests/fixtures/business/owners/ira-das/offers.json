@@ -1,0 +1,8 @@
+{
+  "currency": "INR",
+  "offers": [
+    { "id": "spot-illustration", "name": "Single spot illustration", "price": 6000, "unit": "piece" },
+    { "id": "book-cover", "name": "Book cover illustration", "price": 25000, "unit": "project" },
+    { "id": "packaging-set", "name": "Packaging illustration set, up to four", "price": 40000, "unit": "set" }
+  ]
+}

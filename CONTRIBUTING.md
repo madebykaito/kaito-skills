@@ -23,6 +23,8 @@ helpmekaito/scripts/check-routes.sh
 
 `tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS and Linux (Ubuntu and Alpine), plus `tests/smoke.sh`, a real install and uninstall into a throwaway home. Windows is not tested by CI or before releases. If you use Windows, running the same checks in Git Bash and reporting or fixing what fails is welcome.
 
+CI also runs `node tools/privacy-scan.mjs`, which fails on emails, phone numbers, key shapes and media metadata that should not be public. Run it before you push. A maintainer can add a private denylist at `~/.kaito/privacy-denylist.txt` for the same scan.
+
 To test Linux from a Mac or Windows machine, run the same checks in Docker containers for Debian, Alpine and Fedora:
 
 ```bash
