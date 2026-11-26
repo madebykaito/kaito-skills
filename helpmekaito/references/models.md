@@ -64,6 +64,16 @@ Before any cross-vendor call, say in one line which model, which runner and why.
 
 A route billed per token (OpenRouter, a direct API call, or a CLI running on an API key) also needs a yes first: run the consent check in [usage.md](usage.md). It asks once per model per day. Subscription routes are never asked about.
 
+## Big builds: whole modules, one test run
+
+For a large task, give each whole module to one agent to build end to end. Run about five agents in parallel, one module each. Do not split a module into many small work streams.
+
+1. Each agent builds its module and runs only its own test files, never the full suite.
+2. Merge every agent's branch into one combined branch.
+3. Run the full test suite once on that branch.
+4. Hand all failures to one fix agent, then run the full suite once more.
+5. Ship the combined branch as one PR.
+
 ## Privacy
 
 - Skip any model whose listing says "NO ZDR" unless the user named it. The resolver never picks one.
