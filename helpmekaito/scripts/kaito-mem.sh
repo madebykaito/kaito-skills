@@ -36,7 +36,10 @@ if [ -n "$OWN" ]; then
   ! command -v cygpath > /dev/null 2>&1 || OM=$(cygpath -u "$OM")  # Git Bash: node prints C:\..., the code below wants /c/...
   OF="$OM/owner.md"  # one file per owner: facts, rule: and learn: lines, the same format as a project file
   # a link could point at another owner's file: refuse it rather than follow it
-  [ ! -L "$OM" ] && [ ! -L "$OF" ] || { echo "kaito-mem: $OWN's memory must be a real folder and file, not a link: $OF" >&2; exit 1; }
+  for x in "$OM" "$OF" "$OM/learning.log"; do
+    [ ! -L "$x" ] && { [ ! -f "$x" ] || [ -z "$(find "$x" -links +1 2>/dev/null)" ]; } ||
+      { echo "kaito-mem: $OWN's memory must be a real folder and files, not links: $x" >&2; exit 1; }
+  done
 fi
 # memory.path in config moves the memory folder; default $K/memory. A missing helper means the default.
 M=$(node "$here/kaito-json.mjs" get "$K/config.json" memory.path 2>/dev/null | tr -d '"') || M=""
@@ -264,7 +267,7 @@ case "${1:-}" in
       { pfs | grep -E '^(tracker|tracking|board|local_skill|rule):' || :
         [ -z "$OF" ] || grep '^rule:' "$OF" || :; grep '^rule:' "$M/global.md" || :
         [ "$n" -eq 0 ] || printf "%s\n" "$L" | head -n "$LEARN_CAP"
-        [ "$n" -le "$LEARN_CAP" ] || echo "learn_more: $((n - LEARN_CAP)) not shown; run kaito-mem.sh curate"; } 2>/dev/null)
+        [ "$n" -le "$LEARN_CAP" ] || echo "learn_more: $((n - LEARN_CAP)) not shown; run kaito-mem.sh curate${OWN:+ --owner $OWN}"; } 2>/dev/null)
     rest=$({ [ -z "$OF" ] || grep -vE '^(rule|learn):' "$OF" || :  # the owner's facts first: business work is about them
       pfs | grep -vE '^(tracker|tracking|board|local_skill|rule|learn):' || :
       grep -vE '^(rule|learn):' "$M/global.md" || :; cat "$M/MEMORY.md" || :; } 2>/dev/null)  # project facts first: they survive the cut

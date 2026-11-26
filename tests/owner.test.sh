@@ -185,6 +185,12 @@ test_links_and_gaps_refused() {
   (cd "$d" && sh "$MEM" note owner "x" --owner ira-das > /dev/null 2>&1); assert_eq "$?" 1 link-write
   assert_eq "$(cat "$KAITO_HOME/owners/lumen-tea/memory/owner.md")" "- Lumen secret recipe" untouched
   rm "$KAITO_HOME/owners/ira-das/memory/owner.md"
+  ln "$KAITO_HOME/owners/lumen-tea/memory/owner.md" "$KAITO_HOME/owners/ira-das/memory/owner.md"
+  (cd "$d" && sh "$MEM" where --owner ira-das > /dev/null 2>&1); assert_eq "$?" 1 hard-link
+  rm "$KAITO_HOME/owners/ira-das/memory/owner.md"
+  ln -s "$HOME/shared.log" "$KAITO_HOME/owners/ira-das/memory/learning.log"
+  (cd "$d" && echo "Ira lesson" | sh "$MEM" capture worked --owner ira-das > /dev/null 2>&1); assert_eq "$?" 1 linked-log
+  assert_no "$HOME/shared.log"; rm "$KAITO_HOME/owners/ira-das/memory/learning.log"
   # a folder without a record, or a linked owner folder, stops resolve instead of leaving one owner as the only one
   mkdir "$KAITO_HOME/owners/half-done"; ko resolve; assert_eq "$rc" 1 no-record
   rmdir "$KAITO_HOME/owners/half-done"

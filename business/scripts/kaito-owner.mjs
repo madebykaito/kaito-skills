@@ -29,9 +29,13 @@ function checkId(id, what = 'owner id') {
 
 const home = (p) => (p === '~' ? os.homedir() : p.startsWith('~/') ? path.join(os.homedir(), p.slice(2)) : p);
 // The real path when it exists, so /var and /private/var (or a symlinked folder) compare equal.
+// A path not made yet resolves through its nearest existing parent, so two spellings of one folder still match.
 function real(p) {
   const abs = path.resolve(home(p));
-  try { return fs.realpathSync.native(abs); } catch { return abs; }
+  try { return fs.realpathSync.native(abs); } catch {
+    const up = path.dirname(abs);
+    return up === abs ? abs : path.join(real(up), path.basename(abs));
+  }
 }
 // a is b or inside b
 function within(a, b) {
@@ -128,6 +132,20 @@ function overlap(list) {
   }
 }
 
+// One writer at a time for read-modify-write commands (add, bind, unbind): a lock folder, never reused by age.
+function locked(fn) {
+  fs.mkdirSync(OWNERS, { recursive: true });
+  const lock = path.join(OWNERS, '.lock');
+  for (let i = 0; ; i += 1) {
+    try { fs.mkdirSync(lock); break; } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (i >= 50) fail(1, `owners are busy (${lock} exists); try again, or remove it if no kaito-owner is running`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+  try { return fn(); } finally { fs.rmdirSync(lock); }
+}
+
 function writeOwner(o) {
   const bad = problems(o, o.id);
   if (bad.length) fail(1, `refusing to write ${o.id}: ${bad.join('; ')}`);
@@ -208,7 +226,7 @@ function main(argv) {
       for (const o of owners) console.log([o.id, o.kind, o.name, (o.bindings || []).join(',') || '-'].join('\t'));
       return undefined;
     }
-    case 'add': {
+    case 'add': return locked(() => {
       const { opts, pos } = parse(rest, ['name', 'kind', 'locale', 'timezone', 'currency', 'gstin']);
       if (pos.length !== 1 || !opts.name || !opts.kind) fail(2, 'usage: kaito-owner.mjs add <id> --name <name> --kind company|person [--locale <tag>] [--timezone <tz>] [--currency <ISO>] [--gstin <no>]');
       const id = checkId(pos[0]);
@@ -229,14 +247,14 @@ function main(argv) {
       fs.mkdirSync(memoryDir(o), { recursive: true });
       console.log(`added ${id}`);
       return printResolved({ o, via: 'named' });
-    }
+    });
     case 'show': {
       const { opts, pos } = parse(rest, ['cwd']);
       if (pos.length > 1) fail(2, USAGE);
       const r = resolve({ owner: pos[0], cwd: opts.cwd });
       return console.log(JSON.stringify({ ...r.o, root: root(r.o.id), memory: memoryDir(r.o), via: r.via }, null, 2));
     }
-    case 'bind': {
+    case 'bind': return locked(() => {
       const { pos } = parse(rest, []);
       if (pos.length !== 2) fail(2, 'usage: kaito-owner.mjs bind <id> <dir>');
       const id = checkId(pos[0]);
@@ -253,8 +271,8 @@ function main(argv) {
       o.bindings = [...(o.bindings || []), dir];
       writeOwner(o);
       return console.log(`bound: ${id} ${dir}`);
-    }
-    case 'unbind': {
+    });
+    case 'unbind': return locked(() => {
       const { pos } = parse(rest, []);
       if (pos.length !== 1) fail(2, 'usage: kaito-owner.mjs unbind <dir>');
       const dir = real(pos[0]);
@@ -267,7 +285,7 @@ function main(argv) {
       }
       if (!n) fail(4, `not bound: ${dir}`);
       return undefined;
-    }
+    });
     default:
       fail(2, USAGE);
   }
