@@ -4,6 +4,8 @@ Thanks for helping. Fixes, new skills and better docs are all welcome.
 
 This is a one-person project. Expect a first reply within 7 days.
 
+Follow the [repository rules](AGENTS.md).
+
 ## Quick start
 
 ```bash
@@ -14,16 +16,18 @@ cd kaito-skills
 
 `setup` needs `git`, `node` and `npm`. `gstack` also needs [bun](https://bun.sh); pass `--no-gstack` to skip it.
 
-Before you open a PR, run both checks:
+Run the catalog checks before opening a PR.
 
 ```bash
-tests/run.sh
 helpmekaito/scripts/check-routes.sh
+node tools/check-layout.mjs
+node tools/validate-skills.mjs
+node tools/privacy-scan.mjs
 ```
 
-`tests/run.sh` must end with no `FAIL` lines. `check-routes.sh` must print `routes ok`. CI runs both on macOS and Linux (Ubuntu and Alpine), plus `tests/smoke.sh`, a real install and uninstall into a throwaway home. Windows is not tested by CI or before releases. If you use Windows, running the same checks in Git Bash and reporting or fixing what fails is welcome.
+The route check must print `routes ok`. Build agents run only their own test files. The lead runs `tests/run.sh` once on the combined branch. CI runs the suite and `tests/smoke.sh` on Ubuntu, macOS and Alpine. Use local fixtures for tests so they never call real services.
 
-CI also runs `node tools/privacy-scan.mjs`, which fails on emails, phone numbers, key shapes and media metadata that should not be public. Run it before you push. A maintainer can add a private denylist at `~/.kaito/privacy-denylist.txt` for the same scan.
+Keep private data out of the repo, including in filenames and media. Use the fictional owner fixtures. The privacy scanner checks for emails, phone numbers, key shapes and media metadata. A maintainer can add a local denylist at `~/.kaito/privacy-denylist.txt`. Privacy tests read denylisted names from a local file and keep the names out of code.
 
 To test Linux from a Mac or Windows machine, run the same checks in Docker containers for Debian, Alpine and Fedora:
 
@@ -35,21 +39,12 @@ Scripts must run in plain `sh` on all three platforms. Do not use `rsync`, `ln -
 
 ## Adding a skill
 
-Each top-level folder is one skill with a `SKILL.md`.
+Put a standalone skill in `<skill>/SKILL.md`. Put related skills from the same family in `<bundle>/<skill>/SKILL.md`. A bundle has one `bundle.json` with its `name`, `source`, `license` and array of skill folder names in `skills`. If a skill shares its bundle's name, use `<bundle>/<bundle>/SKILL.md`. Setup links each member by its own name. The layout check reads [the allowlist](tools/layout-allowlist.json) for exact groups of unrelated names and their reasons.
 
-1. Put the skill in its own top-level folder. No submodules, no symlinks.
-2. Copy only what runs: `SKILL.md`, references, scripts and assets. Leave out upstream tests, CI config, changelogs and TODOs.
-3. Never commit build output or dependencies (`node_modules/`, `dist/`, binaries). Add them to `.gitignore`.
-4. Add a row to the matching table in `README.md`, in the same short voice. If the skill needs a key, a paid package or a setup step, add a line under "Known limits".
-5. Add the skill to the matching file in `helpmekaito/references/domains/`, then run `check-routes.sh` until it prints `routes ok`.
-
-### Skills from someone else
-
-You can vendor a skill from another repo if its license allows it.
-
-- Keep the upstream `LICENSE` and `NOTICE` files inside the skill folder.
-- Add a row to `THIRD_PARTY_LICENSES.md` with source, author and license. Add the license text if it is not already there.
-- Name the upstream commit you copied from in the PR.
+1. Vendor runtime files only, including `SKILL.md`, references, scripts and assets. Keep upstream `LICENSE` and `NOTICE` files. Leave out upstream tests, CI config, changelogs and TODOs.
+2. Keep build output and dependencies out of Git. Use regular folders and files.
+3. Add a skill row to `README.md` and `THIRD_PARTY_LICENSES.md`. Give the source, author and license. Include the upstream license text if needed and name the vendored upstream commit in the PR. Add prerequisites under “Known limits” in the README.
+4. Add a row to the matching file under `helpmekaito/references/domains/`. Run `check-routes.sh` until it prints `routes ok`.
 
 ## Editing a skill
 
@@ -67,6 +62,7 @@ Upstream skills keep their original license and attribution. Changes are fine.
 - One change per PR. Small PRs get merged faster.
 - Show evidence: what you ran and what came out. A transcript or a before and after is enough.
 - Say if an AI agent wrote the change, and which one. Write the summary yourself.
+- Commit as the repo's configured Git user and leave out AI co-author and generated-with trailers.
 - Commit messages use a short prefix: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
 - CI must pass. The maintainer reviews and merges.
 
@@ -76,7 +72,7 @@ Upstream skills keep their original license and attribution. Changes are fine.
 - Scripts that call the network, pipe to a shell or touch files outside the project, without a clear reason in the PR.
 - Secrets, keys or tokens of any kind.
 - Build output or dependencies.
-- Bulk PRs that rename or reformat many skills at once.
+- Runtime stubs or unrelated bulk renames and formatting changes.
 
 ## Reporting issues
 
