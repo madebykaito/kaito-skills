@@ -1,0 +1,9 @@
+{
+  "name": "animate",
+  "source": "https://github.com/emilkowalski/skills",
+  "license": "MIT",
+  "skills": [
+    "animate",
+    "animate-expo"
+  ]
+}

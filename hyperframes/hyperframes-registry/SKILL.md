@@ -3,7 +3,7 @@ name: hyperframes-registry
 description: About 450 ready-made HyperFrames blocks and components installed as editable source - transitions, overlays, titles, kinetic type, captions, charts, map overlays, 3D, camera moves. Use it before hand-building any named visual (CRT scanlines, glitch, film grain, a chart); also for hyperframes add and catalog.
 ---
 
-**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` holds this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
+**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` is the real parent of this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
 
 # HyperFrames registry
 

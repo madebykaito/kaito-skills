@@ -55,7 +55,7 @@ test_path_hooks_codex_exit4() {
 
 test_check_routes_accepts_gstack_names() {
   mk_home; R="$HOME/kaito-skills"; H="$R/helpmekaito"
-  mkdir -p "$H/scripts" "$H/references/domains"; cp "$REPO/helpmekaito/scripts/check-routes.sh" "$H/scripts/"
+  mkdir -p "$H/scripts" "$H/references/domains"; cp "$REPO/helpmekaito/scripts/check-routes.sh" "$REPO/helpmekaito/scripts/kaito-catalog.mjs" "$H/scripts/"
   skill "$H"; skill "$R/gstack"; skill "$R/gstack/qa"
   skill "$R/gstack/careful" 'hooks:'; skill "$R/gstack/land-and-deploy" 'disable-model-invocation: true'
   printf '| `gstack` | r |\n| `qa` | q |\n| `careful` | c |\n| `land-and-deploy` | l |\n' > "$H/references/domains/eng.md"
@@ -97,4 +97,16 @@ test_business_overlap_rules() {
     assert_file "$REPO/helpmekaito/evals/$e/prompt.md"
   done
   grep -q 'kaito-owner.mjs resolve --cwd "$PWD"' "$REPO/helpmekaito/SKILL.md" || { echo "  step 0 owner resolve"; exit 1; }
+}
+
+test_path_and_detect_bundle_skill() {
+  mk_home; S="$KAITO_HOME/store"
+  skill "$S/demo/demo-extra" 'hooks:'
+  printf '%s\n' '{"name":"demo","source":"local","license":"MIT","skills":["demo-extra"]}' > "$S/demo/bundle.json"
+  kp demo-extra --host codex
+  assert_eq "$rc" 4 hooks
+  assert_eq "$out" "$S/demo/demo-extra/SKILL.md" path
+  detected=$(node "$REPO/helpmekaito/scripts/kaito-detect.mjs" "$S" --skill demo-extra) || exit 1
+  [ "$IS_WIN" = 0 ] || detected=$(cygpath -u "$detected")
+  assert_eq "$detected" "$out" detected
 }

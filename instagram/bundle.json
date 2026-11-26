@@ -1,0 +1,9 @@
+{
+  "name": "instagram",
+  "source": "https://github.com/madebykaito/kaito-skills",
+  "license": "MIT",
+  "skills": [
+    "instagram-insights",
+    "instagram-publish"
+  ]
+}

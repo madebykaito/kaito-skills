@@ -3,7 +3,7 @@ name: hyperframes
 description: Read first to make, edit, animate or render any video with HyperFrames (HTML rendered to video), including launch films, explainers, music videos, charts, maps, vertical clips, title cards, captions and overlays. Holds the render contract, the work loop and what each kind of video needs.
 ---
 
-**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` holds this skill's folder ([rules](references/plugin-installation.md)).
+**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` is the real parent of this skill's folder ([rules](references/plugin-installation.md)).
 
 # HyperFrames
 

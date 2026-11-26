@@ -1,6 +1,8 @@
 # Running the HyperFrames CLI
 
-`<SKILLS>` is the folder that holds the loaded skill's folder. Every skill and reference writes
+In Kaito, `<SKILLS>` is the HyperFrames bundle directory. Use the real path of the loaded
+skill folder before finding its parent if you opened it through an agent's skill link.
+In an upstream install, `<SKILLS>` is the folder that holds the loaded skill's folder. Every skill and reference writes
 the CLI as `npx hyperframes` (or bare `hyperframes`). Run each of those commands as:
 
 ```bash

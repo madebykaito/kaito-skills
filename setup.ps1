@@ -27,6 +27,7 @@ if ($missing.Count -gt 0) {
 
 Push-Location $PSScriptRoot
 try {
+  # The shared installer discovers bundles and creates each skill junction.
   & $bash ./setup @args
   exit $LASTEXITCODE
 } finally {

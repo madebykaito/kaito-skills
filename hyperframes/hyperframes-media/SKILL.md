@@ -3,7 +3,7 @@ name: hyperframes-media
 description: Get or make any media for a HyperFrames video - music, sound effects, images, icons, logos, voiceover, avatar and generated video, transcripts, cutouts, colour grades and looks - with HeyGen or free local tools, and mix placed audio. Also for footage that looks dark, flat or dull, or should be stylized or hidden.
 ---
 
-**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` holds this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
+**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` is the real parent of this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
 
 # Media in HyperFrames
 

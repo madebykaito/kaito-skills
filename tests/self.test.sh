@@ -182,7 +182,7 @@ test_uninstall_dry_run() {
   grep -qx '  plugins: x@m, y@m' "$HOME/o" || { cat "$HOME/o"; exit 1; }
   grep -qxF "  and delete $KAITO_HOME with config, memory and task credentials" "$HOME/o" || { cat "$HOME/o"; exit 1; }
   grep -q '^keeps:' "$HOME/o" && { cat "$HOME/o"; exit 1; }
-  assert_file "$KAITO_HOME/store/better-ui/SKILL.md"
+  assert_file "$KAITO_HOME/store/better/better-ui/SKILL.md"
   assert_link "$HOME/.claude/skills/helpmekaito" "$KAITO_HOME/store/"
   assert_eq "$(state_version)" '"1.4.0"' state_kept
 }

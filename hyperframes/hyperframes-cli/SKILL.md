@@ -3,7 +3,7 @@ name: hyperframes-cli
 description: HyperFrames CLI - scaffold, check frames, edit timelines, preview, render, share and project history; read JSON and recover from failures.
 ---
 
-**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` holds this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
+**Running the CLI:** every `npx hyperframes <command>` here means `node <SKILLS>/hyperframes/scripts/plugin-cli.mjs --cli-version 0.9.90 <command>` run in the project, where `<SKILLS>` is the real parent of this skill's folder ([rules](../hyperframes/references/plugin-installation.md)).
 
 # HyperFrames CLI
 

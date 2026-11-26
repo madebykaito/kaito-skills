@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { skillCatalog } from '../helpmekaito/scripts/kaito-catalog.mjs';
 
 const ignored = new Set(['.git', '.codegraph', 'node_modules', 'dist']);
 let checked = 0;
@@ -29,6 +30,13 @@ function walk(dir) {
     else if (entry.isFile() && entry.name === 'SKILL.md') validate(file);
   }
 }
-walk(process.argv[2] ?? '.');
+const root = process.argv[2] ?? '.';
+try {
+  skillCatalog(root);
+  walk(root);
+} catch (error) {
+  console.error(error.message);
+  failures++;
+}
 if (failures || !checked) process.exitCode = 1;
 else console.log(`skills ok (${checked})`);

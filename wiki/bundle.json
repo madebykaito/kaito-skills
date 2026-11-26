@@ -1,0 +1,9 @@
+{
+  "name": "wiki",
+  "source": "https://github.com/leiverkus/research-superpowers",
+  "license": "MIT",
+  "skills": [
+    "wiki-graph",
+    "wiki-lint"
+  ]
+}

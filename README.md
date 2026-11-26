@@ -61,6 +61,7 @@ Install a pack in Claude Code with its marketplace command. Run the normal setup
 
 - Copies every skill into `~/.kaito/store` (override with `KAITO_HOME`).
 - Links skills per agent. Claude Code gets every skill, listed by name only except `helpmekaito` and your hot list. Codex gets `helpmekaito` plus the hot list. The hot list is the `hot` array in `~/.kaito/config.json`.
+- Copies each skill family into one store folder and links its skills by name.
 - Builds `gstack` in the store and links it for Claude Code. Needs [bun](https://bun.sh).
 - Installs `@colbymchenry/codegraph` at the version in `codegraph.version` and connects it to Claude and Codex.
 
@@ -130,8 +131,8 @@ Only one setup runs at a time. It stops before changing anything if `settings.js
 | [`stageshow`](stageshow/) | Faux product UI. Stills and cursor-driven demos with a React kit. |
 | [`design-taste-frontend`](design-taste-frontend/) | Anti-slop company and product sites from a bundled kit, checked in a real browser. Needs Node 22+ and Chrome. |
 | [`stitch-design-taste`](stitch-design-taste/) | DESIGN.md files for Google Stitch with strict type, color, and layout rules. |
-| [`image-to-code`](image-to-code/) | Generate the design images first, then build the site to match. |
-| [`brandkit`](brandkit/) | Brand-guidelines boards and logo systems as generated images. |
+| [`image-to-code`](imagegen/image-to-code/) | Generate the design images first, then build the site to match. |
+| [`brandkit`](imagegen/brandkit/) | Brand-guidelines boards and logo systems as generated images. |
 | [`banner-design`](banner-design/) | Banners for social, ads, hero sections, and print. Several art directions. |
 
 ### Motion and design engineering
@@ -140,8 +141,8 @@ Only one setup runs at a time. It stops before changing anything if `settings.js
 |---|---|
 | [`emil-design-eng`](emil-design-eng/) | Core motion rules: press states, popover origin, tooltip timing. Fallback when nothing narrower fits. |
 | [`apple-design`](apple-design/) | Fluid, physical motion from Apple's design talks, for the web. |
-| [`animate`](animate/) | Build one web animation: whether, purpose, tool, curve, interruption, exit. |
-| [`animate-expo`](animate-expo/) | Same for React Native: Reanimated, Gesture Handler, haptics. |
+| [`animate`](animate/animate/) | Build one web animation: whether, purpose, tool, curve, interruption, exit. |
+| [`animate-expo`](animate/animate-expo/) | Same for React Native: Reanimated, Gesture Handler, haptics. |
 | [`choreograph`](choreograph/) | Several elements moving together: stagger, lead and follow. |
 | [`gestures`](gestures/) | Drag, swipe, and sheets that track the finger and carry velocity. |
 | [`animation-performance`](animation-performance/) | Find why motion drops frames. |
@@ -163,15 +164,15 @@ Exact values, clear boundaries. Each domain owns its rules and hands off the res
 
 | Skill | What it does |
 |---|---|
-| [`better-ui`](better-ui/) | Concentric radius, shadow-as-border, optical alignment, icon states. |
-| [`better-motion`](better-motion/) | What should animate, with exact duration, easing, scale and distance. |
-| [`better-typography`](better-typography/) | Type scale, measure, `text-wrap`, iOS input-zoom fixes. |
-| [`better-colors`](better-colors/) | APCA thresholds, ramps, token grammar. Reports, does not repaint. |
-| [`better-accessibility`](better-accessibility/) | WCAG 2.2 targets, focus order, reduced motion, live regions. |
-| [`better-layout`](better-layout/) | Grouping, clearance, container queries, safe areas. |
-| [`better-writing`](better-writing/) | Tone by stakes, consequence-first buttons, error rewrites. |
-| [`better-interface`](better-interface/) | Runs every domain above on a screen. One ranked verdict. |
-| [`interface-review`](interface-review/) | User-invoked. Change-scoped review. Never edits the tree. |
+| [`better-ui`](better/better-ui/) | Concentric radius, shadow-as-border, optical alignment, icon states. |
+| [`better-motion`](better/better-motion/) | What should animate, with exact duration, easing, scale and distance. |
+| [`better-typography`](better/better-typography/) | Type scale, measure, `text-wrap`, iOS input-zoom fixes. |
+| [`better-colors`](better/better-colors/) | APCA thresholds, ramps, token grammar. Reports, does not repaint. |
+| [`better-accessibility`](better/better-accessibility/) | WCAG 2.2 targets, focus order, reduced motion, live regions. |
+| [`better-layout`](better/better-layout/) | Grouping, clearance, container queries, safe areas. |
+| [`better-writing`](better/better-writing/) | Tone by stakes, consequence-first buttons, error rewrites. |
+| [`better-interface`](better/better-interface/) | Runs every domain above on a screen. One ranked verdict. |
+| [`interface-review`](better/interface-review/) | User-invoked. Change-scoped review. Never edits the tree. |
 
 ### Visual styles
 
@@ -201,8 +202,8 @@ Exact values, clear boundaries. Each domain owns its rules and hands off the res
 | Skill | What it does |
 |---|---|
 | [`minimal-zine-poster`](minimal-zine-poster/) | Theme to minimal zine poster, then generates the image. Needs `GEMINI_API_KEY`. |
-| [`imagegen-frontend-web`](imagegen-frontend-web/) | Website design references, one image per section. |
-| [`imagegen-frontend-mobile`](imagegen-frontend-mobile/) | App-native screen concepts and flows for iOS and Android. |
+| [`imagegen-frontend-web`](imagegen/imagegen-frontend-web/) | Website design references, one image per section. |
+| [`imagegen-frontend-mobile`](imagegen/imagegen-frontend-mobile/) | App-native screen concepts and flows for iOS and Android. |
 
 ### Media (Higgsfield)
 
@@ -210,15 +211,15 @@ Image, video, audio, and sites through the Higgsfield CLI. Needs a Higgsfield ac
 
 | Skill | What it does |
 |---|---|
-| [`higgsfield-generate`](higgsfield-generate/) | Images, video, 3D, audio, and ads. Default entry point. |
-| [`higgsfield-soul-id`](higgsfield-soul-id/) | Train a Soul Character on a face for consistent identity. |
-| [`higgsfield-product-photoshoot`](higgsfield-product-photoshoot/) | Brand-quality product photos, ads, and lifestyle shots. |
-| [`higgsfield-marketplace-cards`](higgsfield-marketplace-cards/) | Marketplace listing images and A+ style modules. |
-| [`higgsfield-youtube-thumbnail`](higgsfield-youtube-thumbnail/) | YouTube thumbnails and vertical covers. |
-| [`higgsfield-faceless-video`](higgsfield-faceless-video/) | Faceless explainers, documentaries, and story videos. |
-| [`higgsfield-video-explainer`](higgsfield-video-explainer/) | Legacy entry for the old explainer skill. Use `higgsfield-faceless-video`. |
-| [`higgsfield-brandkit`](higgsfield-brandkit/) | Full brand systems: logo marks, palettes, mockups, decks. |
-| [`higgsfield-websites`](higgsfield-websites/) | Build and deploy websites, apps, and games. |
+| [`higgsfield-generate`](higgsfield/higgsfield-generate/) | Images, video, 3D, audio, and ads. Default entry point. |
+| [`higgsfield-soul-id`](higgsfield/higgsfield-soul-id/) | Train a Soul Character on a face for consistent identity. |
+| [`higgsfield-product-photoshoot`](higgsfield/higgsfield-product-photoshoot/) | Brand-quality product photos, ads, and lifestyle shots. |
+| [`higgsfield-marketplace-cards`](higgsfield/higgsfield-marketplace-cards/) | Marketplace listing images and A+ style modules. |
+| [`higgsfield-youtube-thumbnail`](higgsfield/higgsfield-youtube-thumbnail/) | YouTube thumbnails and vertical covers. |
+| [`higgsfield-faceless-video`](higgsfield/higgsfield-faceless-video/) | Faceless explainers, documentaries, and story videos. |
+| [`higgsfield-video-explainer`](higgsfield/higgsfield-video-explainer/) | Legacy entry for the old explainer skill. Use `higgsfield-faceless-video`. |
+| [`higgsfield-brandkit`](higgsfield/higgsfield-brandkit/) | Full brand systems: logo marks, palettes, mockups, decks. |
+| [`higgsfield-websites`](higgsfield/higgsfield-websites/) | Build and deploy websites, apps, and games. |
 
 ### Local stills (mflux)
 
@@ -280,12 +281,12 @@ Write HTML, render video.
 
 | Skill | What it does |
 |---|---|
-| [`hyperframes`](hyperframes/) | Compositions, timelines, captions, voiceover, transitions. |
-| [`hyperframes-cli`](hyperframes-cli/) | Init, lint, inspect, preview, render. |
-| [`hyperframes-media`](hyperframes-media/) | TTS, transcription, background removal. |
-| [`hyperframes-registry`](hyperframes-registry/) | Install registry blocks and components. |
-| [`website-to-hyperframes`](website-to-hyperframes/) | Turn a website into a video. |
-| [`remotion-to-hyperframes`](remotion-to-hyperframes/) | Port a Remotion project. |
+| [`hyperframes`](hyperframes/hyperframes/) | Compositions, timelines, captions, voiceover, transitions. |
+| [`hyperframes-cli`](hyperframes/hyperframes-cli/) | Init, lint, inspect, preview, render. |
+| [`hyperframes-media`](hyperframes/hyperframes-media/) | TTS, transcription, background removal. |
+| [`hyperframes-registry`](hyperframes/hyperframes-registry/) | Install registry blocks and components. |
+| [`website-to-hyperframes`](hyperframes/website-to-hyperframes/) | Turn a website into a video. |
+| [`remotion-to-hyperframes`](hyperframes/remotion-to-hyperframes/) | Port a Remotion project. |
 | [`contribute-catalog`](contribute-catalog/) | Author a new registry block. |
 | [`media-cleanup`](media-cleanup/) | Keep the final and the rebuild inputs, move the rest of a job folder to a dated trash, remove clean merged worktrees. |
 | [`gsap`](gsap/) · [`animejs`](animejs/) · [`waapi`](waapi/) · [`css-animations`](css-animations/) · [`lottie`](lottie/) · [`three`](three/) · [`typegpu`](typegpu/) · [`tailwind`](tailwind/) | Animation and rendering adapters for HyperFrames. |
@@ -320,10 +321,10 @@ Voice and caption tracks for Reels, Shorts and ads. Local first, ffmpeg required
 | [`systematic-debugging`](systematic-debugging/) | Find the root cause before proposing a fix. |
 | [`test-driven-development`](test-driven-development/) | Write the failing test first, then the code. |
 | [`using-git-worktrees`](using-git-worktrees/) | Isolated workspace for feature work. |
-| [`ponytail`](ponytail/) | Pushes toward the smallest solution that works. Levels: lite, full, ultra. |
-| [`ponytail-review`](ponytail-review/) | Diff review for over-engineering. What to delete. |
-| [`ponytail-audit`](ponytail-audit/) | Whole-repo over-engineering audit. |
-| [`ponytail-debt`](ponytail-debt/) | Lists every `ponytail:` shortcut comment as a debt ledger. |
+| [`ponytail`](ponytail/ponytail/) | Pushes toward the smallest solution that works. Levels: lite, full, ultra. |
+| [`ponytail-review`](ponytail/ponytail-review/) | Diff review for over-engineering. What to delete. |
+| [`ponytail-audit`](ponytail/ponytail-audit/) | Whole-repo over-engineering audit. |
+| [`ponytail-debt`](ponytail/ponytail-debt/) | Lists every `ponytail:` shortcut comment as a debt ledger. |
 
 ### Research
 
@@ -339,9 +340,9 @@ For long, source-heavy research projects. From research-superpowers.
 | [`acquire-sources`](acquire-sources/) | Downloads open-access PDFs for graded sources. Lists the rest for manual download. |
 | [`add-to-library`](add-to-library/) | Adds one PDF to the shared library with verified metadata. |
 | [`ingest-source`](ingest-source/) | Reads one source under a focus into a wiki page, entities and BibTeX. |
-| [`wiki-lint`](wiki-lint/) | Checks wiki frontmatter, links and orphans. |
+| [`wiki-lint`](wiki/wiki-lint/) | Checks wiki frontmatter, links and orphans. |
 | [`semantic-wiki-review`](semantic-wiki-review/) | Audits wiki content for contradictions, stale claims and weak support. |
-| [`wiki-graph`](wiki-graph/) | Maps the wiki as a graph: hubs, bridges, gaps. |
+| [`wiki-graph`](wiki/wiki-graph/) | Maps the wiki as a graph: hubs, bridges, gaps. |
 | [`drift-report`](drift-report/) | Checks the library, wiki and projects for drift. On demand. |
 | [`drafting-manuscript`](drafting-manuscript/) | Plans the argument and evidence before drafting a chapter or article from the wiki. |
 | [`revising-manuscript`](revising-manuscript/) | Revises an existing draft with an on-disk revision ledger. |
@@ -359,17 +360,17 @@ Run several brands from one Mac, one owner at a time.
 | [`business`](business/) | Owner records and the rules for business work: every job names its owner first, loads only that owner's memory, and sends nothing without your approval of the exact payload. `kaito-owner.mjs` adds, lists, binds and resolves owners. |
 | [`reel-assemble`](reel-assemble/) | Assemble vertical videos and check delivery specs. |
 | [`shortform-video`](shortform-video/) | Generate shorts with MoneyPrinterTurbo and run preflight. |
-| [`instagram-publish`](instagram-publish/) | Publishes approved Instagram images, Reels, Stories and carousels now or at a scheduled time. |
-| [`instagram-insights`](instagram-insights/) | Pulls Instagram account and media metrics into the business ledger. |
+| [`instagram-publish`](instagram/instagram-publish/) | Publishes approved Instagram images, Reels, Stories and carousels now or at a scheduled time. |
+| [`instagram-insights`](instagram/instagram-insights/) | Pulls Instagram account and media metrics into the business ledger. |
 | [`email-send`](email-send/) | Drafts email and sends approved messages through SMTP, SES or listmonk. |
 | [`support-inbox`](support-inbox/) | Triages an owner’s inbox, ranks FAQ reply drafts and adds items to the today queue. |
-| [`sales-qualify`](sales-qualify/) | Qualify leads and record account briefs. |
-| [`sales-outreach`](sales-outreach/) | Draft outreach for qualified leads. |
-| [`sales-review`](sales-review/) | Review sales material before sending. |
-| [`sales-retro`](sales-retro/) | Record outcomes and improve the next sales cycle. |
-| [`marketing-brief`](marketing-brief/) | Sets the buyer, message, proof, action and target before drafting. |
-| [`marketing-review`](marketing-review/) | Checks a draft against its brief and owner evidence. |
-| [`marketing-retro`](marketing-retro/) | Compares actual results with the brief and records lessons. |
+| [`sales-qualify`](sales/sales-qualify/) | Qualify leads and record account briefs. |
+| [`sales-outreach`](sales/sales-outreach/) | Draft outreach for qualified leads. |
+| [`sales-review`](sales/sales-review/) | Review sales material before sending. |
+| [`sales-retro`](sales/sales-retro/) | Record outcomes and improve the next sales cycle. |
+| [`marketing-brief`](marketing/marketing-brief/) | Sets the buyer, message, proof, action and target before drafting. |
+| [`marketing-review`](marketing/marketing-review/) | Checks a draft against its brief and owner evidence. |
+| [`marketing-retro`](marketing/marketing-retro/) | Compares actual results with the brief and records lessons. |
 | [`money`](money/) | Owner-scoped quotes, GST invoices, credit notes and payment reminders. Issues approved documents with a gapless financial-year series. |
 | [`channel-retro`](channel-retro/) | Review a week of website and Instagram metrics for an owner. |
 

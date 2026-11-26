@@ -9,9 +9,15 @@ n="$1"; host=claude
 case "$n" in ''|*/*|.*) echo "usage: kaito-path.sh <skill> [--host claude|codex]" >&2; exit 1;; esac
 S="${KAITO_HOME:-$HOME/.kaito}/store"
 b="${n#gstack-}"
+p=
 
 # $S/gstack is the gstack build folder, not a skill.
 [ "$n" != gstack ] && [ -f "$S/$n/SKILL.md" ] && p="$S/$n/SKILL.md"
+if [ -z "${p:-}" ]; then
+  here=$(CDPATH= cd "$(dirname "$0")" && pwd -P)
+  rel=$(node "$here/kaito-catalog.mjs" "$S" "$n") || exit 1
+  [ -z "$rel" ] || p="$S/$rel/SKILL.md"
+fi
 if [ -z "${p:-}" ]; then
   if [ "$host" = codex ]; then set -- "$S/_gstack-codex/.agents/skills/gstack-$b" "$S/_gstack-codex/.agents/skills/$n"
   elif [ "$n" = gstack ]; then set -- "$S/_gstack-claude"

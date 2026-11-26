@@ -1,0 +1,22 @@
+{
+  "animation": {
+    "folders": ["animation-performance", "animation-vocabulary"],
+    "reason": "Independent Emil Kowalski guides for frame performance and motion terminology."
+  },
+  "css": {
+    "folders": ["css-animations", "css-border-gradient"],
+    "reason": "HeyGen's animation library guide and Meng To's border treatment share a technology prefix."
+  },
+  "marketing": {
+    "folders": ["marketing", "marketing-plan"],
+    "reason": "The Kaito marketing bundle and Corey Haines's standalone planning skill have different sources."
+  },
+  "social": {
+    "folders": ["social", "social-publish"],
+    "reason": "Corey Haines's content skill and Kaito's publishing integration have different sources."
+  },
+  "tailwind": {
+    "folders": ["tailwind", "tailwind-v4"],
+    "reason": "HeyGen's HyperFrames styling guide and Bora Öztunç's Tailwind v4 guide have different sources."
+  }
+}

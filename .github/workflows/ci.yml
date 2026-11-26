@@ -39,6 +39,8 @@ jobs:
         run: |
           out=$(helpmekaito/scripts/check-routes.sh); echo "$out"
           echo "$out" | grep -qx 'routes ok'
+      - name: Skill layout
+        run: node tools/check-layout.mjs
 
   alpine:
     name: test (alpine)

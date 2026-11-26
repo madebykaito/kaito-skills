@@ -111,7 +111,7 @@ media-exif-copyright@design-taste-frontend/assets/
 # Fake secrets planted on purpose by tests, and public upstream client keys.
 key@tests/learning.test.sh
 secret@gstack/
-secret@hyperframes-media/scripts/lib/telemetry.mjs
+secret@hyperframes/hyperframes-media/scripts/lib/telemetry.mjs
 
 # Fictional business examples and loopback test addresses.
 billing@example.test

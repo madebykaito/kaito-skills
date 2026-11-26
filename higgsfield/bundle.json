@@ -1,0 +1,16 @@
+{
+  "name": "higgsfield",
+  "source": "https://github.com/higgsfield-ai/skills",
+  "license": "MIT",
+  "skills": [
+    "higgsfield-brandkit",
+    "higgsfield-faceless-video",
+    "higgsfield-generate",
+    "higgsfield-marketplace-cards",
+    "higgsfield-product-photoshoot",
+    "higgsfield-soul-id",
+    "higgsfield-video-explainer",
+    "higgsfield-websites",
+    "higgsfield-youtube-thumbnail"
+  ]
+}

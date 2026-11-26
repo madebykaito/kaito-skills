@@ -16,7 +16,7 @@ Graph error subcode `2108006` is counted as a skipped media item. So is a Story 
 
 ## Daily collection
 
-Add the owner ID to `$KAITO_HOME/business/instagram-insights.json` to enable the read-only job in the [Mac scheduler](../../business/references/scheduler.md#daily-instagram-insights). The scheduler checks eligible owners each tick. A successful full pull marks the owner's local date complete, and a later tick retries a failed pull.
+Add the owner ID to `$KAITO_HOME/business/instagram-insights.json` to enable the read-only job in the [Mac scheduler](../../../business/references/scheduler.md#daily-instagram-insights). The scheduler checks eligible owners each tick. A successful full pull marks the owner's local date complete, and a later tick retries a failed pull.
 
 A cron entry for 08:15 in the Mac's timezone uses absolute paths. Replace the paths and `owner-id` with your settings.
 
