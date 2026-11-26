@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "note": "Default engine registry. Users override it in $KAITO_HOME/engines.json. See business/references/engines.md.",
+  "capabilities": {
+    "tts": ["svara", "indic-parler", "sarvam", "edge-tts"],
+    "captions": ["chromium"],
+    "transcribe": ["whisper-cpp", "mlx-whisper"],
+    "image": ["mflux-z-image-turbo", "flux2-klein-4b", "comfyui"],
+    "likeness": ["dlib"],
+    "video": ["wan-comfyui", "minimax-h3", "ltx"],
+    "upscale": ["seedvr2"],
+    "music": ["acestep"],
+    "shortform": ["moneyprinterturbo"],
+    "llm-bulk": ["ollama", "host-llm"],
+    "publish-instagram": ["instagram-graph"],
+    "publish-social": ["postiz"],
+    "email": ["listmonk", "smtp", "ses"],
+    "analytics": ["umami"],
+    "crm": ["twenty"],
+    "runtime": ["ffmpeg", "docker"]
+  },
+  "providers": {
+    "svara": {
+      "name": "svara-TTS v1 via mlx-audio", "kind": "local", "heavy": true,
+      "env": "SVARA_PYTHON",
+      "checks": [
+        {"type": "python", "paths": ["~/AI-Tools/tts/mlx/bin/python"]},
+        {"type": "hf", "models": ["kenpath/svara-tts-v1"]}
+      ],
+      "min_ram_gb": 8, "disk_gb": 7,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://huggingface.co/kenpath/svara-tts-v1"
+    },
+    "indic-parler": {
+      "name": "Indic Parler-TTS", "kind": "local", "heavy": true,
+      "env": "PARLER_PYTHON",
+      "checks": [
+        {"type": "python", "paths": ["~/AI-Tools/tts/parler/bin/python"]},
+        {"type": "hf", "models": ["ai4bharat/indic-parler-tts"]}
+      ],
+      "min_ram_gb": 8, "disk_gb": 5,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://huggingface.co/ai4bharat/indic-parler-tts"
+    },
+    "sarvam": {
+      "name": "Sarvam Bulbul (cloud)", "kind": "cloud",
+      "env": "SARVAM_KEY_FILE",
+      "key": {"pattern": "~/.config/sarvam/<owner>.env"},
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "Sarvam-API-Terms", "commercial": true},
+      "source": "https://docs.sarvam.ai/"
+    },
+    "edge-tts": {
+      "name": "Edge TTS (cloud)", "kind": "cloud", "enabled": false,
+      "env": "EDGE_TTS_BIN",
+      "checks": [{"type": "bin", "names": ["edge-tts"], "paths": ["~/.local/bin/edge-tts"]}],
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "Microsoft-unofficial-endpoint", "commercial": false, "note": "Unofficial Microsoft read-aloud endpoint with no commercial grant."},
+      "source": "https://github.com/rany2/edge-tts"
+    },
+    "chromium": {
+      "name": "Headless Chromium for captions", "kind": "local",
+      "env": "CHROME_HEADLESS",
+      "checks": [{"type": "bin",
+        "names": ["chrome-headless-shell", "chromium", "chromium-browser", "google-chrome", "google-chrome-stable"],
+        "paths": [
+          "~/Library/Caches/ms-playwright/chromium_headless_shell-*/*/chrome-headless-shell",
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "/Applications/Chromium.app/Contents/MacOS/Chromium",
+          "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+        ]}],
+      "min_ram_gb": 2, "disk_gb": 1,
+      "license": {"id": "BSD-3-Clause", "commercial": true},
+      "source": "https://playwright.dev/docs/browsers"
+    },
+    "whisper-cpp": {
+      "name": "whisper.cpp", "kind": "local",
+      "env": "WHISPER_CPP_BIN",
+      "checks": [{"type": "bin", "names": ["whisper-cli", "whisper-cpp"], "paths": ["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli", "~/.local/bin/whisper-cli"]}],
+      "min_ram_gb": 2, "disk_gb": 2,
+      "license": {"id": "MIT", "commercial": true},
+      "source": "https://github.com/ggml-org/whisper.cpp"
+    },
+    "mlx-whisper": {
+      "name": "mlx-whisper", "kind": "local",
+      "env": "MLX_WHISPER_BIN",
+      "checks": [{"type": "bin", "names": ["mlx_whisper"], "paths": ["~/.local/bin/mlx_whisper"]}],
+      "min_ram_gb": 4, "disk_gb": 3,
+      "license": {"id": "MIT", "commercial": true},
+      "source": "https://github.com/ml-explore/mlx-examples/tree/main/whisper"
+    },
+    "mflux-z-image-turbo": {
+      "name": "mflux Z-Image-Turbo", "kind": "local", "heavy": true,
+      "env": "MFLUX_Z_IMAGE_BIN",
+      "checks": [
+        {"type": "bin", "names": ["mflux-generate-z-image-turbo"], "paths": ["~/.local/bin/mflux-generate-z-image-turbo"]},
+        {"type": "hf", "models": ["Tongyi-MAI/Z-Image-Turbo"]}
+      ],
+      "min_ram_gb": 16, "disk_gb": 12,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo"
+    },
+    "flux2-klein-4b": {
+      "name": "mflux FLUX.2 klein 4B", "kind": "local", "heavy": true,
+      "env": "MFLUX_FLUX2_BIN",
+      "checks": [
+        {"type": "bin", "names": ["mflux-generate-flux2"], "paths": ["~/.local/bin/mflux-generate-flux2"]},
+        {"type": "hf", "models": ["black-forest-labs/FLUX.2-klein-4B"]}
+      ],
+      "min_ram_gb": 16, "disk_gb": 15,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B"
+    },
+    "dlib": {
+      "name": "dlib face likeness", "kind": "local",
+      "env": "DLIB_PYTHON",
+      "checks": [{"type": "python", "paths": ["python3"], "module": "dlib"}],
+      "min_ram_gb": 2, "disk_gb": 1,
+      "license": {"id": "BSL-1.0", "commercial": true},
+      "source": "http://dlib.net/"
+    },
+    "comfyui": {
+      "name": "ComfyUI", "kind": "local", "heavy": true,
+      "env": "COMFY_URL",
+      "checks": [{"any": [
+        {"type": "http", "ports": [8188, 8189, 8288], "path": "/system_stats"},
+        {"type": "path", "paths": ["/Applications/Comfy Desktop.app"]}
+      ]}],
+      "min_ram_gb": 16, "disk_gb": 20,
+      "license": {"id": "GPL-3.0", "commercial": true, "note": "Workflow weights carry their own licenses."},
+      "source": "https://github.com/comfyanonymous/ComfyUI"
+    },
+    "wan-comfyui": {
+      "name": "Wan 2.2 5B in ComfyUI", "kind": "local", "heavy": true,
+      "env": "WAN_MODEL",
+      "checks": [
+        {"type": "path", "paths": ["~/Documents/ComfyUI/models/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"]},
+        {"any": [
+          {"type": "http", "ports": [8188, 8189, 8288], "path": "/system_stats"},
+          {"type": "path", "paths": ["/Applications/Comfy Desktop.app"]}
+        ]}
+      ],
+      "min_ram_gb": 24, "disk_gb": 17,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://github.com/Wan-Video/Wan2.2",
+      "notes": "Needs the euler sampler on Apple GPUs. The weights were removed from this Mac on 25 Nov 2026."
+    },
+    "minimax-h3": {
+      "name": "MiniMax H3 recipe (ComfyUI, port 8288)", "kind": "local", "heavy": true, "enabled": false,
+      "env": "MINIMAX_H3_SCRIPT",
+      "checks": [{"type": "path", "paths": ["~/AI-Tools/src/minimax-h3-mac/render_h3_q5.py"]}],
+      "min_ram_gb": 40, "disk_gb": 45,
+      "license": {"id": "MiniMax-H3-Community", "commercial": false, "note": "Restricted: not for the US, EU, UK or South Korea; separate authorisation above US$20M revenue; check before any client or paid post."},
+      "source": "https://github.com/Bambushu/minimax-h3-mac"
+    },
+    "ltx": {
+      "name": "LTX video", "kind": "local", "heavy": true, "enabled": false,
+      "env": "LTX_DIR",
+      "checks": [{"type": "path", "paths": ["~/AI-Tools/src/ltx"]}],
+      "min_ram_gb": 24, "disk_gb": 30,
+      "license": {"id": "LTX-Community", "commercial": false, "note": "Vendor community license with a revenue threshold; read it before commercial use."},
+      "source": "https://github.com/Lightricks/LTX-Video"
+    },
+    "seedvr2": {
+      "name": "SeedVR2 3B int8 upscale", "kind": "local", "heavy": true,
+      "env": "SEEDVR2_SCRIPT",
+      "checks": [{"type": "path", "paths": ["~/AI-Tools/src/seedvr2/upscale.py"]}],
+      "min_ram_gb": 24, "disk_gb": 10,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://github.com/ByteDance-Seed/SeedVR"
+    },
+    "acestep": {
+      "name": "ACE-Step 1.5 turbo", "kind": "local", "heavy": true,
+      "env": "ACESTEP_SCRIPT",
+      "checks": [{"type": "path", "paths": ["~/AI-Tools/src/acestep/music.py"]}],
+      "min_ram_gb": 12, "disk_gb": 8,
+      "license": {"id": "Apache-2.0", "commercial": true},
+      "source": "https://github.com/ace-step/ACE-Step"
+    },
+    "moneyprinterturbo": {
+      "name": "MoneyPrinterTurbo", "kind": "local",
+      "env": "MONEYPRINTERTURBO_MAIN",
+      "checks": [{"type": "path", "paths": ["~/AI-Tools/MoneyPrinterTurbo/main.py"]}],
+      "min_ram_gb": 4, "disk_gb": 2,
+      "license": {"id": "MIT", "commercial": true},
+      "source": "https://github.com/harry0703/MoneyPrinterTurbo"
+    },
+    "ollama": {
+      "name": "Ollama", "kind": "local", "heavy": true,
+      "env": "OLLAMA_BIN",
+      "checks": [{"type": "bin", "names": ["ollama"], "paths": ["/opt/homebrew/bin/ollama", "/usr/local/bin/ollama", "/Applications/Ollama.app/Contents/Resources/ollama"], "version": ["--version"]}],
+      "min_ram_gb": 8, "disk_gb": 5,
+      "license": {"id": "MIT", "commercial": true, "note": "Runtime only. Each model has its own license."},
+      "source": "https://ollama.com/"
+    },
+    "host-llm": {
+      "name": "Host LLM (the running agent)", "kind": "local",
+      "checks": [{"type": "always"}],
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "Host-agent-terms", "commercial": true},
+      "source": "https://claude.com/claude-code",
+      "notes": "The agent already reading the files. No extra upload."
+    },
+    "instagram-graph": {
+      "name": "Instagram Graph API (cloud)", "kind": "cloud",
+      "env": "INSTAGRAM_KEY_FILE",
+      "key": {"pattern": "~/.config/instagram/<owner>.env"},
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "Meta-Platform-Terms", "commercial": true},
+      "source": "https://developers.facebook.com/docs/instagram-platform/"
+    },
+    "postiz": {
+      "name": "Postiz", "kind": "local",
+      "env": "POSTIZ_URL",
+      "checks": [{"any": [
+        {"type": "http", "ports": [4200], "path": "/"},
+        {"type": "docker", "image": "ghcr.io/gitroomhq/postiz-app"}
+      ]}],
+      "min_ram_gb": 4, "disk_gb": 5,
+      "license": {"id": "AGPL-3.0", "commercial": true, "note": "Called only through its API, CLI or MCP. Never vendored."},
+      "source": "https://github.com/gitroomhq/postiz-app"
+    },
+    "smtp": {
+      "name": "SMTP (cloud)", "kind": "cloud",
+      "env": "SMTP_KEY_FILE",
+      "key": {"pattern": "~/.config/smtp/<owner>.env"},
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "Mail-provider-terms", "commercial": true},
+      "source": "https://www.rfc-editor.org/rfc/rfc5321"
+    },
+    "ses": {
+      "name": "Amazon SES (cloud)", "kind": "cloud",
+      "env": "SES_KEY_FILE",
+      "key": {"pattern": "~/.config/ses/<owner>.env"},
+      "min_ram_gb": 0, "disk_gb": 0,
+      "license": {"id": "AWS-Service-Terms", "commercial": true},
+      "source": "https://aws.amazon.com/ses/"
+    },
+    "listmonk": {
+      "name": "listmonk", "kind": "local",
+      "env": "LISTMONK_URL",
+      "checks": [{"any": [
+        {"type": "http", "ports": [9000], "path": "/"},
+        {"type": "docker", "image": "listmonk/listmonk"}
+      ]}],
+      "min_ram_gb": 1, "disk_gb": 1,
+      "license": {"id": "AGPL-3.0", "commercial": true, "note": "Called only through its API."},
+      "source": "https://github.com/knadh/listmonk"
+    },
+    "umami": {
+      "name": "Umami", "kind": "local",
+      "env": "UMAMI_URL",
+      "checks": [{"any": [
+        {"type": "http", "ports": [3000], "path": "/"},
+        {"type": "docker", "image": "ghcr.io/umami-software/umami"}
+      ]}],
+      "min_ram_gb": 1, "disk_gb": 1,
+      "license": {"id": "MIT", "commercial": true},
+      "source": "https://github.com/umami-software/umami"
+    },
+    "twenty": {
+      "name": "Twenty CRM", "kind": "local",
+      "env": "TWENTY_URL",
+      "checks": [{"any": [
+        {"type": "http", "ports": [3001], "path": "/healthz"},
+        {"type": "docker", "image": "twentycrm/twenty"}
+      ]}],
+      "min_ram_gb": 4, "disk_gb": 5,
+      "license": {"id": "AGPL-3.0", "commercial": true, "note": "Called only through its API or MCP."},
+      "source": "https://github.com/twentyhq/twenty"
+    },
+    "ffmpeg": {
+      "name": "ffmpeg", "kind": "local",
+      "env": "FFMPEG_BIN",
+      "checks": [{"type": "bin", "names": ["ffmpeg"], "paths": ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"], "version": ["-version"]}],
+      "min_ram_gb": 1, "disk_gb": 1,
+      "license": {"id": "LGPL-2.1-or-later", "commercial": true, "note": "GPL when built with GPL parts."},
+      "source": "https://ffmpeg.org/"
+    },
+    "docker": {
+      "name": "Docker", "kind": "local",
+      "env": "DOCKER_BIN",
+      "checks": [{"type": "bin", "names": ["docker"], "paths": ["~/.docker/bin/docker", "/usr/local/bin/docker", "/opt/homebrew/bin/docker"], "version": ["--version"]}],
+      "min_ram_gb": 4, "disk_gb": 10,
+      "license": {"id": "Docker-Subscription-Terms", "commercial": true},
+      "source": "https://www.docker.com/"
+    }
+  }
+}
