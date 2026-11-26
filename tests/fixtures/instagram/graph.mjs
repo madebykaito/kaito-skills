@@ -22,13 +22,20 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname.startsWith('/public/') && req.method === 'GET') {
       assert.equal(req.headers.authorization, undefined);
-      const asset = uploads.get(url.pathname.slice(8));
+      const version = url.searchParams.get('versionId');
+      const asset = uploads.get(url.pathname.slice(8))?.get(version);
       assert(asset);
+      res.setHeader('x-amz-version-id', version);
       return res.end(readFileSync(dir + '/mode', 'utf8').trim() === 'wrong-bytes' ? Buffer.from('other asset') : asset);
     }
     if (url.pathname.startsWith('/upload/') && req.method === 'PUT') {
       assert.equal(req.headers.authorization, undefined);
-      uploads.set(url.pathname.slice(8), bytes);
+      const key = url.pathname.slice(8);
+      if (!uploads.has(key)) uploads.set(key, new Map());
+      const versions = uploads.get(key);
+      const version = String(versions.size + 1);
+      versions.set(version, bytes);
+      res.setHeader('x-amz-version-id', version);
       return send({});
     }
     assert.equal(req.headers.authorization, 'Bearer fixture-token');

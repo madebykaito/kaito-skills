@@ -1,35 +1,14 @@
 import { setTimeout as wait } from 'node:timers/promises';
-import { EXIT, Fail, fail, getAction, isoUtc, openDb, sha256, tx, verifyAction } from '../scripts/kaito-ledger-lib.mjs';
+import { EXIT, Fail, fail, getAction, isoUtc, openDb, sha256, tx } from '../scripts/kaito-ledger-lib.mjs';
 import { GraphError, instagramGraph, instagramOwner, isId } from '../scripts/kaito-instagram-graph.mjs';
 import { mediaType, uploadTarget } from '../scripts/kaito-instagram-media.mjs';
+import { activeAttempt, consumeDispatch, verifiedItem } from './dispatch.mjs';
 import { actionFor, kinds, readPayload } from '../scripts/kaito-instagram-payload.mjs';
 
 async function graphFor(item, signal) {
   const owner = instagramOwner(item.owner);
   if (owner.account !== item.account) fail(EXIT.human, 'The ledger account differs from channels.instagram');
   return instagramGraph(owner, signal);
-}
-
-function checkItem(row, item) {
-  const textDigest = item.text ? sha256(item.text) : null;
-  const mediaDigests = JSON.stringify(item.media.map(sha256));
-  if (['owner', 'account', 'action', 'disclosure', 'digest'].some((field) => row[field] !== item[field]) ||
-      textDigest !== row.text_sha256 || mediaDigests !== row.media_json) {
-    fail(EXIT.human, 'Instagram handler payload differs from the ledger');
-  }
-}
-
-function checkClaim(item) {
-  const db = openDb();
-  try {
-    const row = getAction(db, item.ref);
-    const attempt = db.prepare('SELECT 1 FROM attempts WHERE ref = ? AND n = ? AND digest = ? AND result IS NULL')
-      .get(item.ref, item.attempt, item.digest);
-    if (row.state !== 'claimed' || !attempt || db.prepare('SELECT 1 FROM instagram_publish_requests WHERE ref = ?').get(item.ref)) {
-      fail(EXIT.human, 'Instagram needs a fresh ledger claim');
-    }
-    checkItem(row, item);
-  } finally { db.close(); }
 }
 
 async function poll(graph, id, signal) {
@@ -95,32 +74,38 @@ async function prepareContainer(graph, item, kind, options, signal) {
   } finally { target.close(); }
 }
 
-function recordRequest(item, graph, containerId, caption, now) {
+function recordRequest(item, graph, containerId, caption, signal) {
   const db = openDb();
   try {
     tx(db, () => {
+      signal.throwIfAborted();
+      activeAttempt(db, item.ref, item.digest, item.attempt);
       if (getAction(db, item.ref).state !== 'claimed') fail(EXIT.human, 'Instagram ledger claim is no longer active');
       db.prepare('INSERT INTO instagram_publish_requests VALUES (?, ?, ?, ?, ?)')
-        .run(item.ref, graph.id, containerId, sha256(caption), isoUtc(now()));
+        .run(item.ref, graph.id, containerId, sha256(caption), isoUtc(Date.now()));
     });
   } finally { db.close(); }
 }
 
-async function publish(item, { now = Date.now, preparedId } = {}) {
+function preparedContainer(item, graph) {
   const db = openDb();
   try {
-    if (db.prepare('SELECT 1 FROM instagram_publish_requests WHERE ref = ?').get(item.ref)) return { result: 'uncertain' };
+    return db.prepare(`SELECT container_id FROM instagram_prepared_containers
+      WHERE ref = ? AND digest = ? AND account = ? AND ig_user_id = ? AND expires_at > ?`)
+      .get(item.ref, item.digest, item.account, graph.id, Date.now())?.container_id;
   } finally { db.close(); }
+}
 
+async function publish(ref, digest, attempt) {
+  const item = consumeDispatch(ref, digest, attempt, (action) => kinds.some((kind) => actionFor(kind) === action));
   const signal = AbortSignal.timeout(20 * 60_000);
   let publishRequested = false;
   try {
-    checkClaim(item);
     const { kind, options } = readPayload(item);
     const graph = await graphFor(item, signal);
-    const [account, prepared] = typeof preparedId === 'string' ? preparedId.split(':') : [];
+    const prepared = preparedContainer(item, graph);
     let id;
-    if (account === graph.id && isId(prepared)) {
+    if (isId(prepared)) {
       const status = await poll(graph, prepared, signal).catch((error) => {
         if (!(error instanceof GraphError) || !error.definitive) throw error;
         return 'UNAVAILABLE';
@@ -130,7 +115,7 @@ async function publish(item, { now = Date.now, preparedId } = {}) {
     }
     id ??= await prepareContainer(graph, item, kind, options, signal);
     // Write the intent before the only POST that can publish a container.
-    recordRequest(item, graph, id, options.caption, now);
+    recordRequest(item, graph, id, options.caption, signal);
     publishRequested = true;
     const result = await graph.request(`${graph.id}/media_publish`, { creation_id: id }, 'POST');
     return isId(result.id) ? { result: 'ok', remoteId: result.id } : { result: 'uncertain', note: 'missing published media ID' };
@@ -145,26 +130,35 @@ async function publish(item, { now = Date.now, preparedId } = {}) {
   }
 }
 
-async function prepare(item, { now = Date.now } = {}) {
-  const started = now();
+async function prepare(ref, digest) {
+  const started = Date.now();
   const db = openDb();
   try {
-    const row = getAction(db, item.ref);
-    const approval = db.prepare('SELECT 1 FROM approvals WHERE ref = ? AND digest = ?').get(item.ref, item.digest);
-    if (row.state !== 'approved' || row.digest !== item.digest || !approval || verifyAction(row).problems.length) {
-      fail(EXIT.human, 'Instagram preparation needs an intact, approved ref');
+    const row = getAction(db, ref);
+    const approval = db.prepare('SELECT 1 FROM approvals WHERE ref = ? AND digest = ?').get(ref, digest);
+    if (row.state !== 'approved' || row.digest !== digest || row.action !== actionFor('reel') || !approval) {
+      fail(EXIT.human, 'Instagram preparation needs an intact, approved Reel ref');
     }
-    checkItem(row, item);
+    const item = verifiedItem(row);
+    const signal = AbortSignal.timeout(20 * 60_000);
+    const { kind, options } = readPayload(item);
+    const graph = await graphFor(item, signal);
+    const id = await prepareContainer(graph, item, kind, options, signal);
+    // Meta containers expire after 24 hours. Count conservatively from before creation.
+    const expiresAt = started + 23 * 3600_000;
+    tx(db, () => {
+      if (getAction(db, ref).state !== 'approved') fail(EXIT.human, 'Instagram ref is no longer approved for preparation');
+      db.prepare(`INSERT INTO instagram_prepared_containers VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(ref) DO UPDATE SET ig_user_id = excluded.ig_user_id,
+          container_id = excluded.container_id, expires_at = excluded.expires_at
+        WHERE instagram_prepared_containers.expires_at <= excluded.expires_at`)
+        .run(ref, digest, item.account, graph.id, id, expiresAt);
+    });
+    return { id: `${graph.id}:${id}`, expiresAt };
   } finally { db.close(); }
-  const signal = AbortSignal.timeout(20 * 60_000);
-  const { kind, options } = readPayload(item);
-  const graph = await graphFor(item, signal);
-  const id = await prepareContainer(graph, item, kind, options, signal);
-  // Meta containers expire after 24 hours. Count conservatively from before creation.
-  return { id: `${graph.id}:${id}`, expiresAt: started + 23 * 3600_000 };
 }
 
 export const instagramPublishHandlers = new Map(kinds.map((kind) => [
   actionFor(kind),
-  kind === 'reel' ? { publish, prepare, prepareAheadMs: 20 * 60_000 } : { publish },
+  kind === 'reel' ? { ledger: true, publish, prepare, prepareAheadMs: 20 * 60_000 } : { ledger: true, publish },
 ]));

@@ -76,8 +76,9 @@ function uploadUrl(value, local) {
   return url;
 }
 
-async function verifyHostedBytes(url, digest, size, signal) {
+async function verifyHostedBytes(url, digest, size, signal, version) {
   let bytes = 0;
+  let servedVersion;
   const hash = createHash('sha256');
   try {
     const response = await fetch(url, { redirect: 'error', signal: boundedSignal(300_000, signal) });
@@ -85,12 +86,16 @@ async function verifyHostedBytes(url, digest, size, signal) {
       await response.body?.cancel();
       fail(EXIT.error, 'Instagram media URL could not be downloaded');
     }
+    servedVersion = response.headers.get('x-amz-version-id');
     for await (const part of response.body) {
       bytes += part.length;
       if (bytes > size) break;
       hash.update(part);
     }
   } catch { fail(EXIT.error, 'Instagram media URL could not be downloaded'); }
+  if (version !== undefined && servedVersion !== version) {
+    fail(EXIT.error, 'Instagram media URL did not confirm the uploaded version');
+  }
   if (bytes !== size || hash.digest('hex') !== digest) fail(EXIT.error, 'Instagram media URL returned bytes that differ from the approved media');
   return url.href;
 }
@@ -105,6 +110,7 @@ export function uploadTarget(graph, digests, signal) {
       if (!entry) fail(EXIT.human, 'Instagram upload target is missing a presigned object for an approved media digest');
       const put = uploadUrl(entry.put_url, graph.local);
       const get = uploadUrl(entry.read_url, graph.local);
+      if (get.search) fail(EXIT.human, 'Instagram presigned PUT needs a read URL without a query');
       for (const [method, url] of [['PUT', put], ['GET', get]]) {
         const object = method + url.origin + url.pathname;
         if (urls.has(object)) fail(EXIT.human, 'Different Instagram media need distinct uploaded objects');
@@ -124,7 +130,11 @@ export function uploadTarget(graph, digests, signal) {
         } catch { fail(EXIT.error, 'Instagram media PUT did not return a response'); }
         await response.body?.cancel();
         if (!response.ok) fail(EXIT.error, `Instagram media PUT returned HTTP ${response.status}`);
-        return verifyHostedBytes(entry.get, digest, bytes.length, signal);
+        const version = response.headers.get('x-amz-version-id');
+        if (!version || version === 'null') fail(EXIT.error, 'Instagram media PUT did not return an immutable object version');
+        const url = new URL(entry.get);
+        url.searchParams.set('versionId', version);
+        return verifyHostedBytes(url, digest, bytes.length, signal, version);
       },
       close() {},
     };
@@ -143,7 +153,7 @@ export function uploadTarget(graph, digests, signal) {
         dir ??= mkdtempSync(path.join(root, 'kaito-ig-'));
         const name = `${digest}.${type === 'video' ? 'mp4' : 'jpg'}`;
         const file = path.join(dir, name);
-        try { writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 }); }
+        try { writeFileSync(file, bytes, { flag: 'wx', mode: 0o400 }); }
         catch (error) { if (error.code !== 'EEXIST') fail(EXIT.error, 'Cannot write the Instagram tunnel upload'); }
         const url = new URL(`${path.basename(dir)}/${name}`, base);
         return verifyHostedBytes(url, digest, bytes.length, signal);

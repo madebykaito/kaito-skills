@@ -2,7 +2,7 @@
 
 26 November 2026. Ran on the Mac against an exact temporary checkout. The real-run commands used a temporary `KAITO_HOME`, fictional owner `lumen-tea` and a loopback Graph server. Digest approvals were simulated for these fixtures.
 
-In the commands below, `B=business/scripts` and `S=reel-assemble/scripts`. Paths to generated inputs are shown without their temporary directory prefix. Each command exited 0 unless stated.
+In the commands below, `B=business/scripts` and `S=reel-assemble/scripts`. Paths to generated inputs are shown without their temporary directory prefix. The examples use the current fixture-only approval syntax, which requires an explicit temporary `KAITO_HOME`. Each command exited 0 unless stated.
 
 | Command | Result |
 |---|---|
@@ -18,7 +18,7 @@ In the commands below, `B=business/scripts` and `S=reel-assemble/scripts`. Paths
 | `node "$B/kaito-claims.mjs" check --owner lumen-tea caption.txt` | The caption from the [campaign sample](samples/campaign-lumen-tea.md) passed the claims check. |
 | `node "$B/kaito-marketing.mjs" review --owner lumen-tea --brief brief.json --post caption.txt` | The caption passed the brief's mechanical checks. |
 | `node "$B/kaito-instagram-publish.mjs" propose reel --owner lumen-tea --media reel.mp4 --caption-file caption.txt --json` | Created a Reel ref and digest. |
-| `AI_AGENT=1 node "$B/kaito-approve.mjs" "$ref" --digest "$digest"` | Fixture approval recorded against that digest. |
+| `KAITO_TEST_APPROVAL=1 node "$B/kaito-approve.mjs" "$ref" --digest "$digest"` | Fixture approval recorded against that digest. |
 | `node "$B/kaito-instagram-publish.mjs" publish "$ref" --digest "$digest"` | Claimed and published through the Instagram handler. A repeat returned exit 3. |
 | `node "$B/kaito-ledger.mjs" status "$ref" --json` | `sent`, attempt 1, remote ID `202`. The loopback log had one publish request. |
 | `node "$B/kaito-instagram-insights.mjs" pull --owner lumen-tea --ref "$ref" --json` | Wrote 18 metrics, with zero skipped for this pull. |
@@ -31,17 +31,17 @@ In the commands below, `B=business/scripts` and `S=reel-assemble/scripts`. Paths
 | `node "$B/kaito-money.mjs" draft invoice --owner lumen-tea --input invoice.json` | Created an unnumbered GST invoice draft. |
 | `node "$B/kaito-money.mjs" check "$doc" --owner lumen-tea` | Net 155 paise, CGST 14, SGST 14, total 183. |
 | `node "$B/kaito-money.mjs" propose "$doc" --owner lumen-tea --account "$billing" --pdf` | Chromium rendered the PDF for approval. |
-| `AI_AGENT=1 node "$B/kaito-approve.mjs" "$ref" --digest "$digest"` | Approved the fixture invoice and its PDF. |
+| `KAITO_TEST_APPROVAL=1 node "$B/kaito-approve.mjs" "$ref" --digest "$digest"` | Approved the fixture invoice and its PDF. |
 | `node "$B/kaito-money.mjs" issue "$doc" --owner lumen-tea --ref "$ref" --digest "$digest"` | Issued `INV-2026-000001`, sequence 1. |
 | `node "$B/kaito-money.mjs" export "$doc" --owner lumen-tea --pdf invoice.pdf` | Exported the approved PDF. `pdftotext invoice.pdf invoice.txt` confirmed the number and GST labels and found no internal cost. |
 | `node "$B/kaito-money.mjs" chase "$doc" --owner lumen-tea` | Produced a payment reminder. The recipient, subject and body rendered in `kaito-email.mjs` draft mode. |
 | `node "$B/kaito-engines.mjs" doctor --owner lumen-tea --json` | Reported 48 GB RAM and 16 capabilities. Host LLM was selected for bulk drafting. Postiz, MoneyPrinterTurbo and Twenty were unavailable in the fixture run. |
-| `node "$B/kaito-ledger.mjs" propose --owner lumen-tea --account @lumentea.example --action noop-test --text-file caption.txt --due "$due" --json` | Created one due fixture action. Approved with the same `kaito-approve.mjs "$ref" --digest "$digest"` fixture command. |
+| `node "$B/kaito-ledger.mjs" propose --owner lumen-tea --account @lumentea.example --action noop-test --text-file caption.txt --due "$due" --json` | Created one due fixture action. Approved with the same fixture command as above. |
 | `node "$B/kaito-tick.mjs` | First tick worked the item. Second tick did no work. Ledger status showed `sent` and attempt 1. |
 
 ## Release checks
 
-- `tests/run.sh` passed all 600 tests across 44 suites.
+- `tests/run.sh` passed all 611 tests across 45 suites. The captions and PDF checks used the installed Chromium headless shell through `CHROME` and `KAITO_MONEY_CHROME`.
 - `helpmekaito/scripts/check-routes.sh` reported `routes ok`.
 - `node tools/privacy-scan.mjs` reported `privacy ok` with the local denylist.
 - `git diff --check origin/main` passed.

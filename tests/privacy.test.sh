@@ -7,6 +7,11 @@ OWNERS="$REPO/tests/fixtures/business/owners"
 home() { mk_home; unset KAITO_PRIVACY_DENYLIST; }
 # scan <folder>: run the scanner on a folder with the generic patterns only.
 scan() { node "$SCAN" "$1" --no-denylist 2>&1; }
+# Read the marker from a local fixture denylist, as the scanner does.
+denylist_fixture() {
+  printf 'private-fixture-%s\n' "$$" > "$1"
+  IFS= read -r term < "$1"
+}
 # expect_hit <folder> <rule>: the scan must exit 1 and report the rule.
 expect_hit() {
   out=$(scan "$1"); rc=$?
@@ -51,11 +56,11 @@ test_planted_github_and_aws_keys_fail() {
 test_planted_email_fails() {
   home
   d=$(mktemp -d)
-  printf 'write to %s@%s\n' "founder" "realcorp.io" > "$d/mail.md"
+  printf 'write to %s@%s\n' "founder" "fixture.invalid" > "$d/mail.md"
   expect_hit "$d" email
   out=$(scan "$d")
   case "$out" in *"mail.md:1: email: fou***"*) ;; *) echo "  bad mask: $out"; exit 1;; esac
-  case "$out" in *realcorp*) echo "  email printed: $out"; exit 1;; esac
+  case "$out" in *fixture.invalid*) echo "  email printed: $out"; exit 1;; esac
 }
 
 test_allowed_emails_pass() {
@@ -144,28 +149,28 @@ test_mp4_gps_box_fails() {
 
 test_denylist_term_fails_and_is_masked() {
   home
-  d=$(mktemp -d); printf 'we worked with Zorblax Holdings last year\n' > "$d/notes.md"
-  printf '# private\nzorblax holdings\n' > "$HOME/deny.txt"
+  denylist_fixture "$HOME/deny.txt"
+  d=$(mktemp -d); printf '%s\n' "$term" | tr '[:lower:]' '[:upper:]' > "$d/notes.md"
   out=$(KAITO_PRIVACY_DENYLIST="$HOME/deny.txt" node "$SCAN" "$d" 2>&1); rc=$?
   assert_eq "$rc" 1 exit
-  case "$out" in *"notes.md:1: denylist: zor***"*) ;; *) echo "  $out"; exit 1;; esac
-  case "$out" in *orblax*) echo "  term printed: $out"; exit 1;; esac
+  case "$out" in *"$term"*) echo "  term printed"; exit 1;; esac
+  case "$out" in *"notes.md:1: denylist: pri***"*) ;; *) echo "  expected a masked denylist match"; exit 1;; esac
 }
 
 test_denylist_matches_file_names_and_default_path() {
   home
-  d=$(mktemp -d); : > "$d/zorblax-deck.md"
-  mkdir -p "$KAITO_HOME"; printf 'zorblax\n' > "$KAITO_HOME/privacy-denylist.txt"
+  mkdir -p "$KAITO_HOME"; denylist_fixture "$KAITO_HOME/privacy-denylist.txt"
+  d=$(mktemp -d); : > "$d/$term-deck.md"
   out=$(node "$SCAN" "$d" 2>&1); rc=$?
   assert_eq "$rc" 1 exit
-  case "$out" in *"zor***:0: denylist-path: zor***"*) ;; *) echo "  $out"; exit 1;; esac
-  case "$out" in *orblax*) echo "  file name printed: $out"; exit 1;; esac
+  case "$out" in *"$term"*) echo "  file name printed"; exit 1;; esac
+  case "$out" in *"pri***:0: denylist-path: pri***"*) ;; *) echo "  expected a masked denylist path"; exit 1;; esac
 }
 
 test_long_line_and_attribute_xmp_and_assignment_forms() {
   home
   d=$(mktemp -d)
-  node -e 'require("fs").writeFileSync(process.argv[1], " ".repeat(30000) + " founder@" + "realcorp.io\n")' "$d/min.json"
+  node -e 'require("fs").writeFileSync(process.argv[1], " ".repeat(30000) + " founder@" + "fixture.invalid\n")' "$d/min.json"
   expect_hit "$d" email
   d=$(mktemp -d); printf 'PHONE=%s%s\n' "98765" "43210" > "$d/e.env"
   expect_hit "$d" phone
@@ -177,7 +182,7 @@ test_truncated_media_does_not_crash() {
   home
   d=$(mktemp -d)
   node -e 'const fs=require("fs"),d=process.argv[1]; fs.writeFileSync(d+"/a.jpg",Buffer.from([0xff,0xd8,0xff,0xe1,0x00,0x30,0x45,0x78,0x69,0x66,0,0,0x4d,0x4d,0,0x2a,0,0,0,8,0,5])); fs.writeFileSync(d+"/b.mp4",Buffer.from([0,0,0,8,0x6d,0x6f,0x6f,0x76,0,0,0,8,0x6d,0x65,0x74,0x61])); fs.writeFileSync(d+"/c.png",Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,50]));' "$d"
-  printf 'x@%s\n' "realcorp.io" > "$d/z.md"
+  printf 'x@%s\n' "fixture.invalid" > "$d/z.md"
   expect_hit "$d" email
 }
 
@@ -206,8 +211,8 @@ test_xmp_attribute_form_fails() {
 
 test_denylist_off_in_ci_mode() {
   home
-  d=$(mktemp -d); printf 'Zorblax\n' > "$d/notes.md"
-  printf 'zorblax\n' > "$HOME/deny.txt"
+  denylist_fixture "$HOME/deny.txt"
+  d=$(mktemp -d); printf '%s\n' "$term" > "$d/notes.md"
   out=$(KAITO_PRIVACY_DENYLIST="$HOME/deny.txt" node "$SCAN" "$d" --no-denylist 2>&1) || { echo "  $out"; exit 1; }
   assert_eq "$out" "privacy ok" nodeny
 }
@@ -243,11 +248,11 @@ test_fixture_owners_load() {
 # A second hit in the same file must not reveal a private path.
 test_private_path_stays_masked_on_other_hits() {
   home
-  d=$(mktemp -d); printf 'contact x@%s\n' "realcorp.io" > "$d/zorblax.md"
-  printf 'zorblax\n' > "$HOME/deny.txt"
+  denylist_fixture "$HOME/deny.txt"
+  d=$(mktemp -d); printf 'contact x@%s\n' "fixture.invalid" > "$d/$term.md"
   out=$(KAITO_PRIVACY_DENYLIST="$HOME/deny.txt" node "$SCAN" "$d" 2>&1); rc=$?
   assert_eq "$rc" 1 exit
-  case "$out" in *zorblax*) echo "  private path printed"; exit 1;; esac
+  case "$out" in *"$term"*) echo "  private path printed"; exit 1;; esac
 }
 
 test_oversized_file_fails_closed() {

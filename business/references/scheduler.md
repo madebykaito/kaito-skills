@@ -23,6 +23,10 @@ Scheduled email uses the configured sender and the same do-not-contact and rate 
 
 Register a verb such as `instagram.reel.publish` in `business/handlers/registry.mjs`. Portable handlers for both runtimes go in `cloud-registry.mjs` with `cloud: true`. The Mac registry includes Instagram publishing, Postiz publishing and email. The Worker registry includes `noop-test` for drills.
 
+The Mac publishing handlers set `ledger: true` and implement `publish(ref, digest, attempt)`. The handler consumes the one-time dispatch reservation and loads verified bytes from the ledger before using credentials. A handler that stages a container implements `prepare(ref, digest)` and records its binding before returning `{ id, expiresAt }`.
+
+Portable Worker handlers use the following interface.
+
 - `publish(item, { now, preparedId, env })` sends once. `item` has `ref`, `digest`, `attempt`, `idempotency_key`, `owner`, `account`, `action`, `disclosure`, `due_at`, `text` (bytes or null), and `media` (ordered byte arrays). Use those bytes and pass the idempotency key if the platform supports one. Return `{ result: 'ok' | 'failed' | 'uncertain', remoteId? }`. Return failed only when known that the platform did not accept the send. A thrown error or malformed response is uncertain.
 - Optional `prepareAheadMs` and `prepare(item, { now, env })` let a tick create or stage an unpublished container for an approved payload. Return `{ id, expiresAt }` with expiry in epoch milliseconds. Prepare may retry after an interruption and must never publish. The final send may receive a null `preparedId`, including when the container expired or processing was still underway. Handle that case inside the claimed send.
 - Use timeouts for network calls and bound the whole send below 30 minutes. The handler alone reads platform credentials. `env` is the Worker binding object and is absent on the Mac. Logs should omit credentials, request bodies and response bodies.

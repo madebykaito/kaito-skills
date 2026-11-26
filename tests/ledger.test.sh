@@ -5,8 +5,6 @@ B="$REPO/business/scripts"
 L() { node "$B/kaito-ledger.mjs" "$@"; }
 A() { node "$B/kaito-approve.mjs" "$@"; }
 T() { node "$B/kaito-today.mjs" "$@"; }
-# AH: kaito-approve as an agent host runs it after its permission prompt.
-AH() { env AI_AGENT=1 node "$B/kaito-approve.mjs" "$@"; }
 # sql "<statement>": run SQL on the ledger directly, the way someone tampering would.
 sql() { node --no-warnings -e 'const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync(process.argv[1]);const r=d.prepare(process.argv[2]);const o=/^\s*(select|pragma)/i.test(process.argv[2])?r.all():r.run();if(Array.isArray(o))for(const x of o)console.log(Object.values(x).join("\t"))' "$KAITO_HOME/business/ledger.db" "$1"; }
 jget() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let v=JSON.parse(s);for(const k of process.argv[1].split("."))v=v?.[k];console.log(Array.isArray(v)||typeof v==="object"?JSON.stringify(v):v)})' "$1"; }
@@ -31,7 +29,7 @@ prop() {
   REF=$(echo "$out" | sed -n 's/^ref=//p'); DIG=$(echo "$out" | sed -n 's/^digest=//p')
   [ -n "$REF" ] && [ ${#DIG} = 64 ] || { echo "  bad propose output: $out"; exit 1; }
 }
-ok_approve() { AH "$1" --digest "$2" > "$HOME/approve.out" 2>&1 || { cat "$HOME/approve.out"; exit 1; }; }
+ok_approve() { fixture_approve "$1" "$2" > "$HOME/approve.out" 2>&1 || { cat "$HOME/approve.out"; exit 1; }; }
 state() { L status "$1" | sed -n 's/^state=//p'; }
 # expect <code> <cmd...>: run and check the exit code.
 expect() {
@@ -50,8 +48,6 @@ pty() {
     { sleep 2; printf '%s\n' "$input"; sleep 1; } | script -q /dev/null "$@"
   fi
 }
-# Agent hosts set these; the terminal path refuses when any is present.
-NOAGENT="env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u AI_AGENT -u CODEX_SANDBOX -u CODEX_THREAD_ID -u CODEX_CI -u CODEX_SANDBOX_NETWORK_DISABLED -u GEMINI_CLI -u OPENCODE -u CURSOR_AGENT -u CURSOR_TRACE_ID -u AIDER_MODEL -u GOOSE_PROVIDER -u AMP_API_KEY"
 
 test_propose_stores_read_only_artifacts() {
   mk_home; owners; prop
@@ -182,7 +178,7 @@ test_claim_after_send_refused() {
   expect 3 L record "$REF" --attempt 1 --result ok
   expect 4 L record "$REF" --attempt 2 --result ok
   expect 3 L reject "$REF"
-  expect 3 AH "$REF" --digest "$DIG"
+  expect 3 A "$REF" --digest "$DIG"
   # No path back: the state flow refuses sent to approved even in raw SQL.
   ! sql "update actions set state = 'approved' where ref = '$REF'" 2>/dev/null || exit 1
 }
@@ -196,52 +192,33 @@ test_self_approval_refused() {
   expect 3 A "$REF" < "$HOME/yes"
   # Never from a file, never a prefix: the full digest on the command line only.
   echo "$DIG" > "$HOME/digest.txt"
-  expect 2 AH "$REF" --digest "@$HOME/digest.txt"
-  expect 2 AH "$REF" --digest "$(echo "$DIG" | cut -c1-8)"
+  expect 2 A "$REF" --digest "@$HOME/digest.txt"
+  expect 2 A "$REF" --digest "$(echo "$DIG" | cut -c1-8)"
   # The ledger has no approve command, and raw SQL cannot approve without an approval row.
   expect 2 L approve "$REF"
   ! sql "update actions set state = 'approved' where ref = '$REF'" 2>/dev/null || exit 1
   expect 3 L claim "$REF" --digest "$DIG"
-  # A pseudo-terminal inside an agent session is still an agent.
-  pty "$(echo "$DIG" | cut -c1-8)" env AI_AGENT=1 node "$B/kaito-approve.mjs" "$REF" > "$HOME/pty.out" 2>&1
-  if ! command -v script >/dev/null 2>&1; then echo "skip: no script(1) for the pty case"
-  else grep -q 'belongs to an agent session' "$HOME/pty.out" || { echo "  pty under AI_AGENT:"; cat "$HOME/pty.out"; exit 1; }
-  fi
   assert_eq "$(state "$REF")" proposed
   assert_eq "$(sql "select count(*) from approvals")" 0 no-approval-row
 }
 
-test_digest_path_refused_when_host_would_not_ask() {
+test_digest_requires_receipt() {
   mk_home; owners; prop
-  mkdir -p "$HOME/.claude"
-  echo '{"permissions":{"allow":["Bash(node:*)"]}}' > "$HOME/.claude/settings.json"
-  expect 3 AH "$REF" --digest "$DIG"
-  grep -q 'has an allow rule covering this command' "$HOME/expect.out" || exit 1
-  echo '{"permissions":{"allow":["Bash(node */business/scripts/*)"]}}' > "$HOME/.claude/settings.json"
-  expect 3 AH "$REF" --digest "$DIG"
-  echo '{"permissions":{"defaultMode":"bypassPermissions"}}' > "$HOME/.claude/settings.json"
-  expect 3 AH "$REF" --digest "$DIG"
-  mkdir -p "$W/.claude"; echo '{"permissions":{"allow":["Bash"]}}' > "$W/.claude/settings.local.json"
-  echo '{}' > "$HOME/.claude/settings.json"
-  ( cd "$W" && expect 3 AH "$REF" --digest "$DIG" ) || exit 1
+  expect 3 A "$REF" --digest "$DIG"
+  grep -q 'approval receipt' "$HOME/expect.out" || exit 1
+  expect 3 A receipt "$REF" < /dev/null
   assert_eq "$(state "$REF")" proposed
-  # A narrow rule for other scripts is fine.
-  rm -rf "$W/.claude"
-  echo '{"permissions":{"allow":["Bash(git status:*)"]}}' > "$HOME/.claude/settings.json"
-  ok_approve "$REF" "$DIG"
-  assert_eq "$(state "$REF")" approved
-  assert_eq "$(sql "select via from approvals where ref = '$REF'")" prompt via
 }
 
 test_wrong_digest_refused() {
   mk_home; owners; prop
   other=$(printf '%064d' 0)
-  expect 3 AH "$REF" --digest "$other"
+  expect 3 A "$REF" --digest "$other"
   grep -q 'does not match' "$HOME/expect.out" || exit 1
   upper=$(echo "$DIG" | tr a-f A-F)
-  expect 2 AH "$REF" --digest "$upper"
-  # The terminal path with a wrong prefix (or, under an agent, any prefix) approves nothing.
-  pty "deadbeef" $NOAGENT node "$B/kaito-approve.mjs" "$REF" > "$HOME/pty.out" 2>&1
+  expect 2 A "$REF" --digest "$upper"
+  # The terminal path with a wrong prefix approves nothing.
+  pty "deadbeef" node "$B/kaito-approve.mjs" "$REF" > "$HOME/pty.out" 2>&1
   rc=$?
   [ $rc = 2 ] && echo "skip: no script(1) for the pty case"
   ! grep -q '^approved' "$HOME/pty.out" || { cat "$HOME/pty.out"; exit 1; }
@@ -250,10 +227,9 @@ test_wrong_digest_refused() {
 
 test_terminal_approval() {
   mk_home; owners; prop
-  pty "$(echo "$DIG" | cut -c1-8)" $NOAGENT node "$B/kaito-approve.mjs" "$REF" > "$HOME/pty.out" 2>&1
+  pty "$(echo "$DIG" | cut -c1-8)" node "$B/kaito-approve.mjs" "$REF" > "$HOME/pty.out" 2>&1
   rc=$?
   if [ $rc = 2 ] && ! command -v script >/dev/null 2>&1; then echo "skip: no script(1)"; return 0; fi
-  if grep -q 'belongs to an agent session' "$HOME/pty.out"; then echo "skip: tests run inside an agent session"; return 0; fi
   grep -q "^approved ref=$REF" "$HOME/pty.out" || { cat "$HOME/pty.out"; exit 1; }
   # The founder saw the whole payload before typing.
   grep -q 'Order by Friday.' "$HOME/pty.out" || exit 1
@@ -285,11 +261,11 @@ test_account_and_owner_checked() {
 
 test_late_actions_expire() {
   mk_home; owners; prop --due 2026-01-01T10:00
-  expect 3 AH "$REF" --digest "$DIG"
+  expect 3 fixture_approve "$REF" "$DIG"
   grep -q '24 hours past' "$HOME/expect.out" || exit 1
   assert_eq "$(L expire | sed -n 's/^expired=//p')" 1 expired
   assert_eq "$(state "$REF")" expired
-  expect 3 AH "$REF" --digest "$DIG"
+  expect 3 A "$REF" --digest "$DIG"
 }
 
 test_migrations_idempotent() {
@@ -431,25 +407,31 @@ test_card_escapes_terminal_controls() {
   grep -q '^PROBLEM: the text holds 3 control or direction characters' "$HOME/card" || { cat "$HOME/card"; exit 1; }
 }
 
-test_digest_path_needs_a_host() {
+test_terminal_receipt_is_bound_and_single_use() {
+  command -v script >/dev/null 2>&1 || { echo "skip: no script(1)"; return 0; }
   mk_home; owners; prop
-  # No terminal and no agent host: a cron job or script, so no one saw a prompt.
-  sig=$($NOAGENT node --input-type=module -e "import { agentSigns } from '$B/kaito-approve.mjs'; console.log(agentSigns().length)")
-  if [ "$sig" != 0 ]; then echo "skip: tests run inside an agent session"; return 0; fi
-  expect 3 $NOAGENT node "$B/kaito-approve.mjs" "$REF" --digest "$DIG" < /dev/null
-  grep -q 'no agent host' "$HOME/expect.out" || exit 1
+  first_ref=$REF; first_digest=$DIG
+  pty "$(echo "$DIG" | cut -c1-8)" node "$B/kaito-approve.mjs" receipt "$REF" > "$HOME/pty.out" 2>&1
+  receipt=$(tr -d '\r' < "$HOME/pty.out" | sed -n 's/^receipt=//p')
+  [ "${#receipt}" = 64 ] || { cat "$HOME/pty.out"; exit 1; }
   assert_eq "$(state "$REF")" proposed
+  prop
+  expect 3 A "$REF" --digest "$DIG" --receipt "$receipt"
+  expect 0 A "$first_ref" --digest "$first_digest" --receipt "$receipt"
+  expect 3 A "$first_ref" --digest "$first_digest" --receipt "$receipt"
+  assert_eq "$(state "$first_ref")" approved
+  assert_eq "$(sql "select count(*) from approval_receipts where consumed_at is not null")" 1 consumed
 }
 
-test_codex_allow_rule_refused() {
+test_expired_approval_receipt_refused() {
+  command -v script >/dev/null 2>&1 || { echo "skip: no script(1)"; return 0; }
   mk_home; owners; prop
-  mkdir -p "$HOME/.codex/rules"
-  printf 'prefix_rule(pattern = ["node"], decision = "allow")\n' > "$HOME/.codex/rules/default.rules"
-  # A stand-in codex process is the host: codex rules are read only under codex.
-  mkdir -p "$HOME/bin"; ln -s "$(command -v node)" "$HOME/bin/codex"
-  expect 3 env CODEX_HOME="$HOME/.codex" AI_AGENT=1 "$HOME/bin/codex" -e 'process.exitCode = require("child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }).status' \
-    "$B/kaito-approve.mjs" "$REF" --digest "$DIG"
-  grep -q 'default.rules has an allow rule covering this command' "$HOME/expect.out" || { cat "$HOME/expect.out"; exit 1; }
+  pty "$(echo "$DIG" | cut -c1-8)" node "$B/kaito-approve.mjs" receipt "$REF" > "$HOME/pty.out" 2>&1
+  receipt=$(tr -d '\r' < "$HOME/pty.out" | sed -n 's/^receipt=//p')
+  [ "${#receipt}" = 64 ] || { cat "$HOME/pty.out"; exit 1; }
+  sql "update approval_receipts set expires_at = 0"
+  expect 3 A "$REF" --digest "$DIG" --receipt "$receipt"
+  assert_eq "$(state "$REF")" proposed
 }
 
 test_queue_checks_owner_and_ref() {
@@ -491,12 +473,11 @@ test_ready_list_includes_undated() {
   ! echo "$out" | grep -q -e "$later" -e "$waiting" || { echo "$out"; exit 1; }
 }
 
-test_codex_env_without_ancestry_checks_rules() {
-  mk_home; owners; prop
-  mkdir -p "$HOME/.codex/rules"
-  printf 'prefix_rule(pattern = ["node"], decision = "allow")\n' > "$HOME/.codex/rules/default.rules"
-  expect 3 env CODEX_HOME="$HOME/.codex" CODEX_THREAD_ID=t1 node "$B/kaito-approve.mjs" "$REF" --digest "$DIG"
-  grep -q 'default.rules has an allow rule covering this command' "$HOME/expect.out" || { cat "$HOME/expect.out"; exit 1; }
+test_fixture_approval_refuses_real_home_before_opening() {
+  mk_home
+  real_home=$(node -p 'require("node:path").join(require("node:os").userInfo().homedir, ".kaito")')
+  expect 3 env KAITO_HOME="$real_home" KAITO_TEST_APPROVAL=1 node "$B/kaito-approve.mjs" act-20000101-00000000 --digest "$(printf '%064d' 0)"
+  grep -q 'temporary fixture ledger' "$HOME/expect.out" || exit 1
 }
 
 test_odd_timezones_refused() {
@@ -554,7 +535,7 @@ if (layout === 'sales') {
 }
 JS
     L migrate > "$HOME/migrations" || exit 1
-    assert_eq "$(sql "SELECT group_concat(version) FROM (SELECT version FROM schema_version ORDER BY version)")" "1,2,3,4,5,6,7,8,9,10" "$layout contiguous"
+    assert_eq "$(sql "SELECT group_concat(version) FROM (SELECT version FROM schema_version ORDER BY version)")" "1,2,3,4,5,6,7,8,9,10,11" "$layout contiguous"
     if [ "$layout" = sales ]; then
       grep -qx '007-leads' "$HOME/migrations" || exit 1
       assert_eq "$(sql 'SELECT name FROM leads')" "Fixture lead" preserved
@@ -563,4 +544,22 @@ JS
       assert_eq "$(sql 'SELECT address FROM email_do_not_contact')" "lead@example.com" preserved
     fi
   done
+}
+
+test_upgrade_rejects_unclaimed_legacy_prompt_approvals() {
+  mk_home; owners
+  cp -R "$REPO/business" "$HOME/business" || exit 1
+  B="$HOME/business/scripts"
+  mv "$HOME/business/migrations/011-dispatch-safety.sql" "$HOME/dispatch.sql" || exit 1
+  prop
+  legacy_ref=$REF; legacy_digest=$DIG
+  sql "insert into approvals (ref, digest, via, at) values ('$REF', '$DIG', 'prompt', '2026-01-01T00:00:00Z')" || exit 1
+  sql "update actions set state = 'approved' where ref = '$REF'" || exit 1
+  prop
+  KAITO_TEST_APPROVAL=1 node "$B/kaito-approve.mjs" "$REF" --digest "$DIG" || exit 1
+  mv "$HOME/dispatch.sql" "$HOME/business/migrations/011-dispatch-safety.sql" || exit 1
+  L migrate > /dev/null || exit 1
+  assert_eq "$(state "$legacy_ref")" rejected legacy-prompt
+  expect 3 L claim "$legacy_ref" --digest "$legacy_digest"
+  assert_eq "$(state "$REF")" approved terminal-fixture-preserved
 }

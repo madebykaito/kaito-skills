@@ -45,7 +45,9 @@ async function prepareEarly(db, row, handler, now) {
     return true;
   });
   if (!reserved) return;
-  const { id, expiresAt } = await prepare(handler, readItem(row), { now });
+  const { id, expiresAt } = handler.ledger
+    ? await handler.prepare(row.ref, row.digest)
+    : await prepare(handler, readItem(row), { now });
   db.prepare('UPDATE scheduler_preparations SET remote_id = ?, expires_at = ? WHERE ref = ? AND token = ?')
     .run(id, expiresAt, row.ref, token);
   console.log(`prepared=${row.ref}`);
@@ -54,8 +56,14 @@ async function prepareEarly(db, row, handler, now) {
 async function send(db, row, handler, now) {
   const claim = claimAction(db, row.ref, row.digest, {
     clock: now,
+    allowCloud: true,
     onClaim: () => db.prepare('INSERT INTO scheduler_claims (ref) VALUES (?)').run(row.ref),
   });
+  if (handler.ledger) {
+    const out = await handler.publish(row.ref, row.digest, claim.attempt);
+    record(db, row.ref, out.result, out.remoteId, out.note);
+    return;
+  }
   let item;
   try { item = readItem(row); } catch {
     record(db, row.ref, 'failed', null, 'artifact could not be verified before send');

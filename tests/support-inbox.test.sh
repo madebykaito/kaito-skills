@@ -39,6 +39,24 @@ assert.equal(read('other').items.length, 0);
 JS
 }
 
+test_maildir_requires_real_subdirectories() {
+  skip_on_win "symlinks" && return 0
+  mk_home
+  init_owner fixture 'Fixture Owner'
+  mkdir -p "$HOME/empty"
+  for part in cur new; do
+    maildir="$HOME/maildir-$part"
+    mkdir -p "$maildir/cur" "$maildir/new"
+    rmdir "$maildir/$part"
+    ln -s "$HOME/empty" "$maildir/$part" || exit 1
+    S --owner fixture --maildir "$maildir" > "$HOME/triage" 2> "$HOME/error"; rc=$?
+    assert_eq "$rc" 1 "$part"
+    [ ! -s "$HOME/triage" ] || exit 1
+    assert_no "$KAITO_HOME/business/ledger.db"
+    grep -q 'could not read maildir inbox' "$HOME/error" || exit 1
+  done
+}
+
 test_mbox_and_email_approval_card() {
   mk_home
   init_owner lumen-tea 'Lumen Tea Co.'

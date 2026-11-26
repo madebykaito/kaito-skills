@@ -12,6 +12,7 @@ import {
   checkOwnerId, ownerTz, parseWhen, isoUtc, nowMs, tooLate, printKv, localParts, dbPath,
 } from './kaito-ledger-lib.mjs';
 
+import { unresolvedPostizDispatch } from '../handlers/dispatch.mjs';
 import { EMAIL_ACTION, parseEmail, emailRefusal } from './kaito-email-policy.mjs';
 
 const USAGE = `usage: kaito-ledger.mjs <command>
@@ -180,10 +181,10 @@ function claim(args) {
   return EXIT.ok;
 }
 
-export function claimAction(db, ref, digest, { clock = Date.now, delegate, onClaim } = {}) {
+export function claimAction(db, ref, digest, { clock = Date.now, delegate, onClaim, allowCloud = false } = {}) {
   if (!isSha(digest)) fail(EXIT.usage, 'claim needs --digest <full 64-character sha256>');
   const out = tx(db, () => {
-    return claimInTransaction(db, ref, digest, clock(), { delegate, onClaim });
+    return claimInTransaction(db, ref, digest, clock(), { delegate, onClaim, allowCloud });
   });
   if (out.refused) fail(EXIT.human, `refused: ${out.refused}`);
   const d = out.ok;
@@ -195,7 +196,7 @@ export function claimDocument(db, ref, digest, ms) {
   return claimInTransaction(db, ref, digest, ms, { issueDocument: true });
 }
 
-function claimInTransaction(db, ref, digest, ms, { delegate, onClaim, issueDocument = false }) {
+function claimInTransaction(db, ref, digest, ms, { delegate, onClaim, allowCloud = false, issueDocument = false }) {
   const row = getAction(db, ref);
   const refuse = (why) => { event(db, ref, 'claim-refused', why); return { refused: why }; };
   if (row.state !== 'approved') {
@@ -228,6 +229,10 @@ function claimInTransaction(db, ref, digest, ms, { delegate, onClaim, issueDocum
   const upd = db.prepare("UPDATE actions SET state = 'claimed', updated_at = ? WHERE ref = ? AND state = 'approved'").run(isoUtc(ms), ref);
   if (upd.changes !== 1) return refuse('lost the race to another claim');
   db.prepare('INSERT INTO attempts (ref, n, digest, claimed_at) VALUES (?, 1, ?, ?)').run(ref, row.digest, isoUtc(ms));
+  if (!delegate && !issueDocument) {
+    db.prepare('INSERT INTO dispatch_reservations (ref, attempt, allow_cloud) VALUES (?, 1, ?)')
+      .run(ref, Number(allowCloud));
+  }
   const d = describe(db, { ...row, state: 'claimed' });
   if (!d.intact) throw new Fail(EXIT.human, `refused: payload changed during claim: ${d.problems.join('; ')}`);  // rolls back
   onClaim?.(row, ms);
@@ -255,6 +260,9 @@ export function recordAction(db, ref, n, result, remoteId, note) {
   const row = getAction(db, ref);
   const a = db.prepare('SELECT * FROM attempts WHERE ref = ? AND n = ?').get(ref, n);
   if (!a) return { err: [EXIT.notFound, `no attempt ${n} for ${ref}`] };
+  if (result === 'failed' && unresolvedPostizDispatch(db, row)) {
+    return { err: [EXIT.human, 'Postiz dispatch is unresolved'] };
+  }
   const at = isoUtc(Date.now());
   // The publisher was paused past the stale window, reconcile marked it failed, and now it
   // reports the send went through. Believe the later, better evidence.
@@ -294,6 +302,9 @@ function reconcile(args) {
   const ms = Date.now();
   const out = tx(db, () => {
     const row = getAction(db, ref);
+    if (args.failed && unresolvedPostizDispatch(db, row)) {
+      return { err: [EXIT.human, 'Postiz dispatch is unresolved. Reconcile as sent only after confirming the remote post.'] };
+    }
     const a = db.prepare(`SELECT t.*, ${STALE_SINCE} AS stale_since FROM attempts t WHERE t.ref = ?`).get(ref);
     const at = isoUtc(Date.now());
     if (row.state === 'claimed') {

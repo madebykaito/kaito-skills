@@ -27,7 +27,7 @@ test_publish_once_and_uncertain() {
   out=$(node "$REPO/business/scripts/kaito-ledger.mjs" propose --owner lumen-tea --account integration-1 --action social.linkedin.publish --text-file "$HOME/post.json" --media "$HOME/media.png" --json) || exit 1
   ref=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).ref')
   digest=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).digest')
-  node --no-warnings -e 'const {DatabaseSync}=require("node:sqlite");const db=new DatabaseSync(process.argv[1]);db.prepare("INSERT INTO approvals(ref,digest,via,at) VALUES(?,?,?,?)").run(process.argv[2],process.argv[3],"terminal",new Date().toISOString());db.prepare("UPDATE actions SET state = ? WHERE ref = ?").run("approved",process.argv[2])' "$KAITO_HOME/business/ledger.db" "$ref" "$digest" || exit 1
+  fixture_approve "$ref" "$digest" >/dev/null || exit 1
   node "$REPO/business/scripts/kaito-social-publish.mjs" "$ref" --digest "$digest" || exit 1
   node "$REPO/business/scripts/kaito-social-publish.mjs" "$ref" --digest "$digest" > /dev/null 2>&1; assert_eq "$?" 3 duplicate
   assert_eq "$(wc -l < "$HOME/posts" | tr -d ' ')" 1 once
@@ -42,9 +42,63 @@ test_publish_once_and_uncertain() {
   out=$(node "$REPO/business/scripts/kaito-ledger.mjs" propose --owner lumen-tea --account integration-1 --action social.linkedin.publish --text-file "$HOME/post.json" --media "$HOME/media.png" --json) || exit 1
   ref=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).ref')
   digest=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).digest')
-  node --no-warnings -e 'const {DatabaseSync}=require("node:sqlite");const db=new DatabaseSync(process.argv[1]);db.prepare("INSERT INTO approvals(ref,digest,via,at) VALUES(?,?,?,?)").run(process.argv[2],process.argv[3],"terminal",new Date().toISOString());db.prepare("UPDATE actions SET state = ? WHERE ref = ?").run("approved",process.argv[2])' "$KAITO_HOME/business/ledger.db" "$ref" "$digest" || exit 1
+  fixture_approve "$ref" "$digest" >/dev/null || exit 1
   node "$REPO/business/scripts/kaito-social-publish.mjs" "$ref" --digest "$digest" > /dev/null 2>&1; assert_eq "$?" 1 dropped
   node "$REPO/business/scripts/kaito-ledger.mjs" status "$ref" | grep -q '^state=uncertain$' || exit 1
   node "$REPO/business/scripts/kaito-social-publish.mjs" "$ref" --digest "$digest" > /dev/null 2>&1; assert_eq "$?" 3 no-retry
+  node "$REPO/business/scripts/kaito-ledger.mjs" reconcile "$ref" --failed > "$HOME/out" 2>&1
+  assert_eq "$?" 3 unresolved-dispatch
+  grep -q 'Postiz dispatch is unresolved' "$HOME/out" || exit 1
+  node "$REPO/business/scripts/kaito-ledger.mjs" reconcile "$ref" --sent --remote-id post-1 || exit 1
   assert_eq "$(wc -l < "$HOME/posts" | tr -d ' ')" 2 no-resend
+}
+
+test_postiz_endpoint_requires_remote_https() {
+  mk_home
+  POSTIZ_URL='HTTP://remote.example.invalid' node "$REPO/business/scripts/kaito-engines.mjs" pick publish-social --allow-cloud --json > "$HOME/out" 2>&1
+  assert_eq "$?" 4 'remote HTTP refused'
+  grep -q 'remote Postiz requires HTTPS' "$HOME/out" || exit 1
+}
+
+test_postiz_consent_is_bound_to_origin() {
+  mk_home
+  POSTIZ_URL='HTTPS://one.example.invalid/base' node "$REPO/business/scripts/kaito-engines.mjs" consent postiz --owner lumen-tea --grant || exit 1
+  POSTIZ_URL='https://one.example.invalid/other' node "$REPO/business/scripts/kaito-engines.mjs" pick publish-social --owner lumen-tea --allow-cloud --json > "$HOME/out" || exit 1
+  grep -q '"path":"https://one.example.invalid/other"' "$HOME/out" || exit 1
+  POSTIZ_URL='https://two.example.invalid' node "$REPO/business/scripts/kaito-engines.mjs" pick publish-social --owner lumen-tea --allow-cloud --json
+  assert_eq "$?" 3 'different origin refused'
+}
+
+test_postiz_final_dispatch_requires_active_attempt_and_deadline() {
+  mk_home
+  mkdir -p "$KAITO_HOME/owners/lumen-tea"
+  printf '%s\n' '{"id":"lumen-tea","kind":"company","channels":{"linkedin":"integration-1"}}' > "$KAITO_HOME/owners/lumen-tea/owner.json"
+  printf '%s\n' '{"content":"Fixture","settings":{"__type":"linkedin"}}' > "$HOME/post.json"
+  out=$(node "$REPO/business/scripts/kaito-ledger.mjs" propose --owner lumen-tea --account integration-1 --action social.linkedin.publish --text-file "$HOME/post.json" --json) || exit 1
+  ref=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).ref')
+  digest=$(printf '%s' "$out" | node -pe 'JSON.parse(require("fs").readFileSync(0)).digest')
+  fixture_approve "$ref" "$digest" >/dev/null || exit 1
+  node --input-type=module - "$REPO" "$ref" "$digest" <<'JS'
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const [repo, ref, digest] = process.argv.slice(2);
+const load = (file) => import(pathToFileURL(repo + '/business/' + file));
+const { claimAction, recordResult } = await load('scripts/kaito-ledger.mjs');
+const { openDb } = await load('scripts/kaito-ledger-lib.mjs');
+const { consumeDispatch, isPostizAction, recordDispatchIntent } = await load('handlers/dispatch.mjs');
+const { socialHandlers } = await load('handlers/social-publish.mjs');
+const handler = socialHandlers.get('social.linkedin.publish');
+await assert.rejects(handler.publish(ref, digest, 1), { code: 3 });
+const db = openDb();
+const { attempt } = claimAction(db, ref, digest);
+const item = consumeDispatch(ref, digest, attempt, isPostizAction);
+await assert.rejects(handler.publish(ref, digest, attempt), { code: 3 });
+const expired = AbortSignal.abort();
+assert.throws(() => recordDispatchIntent(item, () => expired.throwIfAborted()), { name: 'AbortError' });
+assert.equal(db.prepare('SELECT intent_at FROM dispatch_reservations WHERE ref = ?').get(ref).intent_at, null);
+recordResult(db, ref, attempt, 'uncertain');
+assert.throws(() => recordDispatchIntent(item, () => {}), { code: 3 });
+assert.equal(db.prepare('SELECT intent_at FROM dispatch_reservations WHERE ref = ?').get(ref).intent_at, null);
+db.close();
+JS
 }

@@ -162,11 +162,33 @@ async function probe(url) {
   try { await fetch(url, { signal: AbortSignal.timeout(1500), redirect: 'manual' }); return true; } catch { return false; }
 }
 
+function postizEndpoint(value) {
+  let url;
+  try { url = new URL(value); } catch { throw new Error('invalid Postiz URL'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new Error('invalid Postiz URL');
+  }
+  const remote = !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  if (remote && url.protocol !== 'https:') throw new Error('remote Postiz requires HTTPS');
+  return { endpoint: url.origin + url.pathname.replace(/\/+$/, ''), origin: url.origin, remote };
+}
+
+async function postizCheck(value, probePath = '') {
+  let target;
+  try { target = postizEndpoint(value); }
+  catch (error) { return { ok: false, detail: error.message }; }
+  // The handler checks remote availability on its first authenticated request after consent.
+  if (target.remote || await probe(target.endpoint + probePath)) {
+    return { ok: true, resolved: target.endpoint, ...target };
+  }
+  return { ok: false, detail: `no answer on ${target.endpoint}` };
+}
+
 // Returns {ok, resolved, version, detail}.
-async function runCheck(c) {
+async function runCheck(c, postiz) {
   if (c.any) {
     const rs = [];
-    for (const sub of c.any) { const r = await runCheck(sub); if (r.ok) return r; rs.push(r.detail); }
+    for (const sub of c.any) { const r = await runCheck(sub, postiz); if (r.ok) return r; rs.push(r.detail); }
     return { ok: false, detail: rs.join('; ') };
   }
   switch (c.type) {
@@ -208,6 +230,15 @@ async function runCheck(c) {
     }
     case 'http': {
       const urls = c.url ? [c.url] : (c.ports || []).map((p) => `http://127.0.0.1:${p}`);
+      if (postiz) {
+        const results = [];
+        for (const u of urls) {
+          const result = await postizCheck(u, c.url ? '' : c.path || '/');
+          if (result.ok) return result;
+          results.push(result.detail);
+        }
+        return { ok: false, detail: results.join('; ') };
+      }
       for (const u of urls) if (await probe(u.replace(/\/$/, '') + (c.url ? '' : c.path || '/'))) return { ok: true, resolved: redactUrl(u), remote: !isLoopback(u) };
       return { ok: false, detail: `no answer on ${urls.map((u) => redactUrl(u).replace(/^https?:\/\//, '')).join(', ')}` };
     }
@@ -270,7 +301,8 @@ function diskFreeGB() { try { const s = fs.statfsSync(os.homedir()); return s.ba
 async function evaluate(p, owner) {
   const prep = prepare(p);
   const results = [];
-  for (const c of prep.checks) results.push(await runCheck(c));
+  if (p.id === 'postiz' && prep.value) results.push(await postizCheck(prep.value));
+  else for (const c of prep.checks) results.push(await runCheck(c, p.id === 'postiz'));
   const key = prep.key ? keyStatus(prep.key, owner) : null;
   const checksOk = results.every((r) => r.ok);
   const present = checksOk && (!key || key.present);
@@ -278,6 +310,7 @@ async function evaluate(p, owner) {
   if (key && !key.present) reasons.push(`key file missing: ${key.pattern.replace('<owner>', owner || '<owner>')}`);
   const first = results.find((r) => r.ok && r.resolved);
   return {
+    endpoint: first?.endpoint, origin: first?.origin,
     id: p.id, name: p.name, kind: results.some((r) => r.remote) ? 'cloud' : p.kind, remote_url: results.some((r) => r.remote) || undefined, enabled: p.enabled !== false, heavy: !!p.heavy,
     present, resolved: key ? (owner ? key.file : key.present ? key.pattern : undefined) : first?.resolved, version: results.map((r) => r.version).find(Boolean),
     key: key ? { pattern: key.pattern, present: key.present, file: owner ? key.file || undefined : undefined, count: key.count } : undefined,
@@ -294,7 +327,10 @@ function readConsent(owner) {
   const j = readJson(consentFile(owner), 'consent.json');
   return j && j.cloud && typeof j.cloud === 'object' ? j : { version: 1, cloud: {} };
 }
-const hasConsent = (owner, id) => { const c = readConsent(owner).cloud; return Object.hasOwn(c, id) && c[id]?.granted === true; };
+const hasConsent = (owner, id, origin) => {
+  const c = readConsent(owner).cloud;
+  return Object.hasOwn(c, id) && c[id]?.granted === true && (id !== 'postiz' || (typeof origin === 'string' && c[id].origin === origin));
+};
 function writeAtomic(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
@@ -330,7 +366,7 @@ function decide(cfg, evals, cap, { owner, allowCloud, force }) {
     if (e.kind === 'cloud') {
       if (!allowCloud) { notes.push(`${id}: cloud, skipped without --allow-cloud`); continue; }
       if (!owner) { blockers.push(`${id}: cloud needs --owner <id> to check consent`); continue; }
-      if (!hasConsent(owner, id)) { blockers.push(`${id}: no cloud-upload consent for owner ${owner}. Ask the owner, then run: kaito-engines consent ${id} --owner ${owner} --grant`); continue; }
+      if (!hasConsent(owner, id, e.origin)) { blockers.push(`${id}: no cloud-upload consent for owner ${owner}. Ask the owner, then run: kaito-engines consent ${id} --owner ${owner} --grant`); continue; }
     } else if (e.heavy && !force) {
       if (mem.total < e.min_ram_gb) { blockers.push(`${id}: needs ${e.min_ram_gb} GB RAM, this machine has ${mem.total.toFixed(0)} GB. Use --force to override`); continue; }
       if (mem.avail < e.min_ram_gb) { blockers.push(`${id}: needs ${e.min_ram_gb} GB RAM, only ${mem.avail.toFixed(1)} GB free or reclaimable (it would swap). Close other heavy models or use --force`); continue; }
@@ -423,7 +459,7 @@ async function cmdPick(pos, flags) {
   if (r.pick) {
     const e = r.pick;
     if (!e.commercial) process.stderr.write(`warning: ${e.id} weights are ${e.license}, not cleared for commercial use. ${e.license_note || ''}\n`);
-    if (flags.json) process.stdout.write(JSON.stringify({ capability: cap, provider: e.id, path: e.resolved, kind: e.kind, license: e.license, commercial: e.commercial, env: e.env, version: e.version }) + '\n');
+    if (flags.json) process.stdout.write(JSON.stringify({ capability: cap, provider: e.id, path: e.resolved, endpoint: e.endpoint, kind: e.kind, license: e.license, commercial: e.commercial, env: e.env, version: e.version }) + '\n');
     else process.stdout.write(`provider=${e.id}\npath=${e.resolved}\nkind=${e.kind}\nlicense=${e.license}\ncommercial=${yn(e.commercial)}\n`);
     return 0;
   }
@@ -438,14 +474,20 @@ async function cmdConsent(pos, flags) {
   const cfg = loadConfig();
   const p = Object.hasOwn(cfg.providers, id) ? cfg.providers[id] : null;
   if (!p) throw new Usage(`unknown provider ${id}`);
-  if (p.kind !== 'cloud') throw new Usage(`${id} is local; consent applies to cloud providers only`);
+  if (p.kind !== 'cloud' && id !== 'postiz') throw new Usage(`${id} is local; consent applies to cloud providers only`);
+  let origin;
+  if (id === 'postiz' && !flags.revoke) {
+    const endpoint = await evaluate(p, flags.owner);
+    if (endpoint.kind !== 'cloud' || !endpoint.origin) throw new Usage('configure a remote Postiz HTTPS URL before managing its consent');
+    origin = endpoint.origin;
+  }
   const file = consentFile(flags.owner);
   if (flags.grant && flags.revoke) throw new Usage('choose --grant or --revoke');
   const unlock = (flags.grant || flags.revoke) ? await lock(file + '.lock') : () => {};
   try {
   const c = readConsent(flags.owner);
   if (flags.grant) {
-    c.cloud[id] = { granted: true, at: new Date().toISOString() };
+    c.cloud[id] = { granted: true, at: new Date().toISOString(), ...(origin && { origin }) };
     writeAtomic(file, c);
     process.stdout.write(`granted: ${id} for ${flags.owner}\n`);
   } else if (flags.revoke) {
@@ -453,7 +495,7 @@ async function cmdConsent(pos, flags) {
     writeAtomic(file, c);
     process.stdout.write(`revoked: ${id} for ${flags.owner}\n`);
   } else {
-    process.stdout.write(`${id} for ${flags.owner}: ${hasConsent(flags.owner, id) ? 'granted' : 'not granted'}\n`);
+    process.stdout.write(`${id} for ${flags.owner}: ${hasConsent(flags.owner, id, origin) ? 'granted' : 'not granted'}\n`);
   }
   } finally { unlock(); }
   return 0;

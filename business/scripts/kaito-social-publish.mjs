@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 import { socialHandlers } from '../handlers/social-publish.mjs';
-import { publish } from '../handlers/contract.mjs';
-import { claimedItem } from '../handlers/registry.mjs';
 import { claimAction, recordResult } from './kaito-ledger.mjs';
 import { EXIT, fail, getAction, isSha, openDb, run } from './kaito-ledger-lib.mjs';
 
@@ -14,9 +12,7 @@ await run(async ([ref, flag, digest, ...rest]) => {
     const handler = socialHandlers.get(getAction(db, ref).action);
     if (!handler) fail(EXIT.usage, 'not a social publish action');
     const claim = claimAction(db, ref, digest);
-    let item;
-    try { item = claimedItem(claim); } catch { /* artifacts became unreadable */ }
-    const out = item ? await publish(handler, item) : { result: 'failed' };
+    const out = await handler.publish(ref, digest, claim.attempt);
     recordResult(db, ref, claim.attempt, out.result, out.remoteId, out.note);
     if (out.result !== 'ok') fail(EXIT.error, out.note ?? `Postiz ${out.result}`);
     console.log(JSON.stringify({ ref, result: out.result, remote_id: out.remoteId }));

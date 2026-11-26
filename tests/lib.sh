@@ -22,6 +22,11 @@ mk_home() {
   KAITO_TRELLO_API=http://127.0.0.1:1; export KAITO_TRELLO_API  # fail closed: no test may reach real Trello
   KAITO_PLANE_API=http://127.0.0.1:1; export KAITO_PLANE_API    # nor real Plane
   KAITO_LINEAR_API=http://127.0.0.1:1; export KAITO_LINEAR_API  # nor real Linear
+  OLLAMA_HOST=http://127.0.0.1:1; export OLLAMA_HOST          # nor real Ollama
+}
+
+fixture_approve() {
+  KAITO_TEST_APPROVAL=1 node "$REPO/business/scripts/kaito-approve.mjs" "$1" --digest "$2"
 }
 
 assert_eq() { [ "$1" = "$2" ] || { echo "  not equal: '$1' vs '$2' ($3)"; exit 1; }; }

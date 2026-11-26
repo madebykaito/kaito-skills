@@ -14,7 +14,7 @@ fixture() {
   digest=$(printf '%s\n' "$out" | sed -n 's/^digest=//p')
 }
 approve_fixture() {
-  node "$TESTS_DIR/fixtures/scheduler-approval.mjs" "$REPO" "$ref" "$digest" || exit 1
+  fixture_approve "$ref" "$digest" >/dev/null || exit 1
 }
 
 test_due_once_and_prepare() {

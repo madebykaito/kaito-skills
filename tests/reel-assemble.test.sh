@@ -19,3 +19,47 @@ test_assemble_fixture() {
   python3 "$REPO/reel-assemble/scripts/reel-assemble.py" --shots "$HOME/shot.mp4" --parts "$HOME/parts.json" --captions "$HOME/captions.json" --bed "$HOME/bed.wav" --out "$HOME/out.mp4" || return 1
   python3 "$REPO/reel-assemble/scripts/media-spec.py" check "$HOME/out.mp4" --target ig-reels
 }
+
+test_manifest_media_must_be_local_regular_files() {
+  mk_home
+  mkdir -p "$HOME/job/not-a-file"
+  : > "$HOME/job/voice.wav"
+  cat > "$HOME/fake-ffmpeg" <<'SH'
+#!/bin/sh
+: > "$HOME/ffmpeg-ran"
+SH
+  chmod +x "$HOME/fake-ffmpeg"
+  export FFMPEG_BIN="$HOME/fake-ffmpeg"
+  assemble() {
+    python3 "$REPO/reel-assemble/scripts/reel-assemble.py" --shots shot.mp4 --parts "$HOME/job/parts.json" \
+      --captions "$HOME/job/captions.json" --bed bed.wav --out "$HOME/out.mp4" > "$HOME/stdout" 2> "$HOME/error"
+  }
+  printf '{"y":1380,"captions":[]}' > "$HOME/job/captions.json"
+  for voice in "$HOME/job/voice.wav" '../missing.wav' 'not-a-file'; do
+    printf '{"voice":"%s","duration":4}' "$voice" > "$HOME/job/parts.json"
+    assemble; rc=$?
+    assert_eq "$rc" 1 voice
+    grep -q 'manifest media must be a relative regular file inside its directory' "$HOME/error" || exit 1
+    assert_no "$HOME/ffmpeg-ran"
+  done
+  printf '{"voice":"voice.wav","duration":4}' > "$HOME/job/parts.json"
+  printf '{"y":1380,"captions":[{"start":0,"end":1,"file":"not-a-file"}]}' > "$HOME/job/captions.json"
+  assemble; rc=$?
+  assert_eq "$rc" 1 caption
+  grep -q 'manifest media must be a relative regular file inside its directory' "$HOME/error" || exit 1
+  assert_no "$HOME/ffmpeg-ran"
+  if ! skip_on_win "symlinks"; then
+    : > "$HOME/placeholder.png"
+    ln -s "$HOME/placeholder.png" "$HOME/job/caption.png" || exit 1
+    printf '{"y":1380,"captions":[{"start":0,"end":1,"file":"caption.png"}]}' > "$HOME/job/captions.json"
+    assemble; rc=$?
+    assert_eq "$rc" 1 caption-symlink
+    grep -q 'manifest media must be a relative regular file inside its directory' "$HOME/error" || exit 1
+    assert_no "$HOME/ffmpeg-ran"
+    rm "$HOME/job/caption.png"
+  fi
+  : > "$HOME/job/caption.png"
+  printf '{"y":1380,"captions":[{"start":0,"end":1,"file":"caption.png"}]}' > "$HOME/job/captions.json"
+  assemble || exit 1
+  assert_file "$HOME/ffmpeg-ran"
+}

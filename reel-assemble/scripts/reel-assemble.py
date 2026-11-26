@@ -7,11 +7,26 @@ def run(cmd):
     if p.returncode: raise RuntimeError(p.stderr[-2000:])
     return p.stdout
 
+def manifest_media(manifest_path, value):
+    error = 'manifest media must be a relative regular file inside its directory'
+    if not isinstance(value, str):
+        raise ValueError(error)
+    path = pathlib.Path(value)
+    if path.anchor or '..' in path.parts:
+        raise ValueError(error)
+    root = manifest_path.parent
+    path = (root / path).resolve()
+    if root not in path.parents or not path.is_file():
+        raise ValueError(error)
+    return str(path)
+
 def main():
     p = argparse.ArgumentParser(); p.add_argument('--shots', nargs='+', required=True); p.add_argument('--parts', required=True); p.add_argument('--captions', required=True); p.add_argument('--bed', required=True); p.add_argument('--out', required=True); p.add_argument('--fade', type=float, default=.5); a = p.parse_args()
     try:
-        parts_path = pathlib.Path(a.parts).resolve(); parts = json.loads(parts_path.read_text()); voice = parts_path.parent / parts['voice']; duration = float(parts['duration'])
+        parts_path = pathlib.Path(a.parts).resolve(); parts = json.loads(parts_path.read_text()); duration = float(parts['duration'])
+        voice = manifest_media(parts_path, parts['voice'])
         captions_path = pathlib.Path(a.captions).resolve(); captions = json.loads(captions_path.read_text()); entries = captions['captions']
+        images = [manifest_media(captions_path, c['file']) for c in entries]
         if duration <= 0 or a.fade < 0: raise ValueError('duration must be positive and fade nonnegative')
         # Equal shot spans; extend each by the overlap so the finished timeline is voice length.
         span = duration / len(a.shots); fade = min(a.fade, span / 2)
@@ -20,8 +35,8 @@ def main():
             if pathlib.Path(shot).suffix.lower() in ('.png','.jpg','.jpeg','.webp'): cmd += ['-loop','1','-framerate','25']
             else: cmd += ['-stream_loop','-1']
             cmd += ['-i', shot]
-        vi = len(a.shots); cmd += ['-i', str(voice), '-stream_loop','-1','-i',a.bed]
-        for c in entries: cmd += ['-loop','1','-i',str(captions_path.parent / c['file'])]
+        vi = len(a.shots); cmd += ['-i', voice, '-stream_loop','-1','-i',a.bed]
+        for image in images: cmd += ['-loop','1','-i',image]
         filters = []
         for i in range(len(a.shots)):
             length = span + (fade if i < len(a.shots)-1 else 0)

@@ -127,7 +127,9 @@ const due = Date.now() + 120_000;
 const { stdout } = await cli('ledger', 'propose', '--owner', owner.id, '--account', owner.channels.instagram,
   '--action', 'noop-test', '--text-file', caption, '--due', new Date(due).toISOString().replace(/\.\d+Z$/, 'Z'), '--json');
 const proposed = JSON.parse(stdout);
-await promisify(execFile)(process.execPath, [path.join(repo, 'tests/fixtures/scheduler-approval.mjs'), repo, proposed.ref, proposed.digest]);
+await promisify(execFile)(process.execPath, [
+  path.join(repo, 'business/scripts/kaito-approve.mjs'), proposed.ref, '--digest', proposed.digest,
+], { env: { ...process.env, KAITO_TEST_APPROVAL: '1' } });
 const keyFile = path.join(home, 'worker.key');
 fs.writeFileSync(keyFile, secret, { mode: 0o600 });
 const server = createServer(async (req, res) => {

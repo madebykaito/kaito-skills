@@ -118,6 +118,17 @@ test_purge_needs_yes() {
   assert_file "$KAITO_HOME/trash/notadate"
 }
 
+test_purge_requires_real_trash_directory() {
+  need_py || return 0
+  skip_on_win "symlinks" && return 0
+  mk_home
+  mkdir -p "$KAITO_HOME" "$HOME/empty"
+  ln -s "$HOME/empty" "$KAITO_HOME/trash" || exit 1
+  out=$(python3 "$MC" purge --older-than 30d --yes 2>&1); rc=$?
+  assert_eq "$rc" 3 rc
+  printf '%s\n' "$out" | grep -q 'trash must both be real directories'
+}
+
 test_worktrees_only_clean_merged_removed() {
   need_py || return 0
   mk_home

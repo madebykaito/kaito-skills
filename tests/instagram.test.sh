@@ -53,7 +53,7 @@ proposal() {
 }
 approve_fixture() {
   # This mirrors the isolated, synthetic host approval in ledger.test.sh.
-  AI_AGENT=1 node "$B/kaito-approve.mjs" "$REF" --digest "$DIG" > "$HOME/approval" || exit 1
+  fixture_approve "$REF" "$DIG" > "$HOME/approval" || exit 1
 }
 state() { ledger status "$REF" --json | jget state; }
 remote() { ledger status "$REF" --json | jget remote_id; }
@@ -185,6 +185,7 @@ test_reel_scheduled_prepare_does_not_publish() {
   approve_fixture
   node "$TESTS_DIR/fixtures/instagram/scheduler.mjs" "$REPO" "$REF" prepare || exit 1
   assert_eq "$(publishes)" 1 used-prepared-container
+  grep -q '"creation_id":"202"' "$HOME/requests" || exit 1
   assert_eq "$(awk '/"method":"POST","path":"\/v27.0\/111\/media"/{n++} END{print n+0}' "$HOME/requests")" 2 one-container-per-ref
   assert_eq "$(state)" sent scheduled-reel
 }

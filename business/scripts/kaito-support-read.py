@@ -1,10 +1,14 @@
 """Read an inbox without setting flags or modifying the source mailbox."""
+import errno
 import hashlib
 import imaplib
 import json
 import mailbox
+import os
 import ssl
+import stat
 import sys
+from contextlib import ExitStack
 from email import policy
 from email.parser import BytesParser
 from email.utils import parsedate_to_datetime
@@ -14,14 +18,34 @@ MAX_BYTES = 5 * 1024 * 1024
 
 
 def maildir(path, limit):
-    root = Path(path)
-    if not all((root / part).is_dir() for part in ("cur", "new")):
-        raise ValueError("invalid Maildir")
-    files = [file for part in ("cur", "new") for file in (root / part).iterdir()
-             if not file.name.startswith(".") and file.is_file() and not file.is_symlink()]
-    for file in sorted(files, key=lambda f: (f.stat().st_mtime_ns, f.name), reverse=True)[:limit]:
-        with file.open("rb") as stream:
-            yield stream.read(MAX_BYTES + 1)
+    directory = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    with ExitStack() as stack:
+        root = os.open(Path(path), directory)
+        stack.callback(os.close, root)
+        files = []
+        for part in ("cur", "new"):
+            folder = os.open(part, directory, dir_fd=root)
+            stack.callback(os.close, folder)
+            for name in os.listdir(folder):
+                if name.startswith("."):
+                    continue
+                try:
+                    entry = os.stat(name, dir_fd=folder, follow_symlinks=False)
+                except FileNotFoundError:
+                    continue
+                if stat.S_ISREG(entry.st_mode):
+                    files.append((entry.st_mtime_ns, name, folder, entry))
+        for _, name, folder, entry in sorted(files, key=lambda item: item[:2], reverse=True)[:limit]:
+            try:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
+            except OSError as e:
+                if e.errno not in (errno.ENOENT, errno.ELOOP):
+                    raise
+                continue
+            with os.fdopen(fd, "rb") as stream:
+                current = os.fstat(stream.fileno())
+                if stat.S_ISREG(current.st_mode) and os.path.samestat(entry, current):
+                    yield stream.read(MAX_BYTES + 1)
 
 
 def mbox(path, limit):

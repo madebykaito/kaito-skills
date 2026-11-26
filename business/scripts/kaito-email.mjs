@@ -7,8 +7,8 @@ import {
 } from './kaito-ledger-lib.mjs';
 import { EMAIL_ACTION, isAddress, parseEmail } from './kaito-email-policy.mjs';
 import { businessCommand, resolveMailOwner } from './kaito-mail-runtime.mjs';
-import { emailHandler, prepareEmail } from '../handlers/email-send.mjs';
-import { publish } from '../handlers/contract.mjs';
+import { checkEmailConfig, emailHandler } from '../handlers/email-send.mjs';
+import { claimAction, recordResult } from './kaito-ledger.mjs';
 
 const USAGE = `usage: kaito-email.mjs [draft|propose] [--owner id] --to address --subject text --body-file file
   [--engine smtp|ses|listmonk] [--attach file ...] [--unsubscribe https://...|mailto:...] [--one-click]
@@ -54,22 +54,22 @@ async function send(args, owner) {
   if (args._.length !== 2 || !isSha(args.digest)) fail(EXIT.usage, 'send needs a ref and full --digest');
   const ref = args._[1];
   const db = openDb();
-  let row;
-  try { row = getAction(db, ref); } finally { db.close(); }
-  if (row.owner !== owner || row.action !== EMAIL_ACTION) fail(EXIT.human, 'ref is outside this owner’s email actions');
-  if (row.state !== 'approved' || row.digest !== args.digest) {
-    fail(EXIT.human, 'send needs an approved ref and its matching digest');
-  }
-  const media = JSON.parse(row.media_json).map(readVerified);
-  const item = { ...row, text: readVerified(row.text_sha256), media, idempotency_key: row.op_key };
-  prepareEmail(item, !!args['allow-cloud']);
-  const claim = JSON.parse(businessCommand('ledger', ['claim', ref, '--digest', args.digest, '--json']));
-  const out = await publish(emailHandler, { ...item, attempt: claim.attempt }, { allowCloud: !!args['allow-cloud'] });
-  process.stdout.write(businessCommand('ledger', ['record', ref, '--attempt', String(claim.attempt),
-    '--result', out.result, ...(out.note ? ['--note', out.note] : []),
-    ...(out.remoteId ? ['--remote-id', out.remoteId] : [])]));
-  if (out.result === 'failed') fail(EXIT.error, 'email was refused or its configuration is invalid');
-  if (out.result === 'uncertain') fail(EXIT.human, 'delivery is uncertain; check the provider and reconcile this ref before retrying');
+  try {
+    const row = getAction(db, ref);
+    if (row.owner !== owner || row.action !== EMAIL_ACTION) fail(EXIT.human, 'ref is outside this owner’s email actions');
+    const allowCloud = !!args['allow-cloud'];
+    const claim = claimAction(db, ref, args.digest, {
+      allowCloud,
+      // A missing engine or consent leaves the action approved so it can be configured.
+      onClaim: () => checkEmailConfig({
+        ...row, text: readVerified(row.text_sha256), media: JSON.parse(row.media_json),
+      }, allowCloud),
+    });
+    const out = await emailHandler.publish(ref, args.digest, claim.attempt);
+    printKv({ ref, state: recordResult(db, ref, claim.attempt, out.result, out.remoteId, out.note) });
+    if (out.result === 'failed') fail(EXIT.error, 'email was refused or its configuration is invalid');
+    if (out.result === 'uncertain') fail(EXIT.human, 'delivery is uncertain; check the provider and reconcile this ref before retrying');
+  } finally { db.close(); }
 }
 
 function doNotContact(args, owner) {

@@ -32,6 +32,8 @@ What it will not do:
 
 `python3 media_cleanup.py purge --older-than 30d` lists the trash days older than 30 days and deletes nothing. Purge is the only step that deletes for good. Ask the user in chat first, name the days and the total size, and re-run with `--yes` only after a clear yes.
 
+Deletion requires Python 3.11 or newer on a system that supports directory-relative deletion. The trash folder must be a real directory under `KAITO_HOME`.
+
 ## Worktrees
 
 `python3 media_cleanup.py worktrees <repo>` lists the git worktrees of a repo with size, branch, whether each is clean and whether its branch is merged into `origin/main` (or `main`). Lists only by default.

@@ -10,11 +10,13 @@ Python 3 standard library only.
 """
 import argparse
 import datetime
+import errno
 import fnmatch
 import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -259,31 +261,65 @@ def cmd_purge(a):
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 2
-    root = os.path.join(kaito_home(), "trash")
     today = datetime.date.fromisoformat(a.today) if a.today else datetime.date.today()
     cutoff = today - datetime.timedelta(days=days)
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    try:
+        home_fd = os.open(kaito_home(), flags)
+        try:
+            trash_fd = os.open("trash", flags, dir_fd=home_fd)
+        finally:
+            os.close(home_fd)
+    except FileNotFoundError:
+        print("summary: 0 trash days older than %dd (0 B)" % days)
+        return 0
+    except OSError as e:
+        if e.errno not in (errno.ELOOP, errno.ENOTDIR):
+            raise
+        print("refused: KAITO_HOME and trash must both be real directories", file=sys.stderr)
+        return 3
+    try:
+        return purge_days(trash_fd, cutoff, days, a.yes)
+    finally:
+        os.close(trash_fd)
+
+
+def purge_days(trash_fd, cutoff, days, confirmed):
     old = []
-    if os.path.isdir(root):
-        for name in sorted(os.listdir(root)):
-            full = os.path.join(root, name)
-            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", name) or os.path.islink(full) or not os.path.isdir(full):
+    for name in sorted(os.listdir(trash_fd)):
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", name):
+            continue
+        try:
+            if datetime.date.fromisoformat(name) >= cutoff:
                 continue
-            try:
-                d = datetime.date.fromisoformat(name)
-            except ValueError:
-                continue
-            if d < cutoff:
-                old.append((name, full, dir_size(full)))
+            entry = os.stat(name, dir_fd=trash_fd, follow_symlinks=False)
+        except (ValueError, FileNotFoundError):
+            continue
+        if not stat.S_ISDIR(entry.st_mode):
+            continue
+        size = 0
+        for _, _, files, day_fd in os.fwalk(name, dir_fd=trash_fd, follow_symlinks=False):
+            for filename in files:
+                try:
+                    size += os.stat(filename, dir_fd=day_fd, follow_symlinks=False).st_size
+                except OSError:
+                    pass
+        old.append((name, entry, size))
     for name, _, size in old:
         print("%s  %s" % (name, human(size)))
     print("summary: %d trash days older than %dd (%s)" % (len(old), days, human(sum(s for _, _, s in old))))
     if not old:
         return 0
-    if not a.yes:
+    if not confirmed:
         print("refused: purge deletes for good. Confirm with the user in chat, then re-run with --yes.", file=sys.stderr)
         return 3
-    for name, full, _ in old:
-        shutil.rmtree(full)
+    if not shutil.rmtree.avoids_symlink_attacks:
+        raise RuntimeError("safe trash purge is unavailable on this platform")
+    for name, entry, _ in old:
+        current = os.stat(name, dir_fd=trash_fd, follow_symlinks=False)
+        if not os.path.samestat(entry, current) or not stat.S_ISDIR(current.st_mode):
+            raise RuntimeError("trash day changed during purge")
+        shutil.rmtree(name, dir_fd=trash_fd)
         print("purged %s" % name)
     return 0
 

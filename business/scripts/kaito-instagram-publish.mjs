@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-  canonicalText, EXIT, fail, isSha, only, openDb, parseArgs, printKv, readVerified, run, sha256,
+  canonicalText, EXIT, fail, isSha, only, openDb, parseArgs, printKv, run, sha256,
 } from './kaito-ledger-lib.mjs';
 import { instagramGraph, instagramOwner, isId, ledger } from './kaito-instagram-graph.mjs';
 import { mediaType } from './kaito-instagram-media.mjs';
@@ -69,18 +69,7 @@ async function publish(ref, digest) {
   const handler = instagramPublishHandlers.get(row.action);
   if (!handler) fail(EXIT.usage, 'This ledger ref is not an Instagram publish action');
   const claim = ledger(['claim', ref, '--digest', digest], true);
-  let out, item;
-  try {
-    item = { ...claim, text: claim.text_sha256 ? readVerified(claim.text_sha256) : null, media: claim.media_sha256.map(readVerified) };
-  } catch {
-    out = { result: 'failed', note: 'Instagram approved artifacts could not be verified before upload' };
-  }
-  try {
-    if (item) out = await handler.publish(item);
-  } catch {
-    // No handler response can be distinguished from an interrupted send.
-    out = { result: 'uncertain', note: 'Instagram send stopped before recording a result' };
-  }
+  const out = await handler.publish(ref, digest, claim.attempt);
   process.stdout.write(ledger(['record', ref, '--attempt', String(claim.attempt), '--result', out.result,
     ...(out.remoteId ? ['--remote-id', out.remoteId] : []), ...(out.note ? ['--note', out.note] : [])]));
   if (out.result === 'ok') printKv({ remote_id: out.remoteId });

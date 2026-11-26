@@ -34,9 +34,9 @@ export function readMailKey(record, engine) {
   }
 }
 
-export function runMailPython(script, input, timeout) {
-  return spawnSync('python3', ['-I', path.join(here, script)], {
-    input: JSON.stringify(input), encoding: 'utf8', timeout, maxBuffer: 32 * 1024 * 1024,
+export function readSupportInbox(input) {
+  return spawnSync('python3', ['-I', path.join(here, 'kaito-support-read.py')], {
+    input: JSON.stringify(input), encoding: 'utf8', timeout: 60_000, maxBuffer: 32 * 1024 * 1024,
     stdio: ['pipe', 'pipe', 'ignore'],
   });
 }

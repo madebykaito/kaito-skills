@@ -15,7 +15,7 @@ export function ollamaBase(raw = process.env.OLLAMA_HOST) {
   let h = String(raw || '').trim() || 'http://127.0.0.1:11434';
   if (!/^https?:\/\//i.test(h)) h = `http://${h}`;
   let u;
-  try { u = new URL(h); } catch { throw new Error(`OLLAMA_HOST "${h}" is not a valid address`); }
+  try { u = new URL(h); } catch { throw new Error('OLLAMA_HOST is not a valid address'); }
   if (u.hostname === '0.0.0.0' || u.hostname === '[::]') u.hostname = '127.0.0.1';
   if (!u.port && !/^https:/i.test(h) && !/:80(\/|$)/.test(h.replace(/^https?:\/\//i, ''))) u.port = '11434';
   return u.origin + u.pathname.replace(/\/+$/, '');  // a reverse proxy may serve it under a path

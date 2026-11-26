@@ -13,7 +13,7 @@ Set `ig_user_id` to the app's Instagram account ID as a string and `access_token
 
 Meta fetches the media over public HTTPS. The publisher first reads the hosted bytes and checks the approved SHA-256. Choose an upload method in the private key file. Keep the token and any signed URLs there.
 
-**Presigned PUT.** Use an S3-compatible bucket or Cloudflare R2. Map each media SHA-256 from the approval card to a signed PUT URL and a public or signed GET URL for the same object. Include the Reel cover if used. Use distinct, content-addressed object keys and keep the URLs valid through the scheduled upload and container processing. Sign with `image/jpeg` or `video/mp4` if your signer requires Content-Type. Delete the objects later with your bucket lifecycle policy.
+**Presigned PUT.** Use an S3-compatible bucket with versioning enabled. Map each media SHA-256 from the approval card to a signed PUT URL and a public read URL without a query for the same object. Include the Reel cover if used. The publisher appends the version from the PUT response, then verifies that the versioned GET returns the same version and approved bytes. The read endpoint must serve that exact `versionId` and return `x-amz-version-id`. Give public read access only to the staging prefix. Keep its versions available through container processing, then expire them with your bucket lifecycle policy. Sign with `image/jpeg` or `video/mp4` if your signer requires Content-Type. Use the local tunnel if your host lacks object versioning or needs a signed GET URL.
 
 ```json
 {
@@ -24,7 +24,7 @@ Meta fetches the media over public HTTPS. The publisher first reads the hosted b
     "objects": {
       "<media-sha256>": {
         "put_url": "https://bucket.example/asset.mp4?<put-signature>",
-        "read_url": "https://bucket.example/asset.mp4?<optional-get-signature>"
+        "read_url": "https://bucket.example/asset.mp4"
       }
     }
   }
@@ -65,4 +65,4 @@ Set `REF` and `DIGEST` from the proposal output. The approval command above is f
 
 ## Scheduler wiring
 
-The Mac scheduler owns the due-time claim and result record. In its Node registry, import `instagramPublishHandlers` from `./instagram-publish.mjs` and use `new Map([...cloudHandlers, ...instagramPublishHandlers])`. The Reel handler prepares up to 20 minutes early. The publish handler accepts the optional prepared container and checks that it belongs to the configured account before use. The Instagram handlers are Mac-only because they use the owner's local credentials, verified artifacts and ffprobe.
+The Mac scheduler owns the due-time claim and result record. In its Node registry, import `instagramPublishHandlers` from `./instagram-publish.mjs` and use `new Map([...cloudHandlers, ...instagramPublishHandlers])`. The Reel handler prepares up to 20 minutes early. Preparation records the container in the ledger with the ref, digest and account. The publisher looks up that binding when it uses the claim. The Instagram handlers are Mac-only because they use the owner's local credentials, verified artifacts and ffprobe.

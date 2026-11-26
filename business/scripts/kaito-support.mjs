@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, fail, run, parseArgs, only, openDb, tx, isoUtc, sha256 } from './kaito-ledger-lib.mjs';
 import { isAddress, isMessageId } from './kaito-email-policy.mjs';
-import { resolveMailOwner, readMailKey, runMailPython } from './kaito-mail-runtime.mjs';
+import { resolveMailOwner, readMailKey, readSupportInbox } from './kaito-mail-runtime.mjs';
 
 const USAGE = 'usage: kaito-support.mjs [triage] [--owner id] (--maildir path | --mbox path | --imap) [--limit 50] [--no-queue]';
 const CASES = [
@@ -96,7 +96,7 @@ await run((argv) => {
   const [source] = sources;
   const config = source === 'imap' ? readMailKey(record, 'imap') : undefined;
   if (source !== 'imap' && !fs.existsSync(args[source])) fail(EXIT.notFound, 'mail export does not exist');
-  const response = runMailPython('kaito-support-read.py', { source, path: args[source], config, limit: Number(limit) }, 60_000);
+  const response = readSupportInbox({ source, path: args[source], config, limit: Number(limit) });
   if (response.status !== 0) fail(EXIT.error, `could not read ${source} inbox (check configuration and Python 3)`);
   const sorted = JSON.parse(response.stdout).map((message) => triage(message, faq)).sort((a, b) =>
     Number(b.urgency === 'high') - Number(a.urgency === 'high')

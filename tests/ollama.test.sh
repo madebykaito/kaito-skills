@@ -26,7 +26,6 @@ test_resolve_maps_pulled_models_to_tiers() {
 
 test_resolve_reports_none_without_a_server_or_a_model() {
   mk_home
-  OLLAMA_HOST=http://127.0.0.1:1; export OLLAMA_HOST
   out=$(node "$M" resolve ollama light); case "$out" in "host: Ollama is not running at http://127.0.0.1:1;"*) ;; *) echo "  down: $out"; exit 1;; esac
   STUB_EMPTY=1; export STUB_EMPTY; stub; unset STUB_EMPTY
   out=$(node "$M" resolve ollama light); assert_eq "$out" "host: no Ollama model is pulled; use the host's model" empty
@@ -53,6 +52,19 @@ test_models_available_lists_ollama_without_the_cli() {
   case "$out" in *embed*|*cloud*) echo "  embedding or cloud model listed"; exit 1;; esac
 }
 
+test_model_listing_ignores_inherited_ollama_host() {
+  mk_home; stub
+  out=$(node "$M" list) || exit 1
+  printf '%s\n' "$out" | grep -qx "MODELS ollama" || exit 1
+  mk_home
+  assert_eq "$(node -p 'process.env.OLLAMA_HOST')" 'http://127.0.0.1:1' "fixture isolates Ollama"
+  out=$(node "$M" list) || exit 1
+  if printf '%s\n' "$out" | grep -qx "MODELS ollama"; then
+    echo "  model listing reached the inherited fixture"
+    exit 1
+  fi
+}
+
 test_consent_is_ok_for_local_ollama() {
   mk_home
   assert_eq "$(node "$U" consent check ollama llama3.2:1b)" ok local
@@ -74,10 +86,27 @@ test_run_returns_the_text() {
 }
 
 test_run_without_a_server_says_how_to_fix_it() {
-  mk_home; OLLAMA_HOST=http://127.0.0.1:1; export OLLAMA_HOST
+  mk_home
   rc=0; out=$(printf 'x' | node "$O" run llama3.2:1b 2>&1) || rc=$?
   assert_eq "$rc" 1 "no server"
   case "$out" in *"cannot reach Ollama at http://127.0.0.1:1"*"OLLAMA_HOST"*) ;; *) echo "  $out"; exit 1;; esac
+}
+
+test_invalid_host_is_omitted_from_cli_and_bulk_errors() {
+  mk_home
+  bad_host='http://127.0.0.1:invalid-port'
+  rc=0; out=$(OLLAMA_HOST="$bad_host" node "$O" tags 2>&1) || rc=$?
+  assert_eq "$rc" 1 "invalid address"
+  case "$out" in *invalid-port*) echo "  CLI echoed the invalid host"; exit 1;; esac
+  assert_eq "$out" 'OLLAMA_HOST is not a valid address' "CLI validation error"
+  printf '%s\n' '"fixture prompt"' > "$HOME/in.jsonl"
+  rc=0; OLLAMA_HOST="$bad_host" node "$O" bulk llama3.2:1b "$HOME/in.jsonl" --out "$HOME/out.jsonl" 2>"$HOME/err" || rc=$?
+  assert_eq "$rc" 1 "invalid bulk address"
+  if grep -q 'invalid-port' "$HOME/err" "$HOME/out.jsonl"; then
+    echo "  bulk echoed the invalid host"
+    exit 1
+  fi
+  assert_eq "$(cat "$HOME/out.jsonl")" '{"i":0,"error":"OLLAMA_HOST is not a valid address"}' "bulk validation error"
 }
 
 test_bulk_keeps_order_and_limits_concurrency() {
@@ -117,7 +146,7 @@ test_bulk_translates_and_reports_bad_lines() {
 
 test_host_forms() {
   mk_home
-  out=$(node --input-type=module -e 'const { ollamaBase } = await import((await import("node:url")).pathToFileURL(process.argv[2]).href);
+  out=$(unset OLLAMA_HOST; node --input-type=module -e 'const { ollamaBase } = await import((await import("node:url")).pathToFileURL(process.argv[2]).href);
     console.log([undefined, "", "localhost", "0.0.0.0:11500", "http://10.0.0.5:9", "https://ollama.example", "http://h:1/proxy/", "http://h:80"].map((h) => ollamaBase(h)).join(" "))' import "$O")
   assert_eq "$out" "http://127.0.0.1:11434 http://127.0.0.1:11434 http://localhost:11434 http://127.0.0.1:11500 http://10.0.0.5:9 https://ollama.example http://h:1/proxy http://h" hosts
 }

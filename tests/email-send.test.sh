@@ -28,16 +28,7 @@ proposal() {
   DIG=$(printf '%s\n' "$out" | sed -n 's/^digest=//p')
   [ -n "$REF" ] && [ ${#DIG} = 64 ] || exit 1
 }
-approve_fixture() {
-  # Seed the synthetic founder approval only in the isolated test database.
-  node --input-type=module - "$KAITO_HOME/business/ledger.db" "$REF" "$DIG" <<'JS'
-import { DatabaseSync } from 'node:sqlite';
-const [file, ref, digest] = process.argv.slice(2);
-const db = new DatabaseSync(file);
-db.prepare("INSERT INTO approvals (ref,digest,via,at) VALUES (?,?,'terminal',?)").run(ref,digest,new Date().toISOString());
-db.prepare("UPDATE actions SET state='approved' WHERE ref=?").run(ref);
-JS
-}
+approve_fixture() { fixture_approve "$REF" "$DIG" >/dev/null; }
 start_sink() {
   python3 "$TESTS_DIR/fixtures/mail-sink.py" "$1" "$HOME" &
   sink_pid=$!
@@ -141,4 +132,31 @@ test_scheduler_sends_due_email_once() {
   assert_eq "$(cat "$HOME/tick")" "" second-tick
   assert_eq "$(cat "$HOME/delivered")" smtp once
   assert_eq "$(state)" sent recorded
+}
+
+test_email_dispatch_requires_unused_claim_and_checks_dnc() {
+  mk_home; owner; start_sink smtp
+  proposal smtp; approve_fixture || exit 1
+  dispatch() {
+    node --input-type=module - "$REPO" "$REF" "$DIG" <<'JS'
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const [repo, ref, digest] = process.argv.slice(2);
+const { emailHandler } = await import(pathToFileURL(repo + '/business/handlers/email-send.mjs'));
+const runtime = await import(pathToFileURL(repo + '/business/scripts/kaito-mail-runtime.mjs'));
+assert.equal(runtime.runMailPython, undefined);
+try { console.log((await emailHandler.publish(ref, digest, 1)).result); }
+catch (error) { process.exitCode = error.code === 3 ? 3 : 1; }
+JS
+  }
+  expect 3 dispatch
+  L claim "$REF" --digest "$DIG" || exit 1
+  E dnc add guest@example.test --owner lumen-tea >/dev/null || exit 1
+  expect 3 dispatch
+  assert_no "$HOME/delivered"
+  E dnc remove guest@example.test --owner lumen-tea >/dev/null || exit 1
+  expect 0 dispatch
+  assert_eq "$(cat "$HOME/result")" ok handler-result
+  expect 3 dispatch
+  assert_eq "$(cat "$HOME/delivered")" smtp sent-once
 }

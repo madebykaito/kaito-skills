@@ -31,10 +31,9 @@ expect() {
 sql() {
   node --no-warnings -e 'const d=new (require("node:sqlite").DatabaseSync)(process.argv[1]);d.exec("PRAGMA foreign_keys=ON");console.log(d.prepare(process.argv[2]).all().map(Object.values).join("\n"))' "$KAITO_HOME/business/ledger.db" "$1"
 }
-# An isolated fixture supplies the approval row. This never calls a human approval path.
 fixture_yes() {
-  sql "INSERT INTO approvals (ref,digest,at,via) SELECT ref,digest,updated_at,'terminal' FROM actions WHERE ref='$1'" >/dev/null &&
-  sql "UPDATE actions SET state='approved', approved_at=updated_at, approved_via='terminal' WHERE ref='$1'" >/dev/null
+  digest=$(sql "SELECT digest FROM actions WHERE ref='$1'") || return
+  fixture_approve "$1" "$digest" >/dev/null
 }
 issue() { M issue "$1" --owner "$2" --ref "$3" --digest "$4"; }
 test_gst_and_decimal_rounding() {
