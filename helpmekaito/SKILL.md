@@ -16,6 +16,7 @@ Write script commands exactly as shown. `KAITO_HOME` overrides `~/.kaito`.
 - A trivial request (step 1) skips this whole step: answer it.
 - If `~/.kaito/store` or `codegraph` is missing, say "run ./setup in kaito-skills" and go on without it.
 - At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-self.sh auto`; skip if not found. No output: go on. Any output: read [self.md](references/self.md). The first line of your final answer tells the user what it said (for example "kaito-skills upgraded 1.3.0 -> 1.4.0: <top change>"), even when the task itself fills the rest.
+- Business work (sales, marketing, content, publishing, money or support for a brand the user runs; see [business.md](references/domains/business.md)), when `~/.kaito/store/business` exists: first run `node ~/.kaito/store/business/scripts/kaito-owner.mjs resolve --cwd "$PWD"`, adding `--owner <id>` when the user named one. Exit 0: pass the printed `owner=` id on as `--owner <id>` to `kaito-mem.sh where task` below and to every capture about that owner, and name the owner in the route line. Exit 3 (`ambiguous: <ids>`): stop and ask which owner, naming the choices; read nothing until they answer. Exit 4 printing `none` (no owners configured): go on with no owner and say so. Exit 4 with `not found` (the named owner does not exist): stop and ask, naming the owners it lists; never go on unscoped. Any other non-zero exit (1, a broken owner record): stop, show its message and do not run `where task` until it is fixed.
 - At the start of a routed task run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh where task`, once; skip if not found. Facts, `rule:` and `learn:` lines shape the route and the work. A `closeout_missed:` line means an earlier routed task here has no recorded closeout: tell the user in one line, and capture from that work now if this session still holds it. Read `references/memory.md` before writing.
 - Learning: at closeout of every routed task, review the completed work for durable learnings. Capture an eligible project learning with `kaito-mem.sh capture <kind>` and its text on standard input. Capture a global learning only when the user explicitly says it applies across projects, with `kaito-mem.sh capture <kind> global`. Read [learning.md](references/learning.md) before deciding. Do not capture one-off progress, code or diffs, or unverified deductions. The capture result is authoritative: `saved` and `already_present` close successfully, and `blocked` must be named plainly in the final answer. When nothing is eligible, record the quiet closeout with `kaito-mem.sh closeout nothing_to_save`; when the user said not to keep a learning, `kaito-mem.sh closeout skipped`. A `learn_more:` line means curate, also in [learning.md](references/learning.md).
 - `indexed=yes`: tell the routed skill to use `codegraph_explore` before grep or reads. `indexed=no` and no `codegraph:` line in the project file: follow `codegraph.auto_index` in `~/.kaito/config.json`. `ask`: ask once, run `~/.kaito/store/helpmekaito/scripts/kaito-mem.sh codegraph-decision yes|no`, on yes `~/.kaito/store/helpmekaito/scripts/kaito-codegraph.sh init`. `true`: init without asking. `false`: skip. `indexed=no` with a `codegraph: yes` line (another checkout of this repo said yes): init without asking.
@@ -48,6 +49,7 @@ Read only the file for the domain that fits. Read a second one only when the req
 | Generated images, video, thumbnails, product shots, brand kits; Higgsfield | [media.md](references/domains/media.md) |
 | Planning, QA, debugging, code review, shipping, security, performance, architecture | [engineering.md](references/domains/engineering.md) |
 | Long research projects: literature review, source ingest, research wiki, manuscript drafting, peer review | [research.md](references/domains/research.md) |
+| Running a brand: sales, outreach, campaigns, posting, invoices, payment chase, support, owners | [business.md](references/domains/business.md) |
 
 For a goal that needs a chain, read [recipes.md](references/recipes.md) first. If a recipe fits, follow it and read domain files only for the steps you are unsure about.
 
@@ -98,7 +100,7 @@ Every commit, PR and release made in a routed task is authored by the git user o
 
 ## When the user asks what exists
 
-For "what can you do" or "what skills are there", list the eleven domains with one line each and ask what they are working on. Do not print the whole catalog.
+For "what can you do" or "what skills are there", list the twelve domains with one line each and ask what they are working on. Do not print the whole catalog.
 
 ## Keeping the map honest
 

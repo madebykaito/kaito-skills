@@ -35,9 +35,10 @@ The script reads these logs itself and does not call `ccusage`: it covers only s
 
 ## Asking before a pay-per-token route
 
-Before handing work to another runner (step 4), run `$U consent check <runner> <model>`, with the runner as named in [runners.md](runners.md) (`claude`, `codex`, `cursor-agent`, `opencode`, `gemini`, `openrouter`, `api`, or `host` for a host subagent).
+Before handing work to another runner (step 4), run `$U consent check <runner> <model>`, with the runner as named in [runners.md](runners.md) (`claude`, `codex`, `cursor-agent`, `opencode`, `gemini`, `ollama`, `openrouter`, `api`, or `host` for a host subagent).
 
 - `ok`: go on. Subscription routes, a logged-in CLI or a host subagent, always print `ok` and are never asked about.
+- Local Ollama always prints `ok`: it is free and sends nothing out. An Ollama cloud model (name ends in `cloud`) prints `ask`.
 - `ask`: the route is billed per token (OpenRouter, a direct API call, or a CLI running on an API key). Ask once, naming the model: "This runs <model> through <runner> and is billed per token. Go ahead?" On a yes run `$U consent yes <model>`; it holds for that model until the end of the day. On a no, do not make the call: stay in the host or offer a subscription route.
 
 How a CLI is told apart:

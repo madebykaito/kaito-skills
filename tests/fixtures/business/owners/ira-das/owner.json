@@ -1,0 +1,12 @@
+{
+  "id": "ira-das",
+  "name": "Ira Das",
+  "kind": "person",
+  "locale": "en-IN",
+  "timezone": "Asia/Kolkata",
+  "currency": "INR",
+  "bindings": ["/fixtures/ira-das"],
+  "channels": { "instagram": "@iradas.example" },
+  "keys": {},
+  "cloud_ok": false
+}

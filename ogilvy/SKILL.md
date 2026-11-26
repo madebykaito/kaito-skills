@@ -1,5 +1,5 @@
 ---
-name: ogilvy-copywriting
+name: ogilvy
 description: >
   Apply David Ogilvy's advertising principles when writing or reviewing copy,
   headlines, product descriptions, landing pages, ads, emails, or any persuasive

@@ -1,0 +1,8 @@
+{
+  "currency": "INR",
+  "offers": [
+    { "id": "first-flush-tin", "name": "First Flush Tin, 100 g", "price": 850, "unit": "tin", "gst_percent": 5 },
+    { "id": "sampler-box", "name": "Sampler Box, four 25 g pouches", "price": 1100, "unit": "box", "gst_percent": 5 },
+    { "id": "monthly-club", "name": "Monthly Tea Club", "price": 700, "unit": "month", "gst_percent": 5 }
+  ]
+}

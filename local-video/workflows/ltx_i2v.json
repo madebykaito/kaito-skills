@@ -1,0 +1,29 @@
+{
+ "meta": {
+  "name": "ltx_i2v",
+  "engine": "ltx",
+  "mode": "i2v",
+  "need_gb": 16,
+  "license": "ltx",
+  "output": "video",
+  "models": [
+   {"node": "CheckpointLoaderSimple", "input": "ckpt_name", "file": "{{ckpt}}"},
+   {"node": "CLIPLoader", "input": "clip_name", "file": "t5xxl_fp16.safetensors"}
+  ],
+  "defaults": {"ckpt": "ltx-video-2b-v0.9.5.safetensors", "seed": 1, "steps": 30, "cfg": 3.0, "width": 768, "height": 512, "frames": 97, "fps": 24, "negative": "worst quality, inconsistent motion, blurry, jittery, distorted, watermark", "prefix": "video/kaito_ltx"},
+  "note": "LTX-Video image to video with ComfyUI core nodes. Weights are not shipped: put the checkpoint and the T5 encoder named above in the ComfyUI model folders, or pass --ltx-checkpoint with the file you have. Not run on the author's Mac."
+ },
+ "graph": {
+  "ckpt": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "{{ckpt}}"}},
+  "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "t5xxl_fp16.safetensors", "type": "ltxv", "device": "default"}},
+  "still": {"class_type": "LoadImage", "inputs": {"image": "{{image}}"}},
+  "pos": {"class_type": "CLIPTextEncode", "inputs": {"text": "{{prompt}}", "clip": ["clip", 0]}},
+  "neg": {"class_type": "CLIPTextEncode", "inputs": {"text": "{{negative}}", "clip": ["clip", 0]}},
+  "i2v": {"class_type": "LTXVImgToVideo", "inputs": {"positive": ["pos", 0], "negative": ["neg", 0], "vae": ["ckpt", 2], "image": ["still", 0], "width": "{{width}}", "height": "{{height}}", "length": "{{frames}}", "batch_size": 1, "strength": 1.0}},
+  "cond": {"class_type": "LTXVConditioning", "inputs": {"positive": ["i2v", 0], "negative": ["i2v", 1], "frame_rate": "{{fps}}"}},
+  "sample": {"class_type": "KSampler", "inputs": {"model": ["ckpt", 0], "positive": ["cond", 0], "negative": ["cond", 1], "latent_image": ["i2v", 2], "seed": "{{seed}}", "steps": "{{steps}}", "cfg": "{{cfg}}", "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+  "dec": {"class_type": "VAEDecode", "inputs": {"samples": ["sample", 0], "vae": ["ckpt", 2]}},
+  "video": {"class_type": "CreateVideo", "inputs": {"images": ["dec", 0], "fps": "{{fps}}"}},
+  "save": {"class_type": "SaveVideo", "inputs": {"video": ["video", 0], "filename_prefix": "{{prefix}}", "format": "auto", "codec": "auto"}}
+ }
+}

@@ -262,7 +262,7 @@
       "name": "Twenty CRM", "kind": "local",
       "env": "TWENTY_URL",
       "checks": [{"any": [
-        {"type": "http", "ports": [3001], "path": "/healthz"},
+        {"type": "http", "ports": [3319], "path": "/healthz"},
         {"type": "docker", "image": "twentycrm/twenty"}
       ]}],
       "min_ram_gb": 4, "disk_gb": 5,

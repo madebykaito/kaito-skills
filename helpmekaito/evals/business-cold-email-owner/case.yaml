@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: business-cold-email-owner
+expected_outcome: |
+  Route test. A cold email for a named owner routes to business first, to resolve the owner and load its voice, then copywriting. Copywriting alone is the collision this guards against.

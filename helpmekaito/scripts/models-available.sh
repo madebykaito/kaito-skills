@@ -11,6 +11,8 @@ for c in claude codex gemini cursor-agent opencode copilot ollama; do
   if has "$c"; then echo "  $c: yes"; else echo "  $c: no"; fi
 done
 
+# Ollama needs no CLI: a server answering at OLLAMA_HOST is enough.
+if has node && node "$(dirname "$0")/kaito-models.mjs" list '^$' 2>/dev/null | grep -q '^MODELS ollama'; then echo "  ollama server: yes"; else echo "  ollama server: no"; fi
 echo "API KEYS (presence only)"
 for k in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY XAI_API_KEY OPENROUTER_API_KEY; do
   eval "v=\${$k:-}"

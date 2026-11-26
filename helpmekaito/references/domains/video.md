@@ -19,6 +19,13 @@ Tooling:
 | `hyperframes-registry` | Installing registry blocks and components with `hyperframes add`. |
 | `contribute-catalog` | Contributing a new block upstream to the public catalog. Only then. |
 
+Studio (make a voice and captions for a Reel, Short or ad, local first):
+
+| Skill | Use when |
+|---|---|
+| `voiceover` | A script must be spoken: rewrite for the ear, TTS per line (svara, Indic Parler, Sarvam), `voice.wav` at 48 kHz and a timed parts JSON. |
+| `captions` | A video needs caption PNGs that shape Bengali and other Indic scripts, timed from the voiceover parts, or a whisper.cpp transcript of existing video. |
+
 Animation adapters, picked by the library in use:
 
 | Skill | Library |

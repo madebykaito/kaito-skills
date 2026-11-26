@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: business-post-resolves-owner
+expected_outcome: |
+  Route test. Publishing is outbound business work: the route resolves the owner first (kaito-owner.mjs resolve), and does not post anything without the founder's approval of the exact payload.

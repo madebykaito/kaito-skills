@@ -1,0 +1,6 @@
+{
+  "channels": [
+    { "platform": "instagram", "handle": "@iradas.example", "role": "portfolio", "languages": ["en"], "cadence_per_week": 3 },
+    { "platform": "email", "handle": "ira@example.com", "role": "inquiries", "languages": ["en"], "cadence_per_week": 0 }
+  ]
+}

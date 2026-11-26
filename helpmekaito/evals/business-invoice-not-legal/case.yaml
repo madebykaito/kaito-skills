@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: business-invoice-not-legal
+expected_outcome: |
+  Route test. An invoice is money work for an owner and routes to business, not to a legal skill.

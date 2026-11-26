@@ -75,3 +75,16 @@ For a video of an existing site, replace steps 1 and 2 with `website-to-hyperfra
 1. `adversarial-review`: try to break the diff. Hard tier, with a second opinion from a different vendor when one is available.
 2. `interface-review`: only if the change touches UI. User-invoked: suggest it.
 3. `gstack` `/qa`, then `/ship`.
+
+## Monday brief
+
+Resolve the owner with `business` and run `kaito-today.mjs brief --owner <id>`. Review overdue follow-ups, invoice balances and approvals in the owner's timezone. See the [today queue](../../business/references/today.md).
+
+## Campaign
+
+The [Lumen Tea sample](../../docs/samples/campaign-lumen-tea.md) shows the brief and channel drafts.
+
+1. Resolve the owner and read its brand, audience, offers and channel context. Use `marketing-plan` to set the brief, goal, audience, message, channels, budget and measures. Record assumptions and evidence needed for claims.
+2. Use `copywriting`, `ad-creative` and `social` to draft channel assets. If needed, use keyframes for stills and voiceover for audio when those studio skills are available. Check claims and fit against the brief.
+3. Propose each exact payload through the business ledger. The founder approves the owner, account, action and exact content before the appropriate channel publisher sends it. Do not publish without approval; reconcile uncertain outcomes before retrying.
+4. After the campaign, compare actual results with the brief and record what to keep, change and test next. Do not invent metrics.

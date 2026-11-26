@@ -26,9 +26,23 @@ require. Everything else in this repository is covered by [`LICENSE`](LICENSE).
 | `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt` | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), DietrichGebert | MIT |
 | `banner-design` | [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), Next Level Builder | MIT |
 | `acquire-sources`, `add-to-library`, `brainstorming-research`, `drafting-manuscript`, `drift-report`, `executing-research-plan`, `finishing-a-research-project`, `grant-finder`, `ingest-source`, `literature-review`, `requesting-peer-review`, `revising-manuscript`, `scaffold-research-project`, `semantic-wiki-review`, `wiki-graph`, `wiki-lint`, `writing-research-plan` | [leiverkus/research-superpowers](https://github.com/leiverkus/research-superpowers) v0.49.0, Patrick Leiverkus | MIT |
-| `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) v2.14.28, Corey Haines | MIT |
+| `analytics`, `competitors`, `content-strategy`, `copy-editing`, `copywriting`, `cro`, `programmatic-seo`, `schema`, `seo-audit` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `cold-email` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `prospecting` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `social` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `emails` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `launch` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `lead-magnets` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `referrals` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ads` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ad-creative` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `influencer-marketing` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `marketing-plan` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `ab-testing` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
+| `churn-prevention` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) commit `8fd2fcade2fd6629026e9dfe6d133b55b36968b9`, Corey Haines | MIT |
 | `app-store-screenshots` | [ParthJadhav/app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots), Parth Jadhav | MIT |
 | `adversarial-review`, `ogilvy`, `tailwind-v4`, `visual-style-presets` | [boraoztunc/skills](https://github.com/boraoztunc/skills), Bora Öztunç | MIT, stated in its README; the repository ships no license file of its own |
+| `local-video/workflows/h3_t2v.json`, `h3_i2v.json` | Node graphs rebuilt from the MiniMax H3 recipe in [Bambushu/minimax-h3-mac](https://github.com/Bambushu/minimax-h3-mac) (MacMax, MAD IT), itself derived from the ComfyUI `video_minimax_h3_t2v` template (Comfy Org). The model weights are not bundled and keep their own licences, including the MiniMax H3 Community License. | MIT |
 | `@colbymchenry/codegraph` | [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph), installed by `./setup` from npm at the version in `codegraph.version`. A dependency, not vendored. | MIT |
 
 ## Notices carried from upstream
@@ -663,3 +677,37 @@ Applies to impeccable (Copyright 2025 Paul Bakaus), the HyperFrames skills (Copy
    END OF TERMS AND CONDITIONS
 
 ```
+
+### MIT, MAD IT and Comfy Org (`local-video` H3 workflows)
+
+```text
+MIT License
+
+Copyright (c) 2026 MAD IT
+
+MIT License
+
+Copyright (c) 2023-present Comfy Org
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Social Media Skills playbooks
+
+The playbooks in `social-publish/references/` are from [social-media-skills/skills](https://github.com/social-media-skills/skills), commit `f28cef2b7067ec64e79c9d85421c022c06659e03`, by Frank Heijdenrijk and contributors, under the MIT License. The license text is in `social-publish/references/LICENSE`.
