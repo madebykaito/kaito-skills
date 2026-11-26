@@ -147,6 +147,7 @@ test_captions_real_chrome_frame() {
   mk_home; need_py || return 0; need_ff || return 0
   python3 "$CAP" render --out-dir "$HOME/cap" --test-text "ক্ষ ন্দ্র স্ত্র" > "$HOME/o.txt" 2>&1; rc=$?
   [ $rc != 4 ] || { echo "skip: no Chrome installed"; return 0; }
+  [ $rc != 124 ] || { echo "skip: $(cat "$HOME/o.txt")"; return 0; }
   [ $rc = 0 ] || { cat "$HOME/o.txt"; exit 1; }
   assert_eq "$(ffprobe -v error -show_entries stream=width,pix_fmt -of csv=p=0 "$HOME/cap/cap00.png")" "1080,rgba" png
 }

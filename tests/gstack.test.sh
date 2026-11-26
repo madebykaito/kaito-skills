@@ -46,7 +46,7 @@ test_gstack_links() {
   assert_eq "$(cat "$(S)/_gstack-claude/qa-ref.md")" "run $(S)/gstack/bin/x" home_path_rewritten
   assert_link "$HOME/.claude/skills/review" "$(S)/_gstack-claude/review"
   assert_link "$HOME/.claude/skills/qa" "$(S)/_gstack-claude/qa"
-  assert_link "$HOME/.claude/skills/better-ui" "$(S)/better-ui"
+  assert_link "$HOME/.claude/skills/better-ui" "$(S)/better/better-ui"
   # The Codex render and the loader must agree on the layout.
   assert_eq "$(sh "$REPO/helpmekaito/scripts/kaito-path.sh" review --host codex)" "$(S)/_gstack-codex/.agents/skills/gstack-review/SKILL.md" codex_loader
   assert_eq "$(ov gstack)" '"name-only"' router_override
@@ -64,7 +64,26 @@ test_gstack_links() {
 
 test_no_gstack_flag() {
   mk_home; mk_repo
+  mkdir -p "$KAITO_HOME"
+  bundled=$(node -e '
+    const fs = require("node:fs");
+    const [config, ...manifests] = process.argv.slice(1);
+    const paths = manifests.flatMap(path => {
+      const bundle = JSON.parse(fs.readFileSync(path, "utf8"));
+      return bundle.skills.map(name => bundle.name + "/" + name);
+    });
+    fs.writeFileSync(config, JSON.stringify({ hot: paths.map(path => path.split("/")[1]) }));
+    console.log(paths.join("\n"));
+  ' "$KAITO_HOME/config.json" "$R"/*/bundle.json) || exit 1
   run_setup --no-gstack
+  for rel in $bundled; do
+    for host in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+      link="$host/${rel##*/}"
+      assert_link "$link" "$(S)/$rel"
+      assert_file "$link/SKILL.md"
+      assert_eq "$(cd "$link" && pwd -P)" "$(cd "$(S)/$rel" && pwd -P)" "$link target"
+    done
+  done
   assert_no "$(S)/gstack"; assert_no "$(S)/_gstack-claude"; assert_no "$(S)/_gstack-codex"
   assert_no "$HOME/.claude/skills/gstack"
   assert_no "$HOME/stub.log"
@@ -79,7 +98,7 @@ test_gstack_off_cleans_up() {
   run_setup  # the stub.log check below proves bun is never called
   assert_no "$HOME/.claude/skills/gstack"; assert_no "$HOME/.claude/skills/qa"
   assert_eq "$(ov gstack)" "" override_dropped
-  assert_link "$HOME/.claude/skills/better-ui" "$(S)/better-ui"
+  assert_link "$HOME/.claude/skills/better-ui" "$(S)/better/better-ui"
   assert_no "$HOME/stub.log"
 }
 

@@ -82,7 +82,10 @@ def render_png(chrome, text, out, a, tmp):
            "--disable-component-update", "--hide-scrollbars", "--force-device-scale-factor=1",
            "--default-background-color=00000000", f"--window-size={WIDTH},{a.height}", f"--user-data-dir={tmp}/profile",
            "--virtual-time-budget=3000", f"--screenshot={shot}", page.as_uri()]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired as e:
+        raise Fail(f"Chrome timed out after {e.timeout} seconds rendering {out.name}", 124) from e
     if not shot.exists() or shot.stat().st_size == 0:
         raise Fail(f"Chrome made no screenshot: {(r.stderr or r.stdout).strip()[-300:]}")
     shutil.move(str(shot), str(out))  # only a fresh render replaces the old file
@@ -285,9 +288,6 @@ def main(argv=None):
     except Fail as e:
         print(f"error: {e}", file=sys.stderr)
         return e.code
-    except subprocess.TimeoutExpired:
-        print("error: a subprocess timed out", file=sys.stderr)
-        return 1
 
 
 if __name__ == "__main__":
