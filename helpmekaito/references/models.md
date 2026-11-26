@@ -21,6 +21,7 @@ node scripts/kaito-models.mjs resolve <vendor-or-runner> <light|standard|hard|fr
 
 - A vendor (`anthropic`, `openai`, `google`, `xai`, or the first word of an id such as `kimi`) looks across every agent CLI on the machine and prints one line: `<runner> <model-id>`.
 - A runner (`claude`, `codex`, `gemini`, `cursor-agent`, `opencode`, `copilot`, `ollama`) looks only there, and prints one line per vendor it reaches.
+- `ollama` is the exception: it reads the pulled models from the Ollama server and places them by parameter size, not by family word (light up to 4B, standard over 4B up to 14B, hard over 14B). It prints one line, `ollama <model>`, or `host:` when the server is down or nothing of that tier is pulled. Details in [runners.md](runners.md).
 - Newest is the highest version number in the id. At the same version a released model beats a preview. An alias such as `opus` counts as newest.
 - A line that starts with `host:` means nothing fits, and says why. Do the work on the host's model and tell the user that line.
 - Ids with no family word (Grok, most open-weight models, plain `gpt-5.5`) cannot be placed, so they are never picked. Use one only when the user names it.

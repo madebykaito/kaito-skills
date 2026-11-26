@@ -312,6 +312,7 @@ For long, source-heavy research projects. From research-superpowers.
 - Research scripts need Python 3.10 or newer. `grant-finder`, `literature-review` and `requesting-peer-review` mention upstream `research-skills/` files that are not bundled; they fall back to live search.
 - Memory is read-only on Codex unless you allow `~/.kaito` as a writable root in setup.
 - `helpmekaito` only delegates to models your machine can reach. Other vendors need their CLI (`codex`, `cursor-agent`, `opencode`, `gemini`) or an API key. Tiers come from a rule on the model family name; a model the rule cannot place (Grok, most open-weight ids) falls back to the host's model.
+- Ollama is a local runner for bulk drafts and translation (`kaito-ollama.mjs`). It needs a running Ollama server (`OLLAMA_HOST`) and at least one pulled model; the `ollama` CLI is not required. Small local models need a native read for Bengali or Hindi.
 - The usage report's prices are list-price estimates from a file refreshed at each release, not a bill. Cursor usage cannot be read.
 - Trello needs an API key and token (`kaito-tasks.sh login`). They live in `~/.kaito/.env`. An agent running as you can still read that file; setup only stops auto-allowing it.
 - Plane needs a personal API key and your workspace slug (`kaito-tasks.sh login`), stored the same way; set a URL there for a self-hosted Plane. Without a key it works through the Plane MCP connector. A project with more than 3000 work items needs a module mapping.
