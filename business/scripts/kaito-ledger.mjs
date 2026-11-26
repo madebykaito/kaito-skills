@@ -13,9 +13,9 @@ import {
 } from './kaito-ledger-lib.mjs';
 
 const USAGE = `usage: kaito-ledger.mjs <command>
-  propose --owner <id> --account <handle> --action <verb> [--text-file f] [--media f ...] [--disclosure ai|none] [--due <when>] [--json]
+  propose --owner <id> --account <handle> --action <verb> [--text-file f] [--media f ...] [--disclosure ai|none] [--due <when>] [--retry-of <ref>] [--json]
   status <ref> [--json]
-  list [--owner <id>] [--state <s>] [--due-before <when>] [--json]
+  list [--owner <id>] [--state <s>] [--due-before <when>] [--ready] [--json]
   claim <ref> --digest <sha256> [--json]
   record <ref> --attempt <n> --result ok|failed|uncertain [--remote-id x] [--note text]
   reconcile [--owner <id>] [--json]
@@ -45,7 +45,7 @@ function readFileArg(f, label) {
 }
 
 function propose(args) {
-  only(args, ['_', 'owner', 'account', 'action', 'text-file', 'media', 'disclosure', 'due', 'json']);
+  only(args, ['_', 'owner', 'account', 'action', 'text-file', 'media', 'disclosure', 'due', 'retry-of', 'json']);
   const owner = checkOwnerId(args.owner);
   const account = args.account;
   if (!account || account.length > 128 || /[\u0000-\u001f\u007f]/.test(account)) fail(EXIT.usage, 'propose needs --account <handle>');
@@ -81,11 +81,22 @@ function propose(args) {
     if (textSha) ins.run(textSha, text.length, 'text', path.basename(args['text-file']), at, textSha);
     for (const m of media) ins.run(m.sha, m.bytes, 'media', path.basename(m.f), at, m.sha);
     const ref = newRef(db);
-    const row = { ref, owner, account, action: args.action, disclosure, due_at };
+    // A retry of a failed send of the same payload to the same account keeps the original's
+    // idempotency key, so a platform that dedupes sees one operation even if the first lands late.
+    let op_key = ref;
+    if (args['retry-of']) {
+      const old = getAction(db, args['retry-of']);
+      const same = old.owner === owner && old.account === account && old.action === args.action
+        && old.text_sha256 === textSha && old.media_json === JSON.stringify(media.map((m) => m.sha));
+      if (old.state !== 'failed') fail(EXIT.human, `--retry-of ${old.ref} is ${old.state}; only a failed send is retried`);
+      if (!same) fail(EXIT.human, `--retry-of ${old.ref} has a different owner, account, action or payload; propose it as new`);
+      op_key = old.op_key;
+    }
+    const row = { ref, op_key, owner, account, action: args.action, disclosure, due_at };
     const payload = payloadOf(row, textSha ? { sha256: textSha, bytes: text.length } : null, media.map((m) => ({ sha256: m.sha, bytes: m.bytes })));
     const digest = digestOf(payload);
-    db.prepare(`INSERT INTO actions (ref, owner, account, action, text_sha256, media_json, disclosure, due_at, payload_json, digest, state, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`).run(ref, owner, account, args.action, textSha, JSON.stringify(media.map((m) => m.sha)), disclosure, due_at, JSON.stringify(payload), digest, at, at);
+    db.prepare(`INSERT INTO actions (ref, op_key, owner, account, action, text_sha256, media_json, disclosure, due_at, payload_json, digest, state, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`).run(ref, op_key, owner, account, args.action, textSha, JSON.stringify(media.map((m) => m.sha)), disclosure, due_at, JSON.stringify(payload), digest, at, at);
     event(db, ref, 'proposed', { digest });
     return { ref, digest };
   });
@@ -98,7 +109,7 @@ function describe(db, row) {
   const v = verifyAction(row);
   const attempt = db.prepare('SELECT * FROM attempts WHERE ref = ? ORDER BY n DESC LIMIT 1').get(row.ref);
   return {
-    ref: row.ref, state: row.state, owner: row.owner, account: row.account, action: row.action,
+    ref: row.ref, op_key: row.op_key, state: row.state, owner: row.owner, account: row.account, action: row.action,
     digest: row.digest, disclosure: row.disclosure, due_at: row.due_at,
     text: row.text_sha256 ? artifactPath(row.text_sha256) : null, text_sha256: row.text_sha256,
     media: JSON.parse(row.media_json).map(artifactPath), media_sha256: JSON.parse(row.media_json),
@@ -118,7 +129,7 @@ function status(args) {
 }
 
 function list(args) {
-  only(args, ['_', 'owner', 'state', 'due-before', 'json']);
+  only(args, ['_', 'owner', 'state', 'due-before', 'ready', 'json']);
   const where = [], params = [];
   if (args.owner) { where.push('owner = ?'); params.push(checkOwnerId(args.owner)); }
   if (args.state) {
@@ -128,6 +139,11 @@ function list(args) {
   if (args['due-before']) {
     const w = parseWhen(args['due-before'], ownerTz(args.owner));
     where.push('due_at IS NOT NULL AND due_at <= ?'); params.push(isoUtc(w.ms));
+  }
+  if (args.ready) {
+    // Ready to claim: approved, and due now or with no due time ("sent when claimed").
+    if (args.state || args['due-before']) fail(EXIT.usage, '--ready takes no --state or --due-before');
+    where.push("state = 'approved' AND (due_at IS NULL OR due_at <= ?)"); params.push(isoUtc(Date.now()));
   }
   const db = openDb();
   const rows = db.prepare(`SELECT ref, state, owner, account, action, due_at, digest FROM actions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY coalesce(due_at, created_at), ref`).all(...params);
@@ -174,7 +190,7 @@ function claim(args) {
   });
   if (out.refused) fail(EXIT.human, `refused: ${out.refused}`);
   const d = out.ok;
-  const r = { ref: d.ref, attempt: out.n, digest: d.digest, idempotency_key: d.ref, owner: d.owner, account: d.account, action: d.action, disclosure: d.disclosure, due_at: d.due_at, text: d.text, text_sha256: d.text_sha256, media: d.media, media_sha256: d.media_sha256 };
+  const r = { ref: d.ref, attempt: out.n, digest: d.digest, idempotency_key: d.op_key, owner: d.owner, account: d.account, action: d.action, disclosure: d.disclosure, due_at: d.due_at, text: d.text, text_sha256: d.text_sha256, media: d.media, media_sha256: d.media_sha256 };
   if (args.json) process.stdout.write(`${JSON.stringify(r)}\n`);
   else printKv({ ...r, media_sha256: undefined });
   return EXIT.ok;
@@ -356,7 +372,7 @@ async function main(argv) {
   if (!cmd || cmd === '-h' || cmd === '--help' || cmd === 'help') { process.stdout.write(`${USAGE}\n`); return cmd ? EXIT.ok : EXIT.usage; }
   const fn = COMMANDS[cmd];
   if (!fn) fail(EXIT.usage, `unknown command: ${cmd}\n${USAGE}`);
-  const args = parseArgs(argv, { multi: ['media'], bool: ['json', 'sent', 'failed', 'all'] });
+  const args = parseArgs(argv, { multi: ['media'], bool: ['json', 'sent', 'failed', 'all', 'ready'] });
   return fn(args);
 }
 

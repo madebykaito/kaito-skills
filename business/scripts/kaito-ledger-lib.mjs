@@ -139,8 +139,8 @@ export function canonicalText(buf) {
 }
 
 // payloadOf(row, text, media): the object the digest covers. text and media are {sha256, bytes}.
-export function payloadOf({ ref, owner, account, action, disclosure, due_at }, text, media) {
-  return { v: 1, ref, owner, account, action, text: text ?? null, media, disclosure, due_at: due_at ?? null };
+export function payloadOf({ ref, op_key, owner, account, action, disclosure, due_at }, text, media) {
+  return { v: 1, ref, op_key, owner, account, action, text: text ?? null, media, disclosure, due_at: due_at ?? null };
 }
 export const digestOf = (payload) => sha256(canonicalJson(payload));
 
@@ -151,9 +151,14 @@ export function putArtifact(buf) {
   const sha = sha256(buf);
   const dest = artifactPath(sha);
   fs.mkdirSync(path.dirname(dest), { recursive: true, mode: 0o700 });
+  let damaged = false;
   if (fs.existsSync(dest)) {
-    if (sha256(fs.readFileSync(dest)) === sha) return sha;
-    fs.renameSync(dest, `${dest}.damaged-${Date.now()}`);
+    const st = fs.lstatSync(dest);
+    if (st.isFile() && sha256(fs.readFileSync(dest)) === sha) {
+      if ((st.mode & 0o777) !== 0o444) fs.chmodSync(dest, 0o444);
+      return sha;
+    }
+    damaged = true;  // replaced below by a verified copy, in one rename
   }
   const tmp = `${dest}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
   try {
@@ -164,6 +169,7 @@ export function putArtifact(buf) {
     } finally { fs.closeSync(fd); }
     if (sha256(fs.readFileSync(tmp)) !== sha) fail(EXIT.error, `artifact write did not land intact: ${dest}`);
     fs.chmodSync(tmp, 0o444);
+    if (damaged) { fs.renameSync(tmp, dest); return sha; }
     try {
       fs.linkSync(tmp, dest);  // fails if another writer got there first; then theirs must match
     } catch (e) {
@@ -227,7 +233,9 @@ export function parseWhen(s, tz) {
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) {
     checkFields(+m[1], +m[2], +m[3], 0, 0, 0, s);
-    return { ms: zonedToUtc(+m[1], +m[2], +m[3], 0, 0, 0, tz), allDay: true, date: s };
+    const ms = zonedToUtc(+m[1], +m[2], +m[3], 0, 0, 0, tz);
+    if (localParts(ms, tz).date !== s && localParts(ms + 12 * 3600000, tz).date !== s) fail(EXIT.usage, `${s} does not exist in ${tz}`);
+    return { ms, allDay: true, date: s };
   }
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/);
   if (!m) fail(EXIT.usage, `bad date: ${s} (use YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS][Z|+05:30])`);
@@ -243,7 +251,10 @@ export function parseWhen(s, tz) {
   const ms = zonedToUtc(y, mo, d, hh, mi, ss, tz);
   const same = (t) => { const p = localParts(t, tz); return p.y === y && p.m === mo && p.d === d && p.hh === hh && p.mm === mi && p.ss === ss; };
   if (!same(ms)) fail(EXIT.usage, `${s} does not exist in ${tz} (a clock change skips it); give an offset`);
-  if (same(ms - 3600000) || same(ms + 3600000)) fail(EXIT.usage, `${s} happens twice in ${tz} (a clock change repeats it); give an offset`);
+  // Clock changes are 15 to 120 minutes in practice; look for a second instant with the same wall time.
+  let twice = false;
+  for (let k = 1; k <= 12 && !twice; k++) twice = same(ms - k * 900000) || same(ms + k * 900000);
+  if (twice) fail(EXIT.usage, `${s} happens twice in ${tz} (a clock change repeats it); give an offset`);
   return { ms, allDay: false };
 }
 function checkFields(y, mo, d, hh, mi, ss, s) {

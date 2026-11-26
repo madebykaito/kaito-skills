@@ -116,13 +116,13 @@ function brief(args) {
   const weekStart = isoUtc(zonedToUtc(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate(), 0, 0, 0, tz));
   const weekEnd = isoUtc(zonedToUtc(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate() + 7, 0, 0, 0, tz));
   const scheduled = db.prepare("SELECT * FROM actions WHERE owner = ? AND state = 'approved' AND due_at >= ? AND due_at < ? ORDER BY due_at").all(owner, weekStart, weekEnd)
-    .map((a) => { const l = localParts(Date.parse(a.due_at), tz); return { source: 'action', id: a.ref, title: `${a.action} on ${a.account} goes out`, due_local: `${l.date} ${l.time}` }; });
+    .map((a) => { const l = localParts(Date.parse(a.due_at), tz); return { source: 'action', id: a.ref, title: `${a.action} on ${a.account} goes out`, due_local: `${l.date} ${l.time}`, sort_at: a.due_at }; });
   const inWeek = (it) => it.due_local && it.due_local.slice(0, 10) >= now.date && it.due_local.slice(0, 10) <= sundayDate;
   const sections = [
     ['Awaiting your approval', items.filter((i) => i.source === 'action' && i.kind === 'approve')],
     ['Uncertain sends to check', items.filter((i) => i.source === 'action' && i.kind === 'reconcile')],
     ['Overdue', items.filter((i) => i.source === 'queue' && i.bucket === 'overdue')],
-    ['Due this week', [...items.filter((i) => i.source === 'queue' && inWeek(i)), ...scheduled].sort((a, b) => a.due_local.localeCompare(b.due_local))],
+    ['Due this week', [...items.filter((i) => i.source === 'queue' && inWeek(i)), ...scheduled].sort((a, b) => a.sort_at.localeCompare(b.sort_at))],
   ];
   const out = [`# Week of ${dayName(mondayDate)} ${mondayDate.slice(0, 4)}: ${rec.name || owner}`, '',
     `Made ${dayName(now.date)} ${now.time} ${tz}. ${sections.map(([h, l]) => `${l.length} ${h.toLowerCase()}`).join(', ')}.`];

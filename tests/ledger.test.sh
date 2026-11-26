@@ -463,3 +463,54 @@ test_queue_checks_owner_and_ref() {
   L queue add --owner ira-das --kind task --title x --due 2026-11-01T01:30-04:00 > /dev/null || exit 1
   expect 2 L queue add --owner ira-das --kind task --title x --due 2026-02-30T10:00Z
 }
+
+test_retry_keeps_idempotency_key() {
+  mk_home; owners; prop; ok_approve "$REF" "$DIG"; first=$REF
+  key=$(L claim "$REF" --digest "$DIG" | sed -n 's/^idempotency_key=//p'); assert_eq "$key" "$first" key-is-ref
+  L record "$REF" --attempt 1 --result failed > /dev/null
+  out=$(L propose --owner lumen-tea --account @lumentea.example --action instagram.reel.publish \
+    --text-file "$W/caption.txt" --media "$W/reel.mp4" "$W/cover.png" --disclosure ai --retry-of "$first")
+  REF=$(echo "$out" | sed -n 's/^ref=//p'); DIG=$(echo "$out" | sed -n 's/^digest=//p')
+  ok_approve "$REF" "$DIG"
+  assert_eq "$(L claim "$REF" --digest "$DIG" | sed -n 's/^idempotency_key=//p')" "$first" same-key
+  # Only a failed send of the same payload to the same account is a retry.
+  expect 3 L propose --owner lumen-tea --account @lumentea.example --action instagram.reel.publish --text-file "$W/caption.txt" --retry-of "$first"
+  expect 3 L propose --owner lumen-tea --account @lumentea.example --action instagram.reel.publish \
+    --text-file "$W/caption.txt" --media "$W/reel.mp4" "$W/cover.png" --retry-of "$REF"
+}
+
+test_ready_list_includes_undated() {
+  mk_home; owners
+  prop; ok_approve "$REF" "$DIG"; now_ref=$REF
+  prop --due 2099-01-01T10:00; ok_approve "$REF" "$DIG"; later=$REF
+  prop; waiting=$REF
+  out=$(L list --ready)
+  echo "$out" | grep -q "^$now_ref	approved" || { echo "$out"; exit 1; }
+  ! echo "$out" | grep -q -e "$later" -e "$waiting" || { echo "$out"; exit 1; }
+}
+
+test_codex_env_without_ancestry_checks_rules() {
+  mk_home; owners; prop
+  mkdir -p "$HOME/.codex/rules"
+  printf 'prefix_rule(pattern = ["node"], decision = "allow")\n' > "$HOME/.codex/rules/default.rules"
+  expect 3 env CODEX_HOME="$HOME/.codex" CODEX_THREAD_ID=t1 node "$B/kaito-approve.mjs" "$REF" --digest "$DIG"
+  grep -q 'default.rules allows' "$HOME/expect.out" || { cat "$HOME/expect.out"; exit 1; }
+}
+
+test_odd_timezones_refused() {
+  mk_home; owners
+  node -e 'const f=process.argv[1],j=JSON.parse(require("fs").readFileSync(f));j.timezone="Australia/Lord_Howe";require("fs").writeFileSync(f,JSON.stringify(j))' "$KAITO_HOME/owners/ira-das/owner.json"
+  expect 2 L queue add --owner ira-das --kind task --title x --due 2026-04-05T01:45
+  node -e 'const f=process.argv[1],j=JSON.parse(require("fs").readFileSync(f));j.timezone="Pacific/Apia";require("fs").writeFileSync(f,JSON.stringify(j))' "$KAITO_HOME/owners/ira-das/owner.json"
+  expect 2 L queue add --owner ira-das --kind task --title x --due 2011-12-30
+  L queue add --owner ira-das --kind task --title x --due 2011-12-31 > /dev/null || exit 1
+}
+
+test_attempt_identity_fixed() {
+  mk_home; owners; prop; ok_approve "$REF" "$DIG"
+  L claim "$REF" --digest "$DIG" > /dev/null
+  ! sql "update attempts set n = 2 where ref = '$REF'" 2>/dev/null || exit 1
+  ! sql "update attempts set claimed_at = '2020-01-01T00:00:00Z' where ref = '$REF'" 2>/dev/null || exit 1
+  L record "$REF" --attempt 1 --result ok > /dev/null
+  assert_eq "$(state "$REF")" sent
+}

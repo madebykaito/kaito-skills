@@ -26,6 +26,7 @@ const SELF = (() => { try { return fs.realpathSync(process.argv[1]); } catch { r
 // Environment variables that agent hosts set in the shells they run.
 const AGENT_ENV = ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'AI_AGENT', 'CODEX_SANDBOX', 'CODEX_THREAD_ID', 'CODEX_CI',
   'CODEX_SANDBOX_NETWORK_DISABLED', 'GEMINI_CLI', 'OPENCODE', 'CURSOR_AGENT', 'CURSOR_TRACE_ID', 'AIDER_MODEL', 'GOOSE_PROVIDER', 'AMP_API_KEY'];
+const CODEX_ENV = ['CODEX_SANDBOX', 'CODEX_THREAD_ID', 'CODEX_CI', 'CODEX_SANDBOX_NETWORK_DISABLED'];
 const AGENT_BIN = /^(claude|codex|codex-[a-z0-9-]+|gemini|opencode|cursor-agent|aider|goose|amp)$/;
 const AGENT_ARGS = /@anthropic-ai\/claude-code|\/claude-code\/cli|@openai\/codex|\/codex\/bin\//;
 
@@ -139,7 +140,8 @@ export function autoRunHazards(ref, digest, chain = ancestors()) {
       if (ruleMatches(r, commands)) hazards.push(`${f} allows "${r}" without a prompt`);
     }
   }
-  const underCodex = chain.some((p) => procNames(p).some((n) => /^codex/.test(n)) || /@openai\/codex/.test(p.args || ''));
+  const underCodex = CODEX_ENV.some((k) => process.env[k])
+    || chain.some((p) => procNames(p).some((n) => /^codex/.test(n)) || /@openai\/codex/.test(p.args || ''));
   if (underCodex) {
     const toml = (() => { try { return fs.readFileSync(path.join(process.env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'), 'utf8'); } catch { return ''; } })();
     if (/^\s*approval_policy\s*=\s*"never"/m.test(toml)) hazards.push('codex config.toml sets approval_policy = "never"');
@@ -147,7 +149,9 @@ export function autoRunHazards(ref, digest, chain = ancestors()) {
     const rulesDir = path.join(process.env.CODEX_HOME || path.join(home, '.codex'), 'rules');
     let files = [];
     try { files = fs.readdirSync(rulesDir).filter((f) => f.endsWith('.rules')).map((f) => path.join(rulesDir, f)); } catch { /* none */ }
-    const argvs = paths.flatMap((p) => [['node', p, ref, '--digest', digest], [p, ref, '--digest', digest]]);
+    const nodes = ['node', process.execPath, path.basename(process.execPath)];
+    const scripts = [...paths, path.relative(process.cwd(), SELF), path.basename(SELF)];
+    const argvs = scripts.flatMap((p) => [...nodes.map((n) => [n, p, ref, '--digest', digest]), [p, ref, '--digest', digest]]);
     for (const f of files) {
       const text = fs.readFileSync(f, 'utf8');
       for (const m of text.matchAll(/prefix_rule\(([^)]*)\)/g)) {
@@ -171,7 +175,8 @@ export const escapeForTerminal = (s) => s.replace(UNSAFE, (c) => `\\u{${c.codePo
 
 // card(row): the payload as the founder sees it, rendered from the same bytes it hashes.
 function card(row) {
-  const problems = [];
+  const problems = [];  // the payload cannot be shown or does not match: never approvable
+  const warnings = [];  // shown, but worth a second look
   const read = (sha, label) => {
     let buf = null;
     try { buf = fs.readFileSync(artifactPath(sha)); } catch { problems.push(`${label} file is missing from the artifact store`); return null; }
@@ -206,13 +211,13 @@ function card(row) {
     const unsafe = (text.match(UNSAFE) || []).length;
     lines.push(`text:       sha256 ${row.text_sha256}, ${buf ? buf.length : '?'} bytes, each line after "| ":`);
     lines.push(...body.split('\n').map((l) => `| ${escapeForTerminal(l)}`));
-    if (unsafe) problems.push(`the text holds ${unsafe} control or direction character${unsafe > 1 ? 's' : ''}, shown as \\u{...}; they are sent as they are`);
+    if (unsafe) warnings.push(`the text holds ${unsafe} control or direction character${unsafe > 1 ? 's' : ''}, shown as \\u{...}; they are sent as they are`);
   } else lines.push('text:       none');
   const v = verifyAction(row);
   for (const p of v.problems) if (!problems.includes(p)) problems.push(p);
   lines.push('', `digest:     ${row.digest}`);
-  if (problems.length) lines.push('', ...problems.map((p) => `PROBLEM: ${p}`));
-  return { text: `${lines.join('\n')}\n`, v, problems };
+  if (problems.length || warnings.length) lines.push('', ...[...problems, ...warnings].map((p) => `PROBLEM: ${p}`));
+  return { text: `${lines.join('\n')}\n`, v, problems, warnings };
 }
 
 function askTty(question) {
@@ -250,15 +255,15 @@ async function main(argv) {
   }
   const db = openDb();
   const row = getAction(db, ref);
-  const { text: shown, v } = card(row);
+  const { text: shown, v, problems, warnings } = card(row);
 
   if (args.show) {
-    if (args.json) process.stdout.write(`${JSON.stringify({ ref, state: row.state, digest: row.digest, payload: v.payload, problems: v.problems })}\n`);
+    if (args.json) process.stdout.write(`${JSON.stringify({ ref, state: row.state, digest: row.digest, payload: v.payload, problems, warnings })}\n`);
     else process.stdout.write(shown);
     return EXIT.ok;
   }
   if (row.state !== 'proposed') fail(EXIT.human, `refused: ${ref} is ${row.state}, not waiting for approval`);
-  if (v.problems.length) { process.stderr.write(shown); fail(EXIT.human, 'refused: the stored payload does not match what was proposed'); }
+  if (problems.length || v.problems.length) { process.stderr.write(shown); fail(EXIT.human, 'refused: the stored payload does not match what was proposed'); }
 
   const chain = ancestors();
   const context = {
@@ -269,8 +274,10 @@ async function main(argv) {
   if (args.digest !== undefined) {
     // Path (b): a command line the host showed the founder in its permission prompt. With no
     // terminal and no agent host above us, no one was shown a prompt (a cron job, a script).
-    if (!process.stdin.isTTY && !agentSigns(chain).length) {
-      fail(EXIT.human, 'refused: no terminal and no agent host, so no one was shown this command. The founder runs kaito-approve.mjs <ref> in their own terminal.');
+    // Only an agent host shows a permission prompt. Run from a plain terminal or a script,
+    // nobody was asked, so the founder uses the typed-prefix path instead.
+    if (!agentSigns(chain).length) {
+      fail(EXIT.human, 'refused: --digest is only for a command an agent host shows in its permission prompt, and no agent host is running this. The founder runs kaito-approve.mjs <ref> and types the digest prefix.');
     }
     const hazards = autoRunHazards(ref, args.digest, chain);
     if (hazards.length) {

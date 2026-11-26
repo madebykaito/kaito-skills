@@ -7,10 +7,11 @@ CREATE TABLE artifacts (
   kind       TEXT NOT NULL CHECK (kind IN ('text', 'media', 'document')),
   name       TEXT,
   created_at TEXT NOT NULL
-);
+) WITHOUT ROWID;
 
 CREATE TABLE actions (
   ref          TEXT PRIMARY KEY,
+  op_key       TEXT NOT NULL,  -- idempotency key; a retry of a failed send keeps the original's
   owner        TEXT NOT NULL,
   account      TEXT NOT NULL,
   action       TEXT NOT NULL,
@@ -27,7 +28,7 @@ CREATE TABLE actions (
   approved_via TEXT,
   remote_id    TEXT,
   note         TEXT
-);
+) WITHOUT ROWID;
 CREATE INDEX actions_owner_state ON actions (owner, state);
 CREATE INDEX actions_state_due ON actions (state, due_at);
 
@@ -50,7 +51,7 @@ CREATE TABLE attempts (
   remote_id   TEXT,
   note        TEXT,
   PRIMARY KEY (ref, n)
-);
+) WITHOUT ROWID;
 -- One attempt per ref: a ref is claimed once and never again.
 CREATE UNIQUE INDEX attempts_one_per_ref ON attempts (ref);
 
@@ -80,9 +81,10 @@ CREATE TRIGGER approvals_no_replace BEFORE INSERT ON approvals WHEN EXISTS (SELE
 CREATE TRIGGER events_no_replace BEFORE INSERT ON events WHEN EXISTS (SELECT 1 FROM events WHERE id = NEW.id) BEGIN SELECT RAISE(ABORT, 'events are append-only'); END;
 CREATE TRIGGER attempts_no_replace BEFORE INSERT ON attempts WHEN EXISTS (SELECT 1 FROM attempts WHERE ref = NEW.ref) BEGIN SELECT RAISE(ABORT, 'a ref has one attempt'); END;
 CREATE TRIGGER attempts_no_delete BEFORE DELETE ON attempts BEGIN SELECT RAISE(ABORT, 'attempts are never deleted'); END;
+CREATE TRIGGER attempts_identity_fixed BEFORE UPDATE OF ref, n, digest, claimed_at ON attempts BEGIN SELECT RAISE(ABORT, 'an attempt is fixed once claimed; only its result is recorded'); END;
 
 CREATE TRIGGER actions_payload_fixed
-BEFORE UPDATE OF ref, owner, account, action, text_sha256, media_json, disclosure, due_at, payload_json, digest ON actions
+BEFORE UPDATE OF ref, op_key, owner, account, action, text_sha256, media_json, disclosure, due_at, payload_json, digest ON actions
 BEGIN SELECT RAISE(ABORT, 'an action payload is fixed once proposed; propose a new action'); END;
 
 CREATE TRIGGER actions_state_flow

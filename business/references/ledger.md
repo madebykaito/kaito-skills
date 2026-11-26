@@ -33,20 +33,21 @@ Node 22.13 or newer (`node:sqlite`). Exit codes everywhere: 0 ok, 1 error, 2 usa
 | `rejected` | The founder or agent dropped it | final |
 | `expired` | More than 24 hours past its due time before it was claimed | final |
 
-A ref is claimed once and has at most one attempt. After `claimed` no path leads back to `approved`, so a retry, a second scheduler tick or a crashed publisher restarting cannot send it again. To try a failed send again, propose it again and get a new yes. The state flow is also a trigger in the database, and inserts that would replace an existing row are refused, so a stray `UPDATE` or `INSERT OR REPLACE` cannot step backwards.
+A ref is claimed once and has at most one attempt. After `claimed` no path leads back to `approved`, so a retry, a second scheduler tick or a crashed publisher restarting cannot send it again. To try a failed send again, propose it again with `--retry-of <old ref>` and get a new yes; the new ref keeps the old idempotency key. The state flow is also a trigger in the database, the ledger tables have no hidden rowid, an attempt's identity cannot be edited, and inserts that would replace an existing row are refused, so a stray `UPDATE` or `INSERT OR REPLACE` cannot step backwards.
 
 ## The digest
 
 The digest is the sha256 of one canonical JSON object: sorted keys, no spaces, integers only.
 
 ```json
-{"account":"@lumentea.example","action":"instagram.reel.publish","disclosure":"ai","due_at":"2026-11-27T04:30:00Z","media":[{"bytes":20,"sha256":"..."},{"bytes":20,"sha256":"..."}],"owner":"lumen-tea","ref":"act-20261126-1a2b3c4d","text":{"bytes":54,"sha256":"..."},"v":1}
+{"account":"@lumentea.example","action":"instagram.reel.publish","disclosure":"ai","due_at":"2026-11-27T04:30:00Z","media":[{"bytes":20,"sha256":"..."},{"bytes":20,"sha256":"..."}],"op_key":"act-20261126-1a2b3c4d","owner":"lumen-tea","ref":"act-20261126-1a2b3c4d","text":{"bytes":54,"sha256":"..."},"v":1}
 ```
 
 - `text` is the caption after canonicalisation: valid UTF-8, no byte order mark, LF line ends. Those exact bytes are stored, shown, approved and sent.
 - `media` keeps the order given, because a carousel's order is part of the post.
 - `due_at` is UTC to the second, or null. `--due` without an offset is read in the owner's timezone.
 - `ref` is in the digest, so an approval command for one ref never fits another ref with the same content.
+- `op_key` is the idempotency key: the ref itself, or for a `--retry-of` the key of the failed original.
 - The account must be one of the owner's `channels` in `owner.json`, or propose stops with exit 3.
 
 `claim` re-reads every stored file, re-hashes it and rebuilds this object from the row. It refuses when a stored file is missing or changed, when any field differs from what was approved, or when the caller's digest is not the approved one. So a changed caption, a replaced media file, a changed disclosure, account, owner, action or due time all fail at claim, whether they came from a new proposal or from editing the store or the database.
@@ -56,7 +57,7 @@ The digest is the sha256 of one canonical JSON object: sorted keys, no spaces, i
 `kaito-approve.mjs <ref>` prints the card first: owner, account, action, due time in the owner's zone and in UTC, disclosure, each media sha256 with its size, the full text with each line after `| `, and the digest. The card is rendered from the same bytes it hashes. Control and text-direction characters in the text (escape sequences, carriage returns, right-to-left overrides) are shown as `\u{...}` with a `PROBLEM:` line, so a caption cannot hide part of itself or overwrite the account or disclosure lines. The joiners Indic scripts need are left as they are.
 
 1. **The founder's own terminal.** `kaito-approve.mjs <ref>`, then type the first 8 characters of the digest. Refused when stdin or stdout is not a terminal, and when the process looks like it runs under an agent (an agent's environment variables such as `CLAUDECODE`, `AI_AGENT` or `CODEX_THREAD_ID`, or a `claude` or `codex` process among its parents).
-2. **The host permission prompt.** The agent runs `kaito-approve.mjs <ref> --digest <full sha256>` and the host stops to show the founder that command. The founder checks that the prompt shows the full 64-character digest written out, the same as the card, and not `$(...)`, a variable or a file. This only means something if the host asks, so it is refused when no one could have been asked (no terminal and no agent host above the process, as in a cron job) and when the host would not ask:
+2. **The host permission prompt.** The agent runs `kaito-approve.mjs <ref> --digest <full sha256>` and the host stops to show the founder that command. The founder checks that the prompt shows the full 64-character digest written out, the same as the card, and not `$(...)`, a variable or a file. This only means something if the host asks, so it is refused when no agent host is running it (a plain terminal, a script or a cron job: no one was shown a prompt; the founder uses path 1 there) and when the host would not ask:
    - an allow rule in `~/.claude/settings*.json`, a project `.claude/settings*.json` or managed settings that covers the command (for example `Bash`, `Bash(node:*)`, `Bash(*business/scripts/*)`);
    - `permissions.defaultMode` of `bypassPermissions`, `auto` or `dontAsk`;
    - a parent process started with `--dangerously-skip-permissions`, `--permission-mode bypassPermissions|auto|dontAsk`, codex `--dangerously-bypass-approvals-and-sandbox`, `--full-auto`, `--yolo`, `-a never`, or `codex exec`;
@@ -83,7 +84,7 @@ What it cannot enforce, and rests on trust:
 - **The host prompt is the founder's.** The `--digest` path trusts that the host really showed the command and that the founder, not an auto-approver, said yes. The checks above catch the common settings and flags, not every one: a permission mode switched mid-session, a hook that approves, or a host we do not know will not be seen.
 - **The founder reads the card.** Approving binds the bytes shown. If the founder approves without reading, the ledger still sends exactly what was approved.
 - **The publisher sends the stored bytes.** Claim checks the files at claim time and prints each path with its sha256. Read-only mode does not stop someone replacing the file at that path afterwards, so a publisher reads each file once into memory with `readVerified(sha)`, which checks the hash, and uploads that buffer. A publisher that reads the path a second time reopens the gap.
-- **A paused publisher can still land.** Reconcile can mark a stale claim failed after 30 minutes while a stuck publisher is still mid-request. If that publisher later records `ok`, the action moves to `reconciled`. A fresh proposal made in between could still post twice. Before proposing a failed send again, check the platform once more, and pass `idempotency_key` (the ref) to platforms that take one.
+- **A paused publisher can still land.** Reconcile can mark a stale claim failed after 30 minutes while a stuck publisher is still mid-request. If that publisher later records `ok`, the action moves to `reconciled`. A fresh proposal made in between could still post twice. Before proposing a failed send again, check the platform once more, propose with `--retry-of`, and pass `idempotency_key` to platforms that take one, so a late first attempt and the retry count as one operation there.
 - **Time comes from the clock.** Expiry and the IST dates use the system clock. `--now` exists only on read-only views and `expire`.
 
 ## Calling the ledger from other packages
@@ -91,10 +92,10 @@ What it cannot enforce, and rests on trust:
 ### propose
 
 ```
-kaito-ledger.mjs propose --owner <id> --account <handle> --action <verb> [--text-file f] [--media f ...] [--disclosure ai|none] [--due <when>] [--json]
+kaito-ledger.mjs propose --owner <id> --account <handle> --action <verb> [--text-file f] [--media f ...] [--disclosure ai|none] [--due <when>] [--retry-of <ref>] [--json]
 ```
 
-Prints `ref=act-YYYYMMDD-xxxxxxxx` and `digest=<sha256>` (or one JSON object). `--action` is lowercase dotted, for example `instagram.reel.publish`, `email.send`, `invoice.issue`. At least one of `--text-file` and `--media`. `--disclosure` defaults to `none`. Exit 4 when the owner has no `owner.json`, 3 when the account is not the owner's.
+Prints `ref=act-YYYYMMDD-xxxxxxxx` and `digest=<sha256>` (or one JSON object). `--retry-of <ref>` marks a retry of a failed send with the same owner, account, action, text and media (exit 3 otherwise). `--action` is lowercase dotted, for example `instagram.reel.publish`, `email.send`, `invoice.issue`. At least one of `--text-file` and `--media`. `--disclosure` defaults to `none`. Exit 4 when the owner has no `owner.json`, 3 when the account is not the owner's.
 
 ### claim and record
 
@@ -126,7 +127,7 @@ The list shows `uncertain` actions and claims older than 30 minutes with no resu
 ### Other commands
 
 - `status <ref> [--json]`: every field, the artifact paths, the last attempt, and `intact=yes|no` with each problem.
-- `list [--owner] [--state] [--due-before <when>] [--json]`: for the scheduler, `list --state approved --due-before <now>`. Claim enforces the due time anyway. A platform that schedules on its side needs the action proposed with the hand-over time as its due time.
+- `list [--owner] [--state] [--due-before <when>] [--ready] [--json]`: for the scheduler, `list --ready` (approved, and due now or with no due time). Claim enforces the due time anyway. A platform that schedules on its side needs the action proposed with the hand-over time as its due time.
 - `reject <ref> [--note]`: drop a proposed or approved action.
 - `expire`: mark proposed and approved actions more than 24 hours past due as expired.
 - `migrate`: apply pending migrations and print the applied list. Every command migrates on open, so this is only for checks.
