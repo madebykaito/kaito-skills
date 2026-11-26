@@ -244,6 +244,7 @@ Write HTML, render video.
 | [`website-to-hyperframes`](website-to-hyperframes/) | Turn a website into a video. |
 | [`remotion-to-hyperframes`](remotion-to-hyperframes/) | Port a Remotion project. |
 | [`contribute-catalog`](contribute-catalog/) | Author a new registry block. |
+| [`media-cleanup`](media-cleanup/) | Keep the final and the rebuild inputs, move the rest of a job folder to a dated trash, remove clean merged worktrees. |
 | [`gsap`](gsap/) · [`animejs`](animejs/) · [`waapi`](waapi/) · [`css-animations`](css-animations/) · [`lottie`](lottie/) · [`three`](three/) · [`typegpu`](typegpu/) · [`tailwind`](tailwind/) | Animation and rendering adapters for HyperFrames. |
 
 ### Performance and architecture

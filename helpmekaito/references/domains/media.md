@@ -26,6 +26,12 @@ Every `higgsfield-*` skill runs the Higgsfield CLI and needs a Higgsfield accoun
 | `imagegen-frontend-mobile` | The same for mobile app screens. |
 | `brandkit` | A brand-guidelines board or identity deck as images: logo concepts, type, mockups. |
 
+## Cleanup
+
+| Skill | Use when |
+|---|---|
+| `media-cleanup` | A studio job is done and its folder is full of takes, keyframes and intermediate clips; freeing disk space; emptying old trash; removing git worktrees that are clean and merged. Dry run first, moves to a dated trash, never deletes without a yes. |
+
 Overlap rules:
 - `brandkit` makes presentation boards to look at. `higgsfield-brandkit` makes working files: SVG marks, palettes, PPTX or PDF brandbooks. Boards or a moodboard: `brandkit`. Files to hand a team: `higgsfield-brandkit`.
 - A product shot for a listing is `higgsfield-marketplace-cards`. Anywhere else it is `higgsfield-product-photoshoot`.
