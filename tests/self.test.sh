@@ -74,6 +74,8 @@ test_semver_is_numeric() {
 
 test_auto_upgrades_by_default() {
   mk_install; release 1.5.0
+  mkdir -p "$R/.claude/worktrees"
+  echo local > "$R/.claude/worktrees/keep.txt"
   self auto > "$HOME/o" 2>&1 || { cat "$HOME/o"; exit 1; }
   assert_eq "$(sed -n 1p "$HOME/o")" "upgrading kaito-skills 1.4.0 -> 1.5.0" first_line
   assert_eq "$(sed -n 2p "$HOME/o")" "upgraded: 1.4.0 -> 1.5.0" upgraded
@@ -82,6 +84,7 @@ test_auto_upgrades_by_default() {
   assert_eq "$(sed -n 5p "$HOME/o")" "new sessions use the new skills" last_line
   assert_eq "$(state_version)" '"1.5.0"' state
   assert_eq "$(cat "$KAITO_HOME/store/VERSION")" 1.5.0 store
+  assert_eq "$(cat "$R/.claude/worktrees/keep.txt")" local untracked_kept
   assert_file "$KAITO_HOME/upgrade.log"
   assert_link "$HOME/.claude/skills/helpmekaito" "$KAITO_HOME/store/"
   assert_eq "$(self auto)" "" quiet_after
@@ -114,13 +117,25 @@ test_snooze_one_version() {
   assert_eq "$(KAITO_UPDATE_TTL_HOURS=0 self auto)" "update: 1.4.0 -> 1.6.0" newer_shows
 }
 
-test_upgrade_refuses_unsafe_clone() {
+test_auto_retries_after_tracked_changes() {
   mk_install; release 1.5.0
   echo mine >> "$R/README.md"
   rc=0; out=$(self upgrade) || rc=$?
-  assert_eq "$out" "upgrade skipped: clone has uncommitted changes" dirty
+  assert_eq "$out" "upgrade skipped: clone has uncommitted changes: README.md" dirty
   assert_eq "$rc" 1 dirty_exit
-  g checkout -q README.md; g checkout -q -b feature
+  assert_eq "$(self auto | sed -n 2p)" "$out" auto_dirty
+  g add README.md
+  assert_eq "$(self auto | sed -n 2p)" "$out" auto_staged
+  assert_eq "$(node "$J" get "$KAITO_HOME/update-check.json" failed)" "" no_failed_mark
+  assert_eq "$(state_version)" '"1.4.0"' untouched
+  g checkout -q HEAD -- README.md
+  assert_eq "$(self auto | sed -n 2p)" "upgraded: 1.4.0 -> 1.5.0" retried
+  assert_eq "$(state_version)" '"1.5.0"' state
+}
+
+test_upgrade_refuses_unsafe_clone() {
+  mk_install; release 1.5.0
+  g checkout -q -b feature
   rc=0; out=$(self upgrade) || rc=$?
   assert_eq "$out" "upgrade skipped: clone is on branch feature, not main" branch
   assert_eq "$rc" 1 branch_exit
@@ -148,11 +163,14 @@ test_upgrade_lands_on_the_tag() {
   g fetch -q origin && g reset -q --hard origin/main || exit 1
   echo 9.9.9 > "$R/VERSION"; echo later > "$R/LATER"; g add -A; g commit -qm "unreleased work"; g push -q origin main
   g reset -q --hard "$old"
+  echo "upgrade skipped: clone has uncommitted changes: README.md" > "$KAITO_HOME/upgrade.result"
   self upgrade > "$HOME/o" 2>&1 || { cat "$HOME/o" "$KAITO_HOME/upgrade.log"; exit 1; }
   assert_eq "$(sed -n 1p "$HOME/o")" "upgraded: 1.4.0 -> 1.5.0" upgraded
   assert_eq "$(g rev-parse HEAD)" "$(g rev-parse 'v1.5.0^{commit}')" on_tag
   assert_no "$R/LATER"
   assert_eq "$(state_version)" '"1.5.0"' state
+  assert_no "$KAITO_HOME/upgrade.result"
+  assert_eq "$(self auto)" "" no_stale_result
 }
 
 test_upgrade_reports_failed_setup() {
@@ -163,6 +181,8 @@ test_upgrade_reports_failed_setup() {
   assert_eq "$rc" 1 exit
   grep -q usage "$KAITO_HOME/upgrade.log" || { echo "  setup output not in the log"; exit 1; }
   assert_eq "$(state_version)" '"1.4.0"' state
+  assert_eq "$(self auto | sed -n 2p)" "$out" auto_failed_setup
+  assert_eq "$(node "$J" get "$KAITO_HOME/update-check.json" failed)" '"1.5.0"' failed_mark
 }
 
 test_uninstall_dry_run() {

@@ -63,11 +63,17 @@ changes() {  # up to 8 bullets of the "## [<version>]" section
   awk -v h="## [$1]" 'index($0, h) == 1 { on = 1; next } /^## / { on = 0 }
     on && /^- / { print substr($0, 1, 160); if (++n == 8) exit }' "$repo/CHANGELOG.md" 2>/dev/null || :
 }
-# do_upgrade <installed> <latest>: returns 1 with the reason in $why. Callers test it, so no set -e in here.
+# do_upgrade <installed> <latest>: returns 2 for tracked changes, 1 for other failures, with the reason in $why.
+# Callers test it, so no set -e in here.
 do_upgrade() {
   a=$1 b=$2 log="$K/upgrade.log"
   has_clone || { why="no clone recorded"; return 1; }
-  [ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] || { why="clone has uncommitted changes"; return 1; }
+  status=$(git -C "$repo" status --porcelain --untracked-files=no --no-renames 2>/dev/null) || { why="could not check clone status"; return 1; }
+  if [ -n "$status" ]; then
+    paths=$(printf '%s\n' "$status" | awk '{ printf "%s%s", (NR == 1 ? "" : ", "), substr($0, 4); if (NR == 5) exit }')
+    why="clone has uncommitted changes: $paths"
+    return 2
+  fi
   br=$(git -C "$repo" symbolic-ref --short HEAD 2>/dev/null) || br=detached
   def=$(git -C "$repo" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) || def=""
   def=${def#origin/}
@@ -93,10 +99,12 @@ do_upgrade() {
 # run_upgrade <installed> <latest>: the unattended upgrade; its outcome lands in upgrade.result for auto to print.
 run_upgrade() {
   {
-    if ! do_upgrade "$1" "$2"; then
+    result=0
+    do_upgrade "$1" "$2" || result=$?
+    if [ "$result" != 0 ]; then
       echo "upgrade skipped: $why"
       echo "to upgrade by hand: cd $repo && git pull && ./setup"
-      node "$J" set "$C" failed "\"$2\"" 2>/dev/null || :
+      [ "$result" = 2 ] || node "$J" set "$C" failed "\"$2\"" 2>/dev/null || :
     fi
   } > "$K/upgrade.result.tmp" 2>&1
   node "$J" del "$C" trying 2>/dev/null || :
@@ -195,8 +203,12 @@ main() {
       has_clone || { echo "upgrade skipped: no clone recorded"; exit 1; }
       latest force
       [ -n "$L" ] || { echo "upgrade skipped: could not fetch"; exit 1; }
-      newer "$A" "$L" || { echo "up to date: $A"; return 0; }
-      do_upgrade "$A" "$L" || { echo "upgrade skipped: $why"; exit 1; } ;;
+      if newer "$A" "$L"; then
+        do_upgrade "$A" "$L" || { echo "upgrade skipped: $why"; exit 1; }
+      else
+        echo "up to date: $A"
+      fi
+      rm -f "$K/upgrade.result" ;;
     uninstall) shift; uninstall "$@" ;;
     *) usage ;;
   esac
