@@ -416,7 +416,7 @@ Run several brands from one Mac, one owner at a time.
 - First-use detection only reads local evidence (branch, commits, docs, stored board names). It finds nothing for a tracker whose structure was never synced, and then helpmekaito asks.
 - Asana, Jira and other task managers work only through their MCP connector.
 - Moving `memory.path` later is manual: move the folder, then change the key.
-- Automatic upgrades need the git clone setup ran from, clean and on its default branch. Otherwise the upgrade is skipped with the reason. Only release tags are installed.
+- Automatic upgrades use the clone setup ran from and install only release tags. The clone must be on its default branch with no modified or staged tracked files.
 - Disabling a plugin that ships a same-name skill turns off the whole plugin, not just that skill. Matching is by exact name only.
 - If a skill fires when it shouldn't, that's a bug. Open an issue.
 

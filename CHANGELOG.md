@@ -4,6 +4,33 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-27
+
+### Added
+
+- The business layer resolves which owner a job belongs to and loads that owner's memory. It adds an approval ledger, artifact store, today queue, engine registry and doctor command.
+- Schedule approved work on macOS with launchd or deploy the optional Cloudflare Worker template.
+- Studio skills `voiceover`, `captions`, `keyframes`, `local-video`, `music`, `reel-assemble` and `media-cleanup` cover production through delivery. `reel-assemble` checks files with `media-spec`. `shortform-video` needs a local MoneyPrinterTurbo API.
+- `instagram-publish` and `instagram-insights` use your own Meta app and professional account. `social-publish` can use your Postiz instance. `email-send` uses your configured delivery service and enforces the owner's do-not-contact list.
+- Sales skills cover lead qualification, outreach, review and retrospectives, with optional Twenty CRM sync. Marketing skills add campaign briefs, reviews, retrospectives and a claims check against owner evidence.
+- `money` handles quotes, GST invoices, credit notes and payments. `support-inbox` triages a mailbox you configure or export. `channel-retro` combines Instagram and Umami metrics.
+- Added the Ollama runner for bulk drafts and translation. Set up an Ollama server and pull a model before use.
+- Added six Claude Code marketplace packs for business, studio, channels, design, engineering and research.
+
+### Changed
+
+- Skill families such as Higgsfield, HyperFrames and Ponytail now install in one folder per bundle with a `bundle.json` manifest. Setup migrates old installs.
+- Re-vendored `marketingskills` with more skills for planning, copy, outreach, ads and experiments.
+
+### Fixed
+
+- Untracked files no longer block upgrades. If tracked changes block an upgrade, the message lists up to five paths and automatic upgrades retry once the clone is clean. A successful manual upgrade clears the previous result.
+
+### Security
+
+- Approve the exact payload in your own terminal or use a one-time receipt created there.
+- The privacy scanner checks repo files for private data, credentials and identifying media metadata.
+
 ## [1.6.4] - 2026-11-24
 
 ### Security
